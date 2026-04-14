@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control de Gestión — Tinto</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+header {
+  background: #252c37; color: #fff;
+  padding: 14px 20px 10px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left h1 { font-size: 1.1rem; font-weight: 700; }
+.header-left p  { font-size: 0.75rem; color: #99a0b8; margin-top: 2px; }
+.btn-edit-crit {
+  background: rgba(255,255,255,0.12); color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 6px; padding: 6px 12px;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: background .15s; white-space: nowrap;
+}
+.btn-edit-crit:hover { background: rgba(255,255,255,0.2); }
+.container { max-width: 860px; margin: 0 auto; padding: 18px 16px 100px; }
+.week-bar {
+  background: #fff; border-radius: 10px;
+  padding: 12px 18px; display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.week-bar label { font-size: 0.83rem; font-weight: 600; color: #555; white-space: nowrap; }
+.week-bar select {
+  flex: 1; padding: 6px 10px; border: 1.5px solid #d0d5dd;
+  border-radius: 6px; font-size: 0.87rem; background: #fafafa; cursor: pointer;
+}
+.week-bar select:focus { outline: none; border-color: #3d4eac; }
+.btn-load {
+  background: #3d4eac; color: #fff; border: none;
+  border-radius: 6px; padding: 7px 15px; font-size: 0.87rem;
+  font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .15s;
+}
+.btn-load:hover { background: #2d3e9c; }
+.status-bar { font-size: 0.8rem; color: #777; margin-bottom: 12px; padding-left: 2px; }
+.event-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 16px; overflow: hidden; }
+.event-header { background: linear-gradient(135deg, #1e2a40 0%, #3d4eac 100%); color: #fff; padding: 11px 18px; }
+.event-header .ev-name { font-size: 0.98rem; font-weight: 700; }
+.event-header .ev-meta { font-size: 0.77rem; color: #b8c2f0; margin-top: 3px; }
+.cargo-section { border-bottom: 1px solid #f0f2f5; padding: 13px 18px; }
+.cargo-section:last-child { border-bottom: none; }
+.cargo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 9px; gap: 8px; }
+.cargo-title { font-size: 0.9rem; font-weight: 700; color: #1e2a40; }
+.cargo-bono  { font-size: 0.73rem; color: #888; font-style: italic; margin-top: 2px; }
+.badge { font-size: 0.71rem; border-radius: 20px; padding: 3px 10px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.badge-pending { background: #eef0ff; color: #3d4eac; border: 1px solid #c5cff8; }
+.badge-ok      { background: #e7faf0; color: #1a7a4a; border: 1px solid #b3e8cb; }
+.badge-no      { background: #fff0f0; color: #c0392b; border: 1px solid #f5b7b1; }
+.badge-saved   { background: #fff8e1; color: #7a6010; border: 1px solid #f0d060; }
+.trabajador-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+  padding: 7px 10px; background: #f8f9fc; border-radius: 7px;
+  border: 1px solid #e8eaf0;
+}
+.trabajador-row .trab-label {
+  font-size: 0.78rem; font-weight: 600; color: #555;
+  white-space: nowrap; flex-shrink: 0;
+}
+.trabajador-input {
+  flex: 1; padding: 5px 10px;
+  border: 1.5px solid #d0d5dd; border-radius: 6px;
+  font-size: 0.84rem; font-family: inherit;
+  background: #fff; transition: border-color .12s;
+}
+.trabajador-input:focus { outline: none; border-color: #3d4eac; background: #f4f6ff; }
+.trabajador-input.is-filled { border-color: #1a7a4a; background: #f0faf5; }
+.criterios-list { display: flex; flex-direction: column; gap: 4px; }
+.crit-row {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 5px 8px; border-radius: 6px; cursor: pointer; transition: background .12s;
+}
+.crit-row:hover { background: #f4f6ff; }
+.crit-row input[type=checkbox] { width: 15px; height: 15px; margin-top: 2px; cursor: pointer; accent-color: #3d4eac; flex-shrink: 0; }
+.crit-label { font-size: 0.82rem; color: #333; line-height: 1.4; user-select: none; }
+.crit-row.is-unchecked .crit-label { color: #c0392b; text-decoration: line-through; }
+.cargo-section.is-saved { opacity: 0.72; }
+.vajilla-section {
+  border-top: 2px solid #e65100;
+  padding: 14px 18px;
+  background: #fffaf5;
+}
+.vajilla-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.vajilla-title {
+  font-size: 0.95rem; font-weight: 700; color: #e65100;
+  display: flex; align-items: center; gap: 6px;
+}
+.vajilla-badge { font-size: 0.71rem; border-radius: 20px; padding: 3px 10px; font-weight: 600; }
+.vajilla-badge-pending { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+.vajilla-badge-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.vajilla-badge-no { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+.vajilla-badge-saved { background: #fff8e1; color: #7a6010; border: 1px solid #f0d060; }
+.vajilla-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.vajilla-field label {
+  font-size: 0.73rem; font-weight: 600; color: #888;
+  display: block; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.vajilla-field input {
+  width: 100%25; padding: 7px 10px;
+  border: 1.5px solid #d0d5dd; border-radius: 6px;
+  font-size: 0.87rem; font-family: inherit; background: #fff;
+}
+.vajilla-field input:focus { outline: none; border-color: #e65100; background: #fff8f0; }
+.vajilla-field input[readonly] { background: #f5f5f5; color: #666; cursor: default; }
+.vajilla-result {
+  padding: 8px 12px; border-radius: 8px; font-size: 0.82rem;
+  font-weight: 600; text-align: center; margin-bottom: 10px;
+}
+.vajilla-result-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.vajilla-result-no { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+.vajilla-result-wait { background: #f5f5f5; color: #999; border: 1px solid #e0e0e0; }
+.vajilla-cargos {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.vajilla-cargo-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; background: #fff; border-radius: 7px;
+  border: 1px solid #e8eaf0;
+}
+.vajilla-cargo-name {
+  font-size: 0.82rem; font-weight: 700; color: #1e2a40;
+  min-width: 100px; flex-shrink: 0;
+}
+.vajilla-cargo-status {
+  font-size: 0.78rem; font-weight: 600; padding: 2px 8px;
+  border-radius: 12px; flex-shrink: 0;
+}
+.vajilla-cargo-trab {
+  flex: 1; padding: 5px 10px;
+  border: 1.5px solid #d0d5dd; border-radius: 6px;
+  font-size: 0.82rem; font-family: inherit; background: #fff;
+}
+.vajilla-cargo-trab:focus { outline: none; border-color: #e65100; }
+.vajilla-config-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 10px; font-size: 0.77rem; color: #888;
+}
+.vajilla-config-input {
+  width: 70px; padding: 4px 6px; border: 1px solid #d0d5dd;
+  border-radius: 4px; font-size: 0.8rem; text-align: right;
+  font-family: inherit; background: #fafafa;
+}
+.vajilla-config-input:focus { outline: none; border-color: #e65100; }
+.btn-save-vajilla {
+  background: #e65100; color: #fff; border: none; border-radius: 6px;
+  padding: 7px 16px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: background .15s; margin-top: 8px;
+}
+.btn-save-vajilla:hover { background: #bf360c; }
+.btn-save-vajilla:disabled { background: #aaa; cursor: not-allowed; }
+.loading, .empty { text-align: center; padding: 56px 24px; color: #999; }
+.spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #3d4eac; border-radius: 50%25; animation: spin .75s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty .icon { font-size: 2.4rem; margin-bottom: 9px; }
+.empty p { font-size: 0.87rem; }
+.empty .sub { font-size: 0.77rem; margin-top: 5px; }
+.save-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #fff; border-top: 1.5px solid #e8e8e8;
+  padding: 10px 20px; display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; z-index: 100;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+}
+.save-info { font-size: 0.8rem; color: #666; }
+.btn-save {
+  background: #1a7a4a; color: #fff; border: none; border-radius: 8px;
+  padding: 9px 20px; font-size: 0.89rem; font-weight: 700;
+  cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.btn-save:hover    { background: #145f38; }
+.btn-save:disabled { background: #aaa; cursor: not-allowed; }
+.toast {
+  position: fixed; bottom: 68px; left: 50%25;
+  transform: translateX(-50%25) translateY(14px);
+  background: #1a1a2e; color: #fff; padding: 9px 20px; border-radius: 8px;
+  font-size: 0.84rem; opacity: 0; pointer-events: none; transition: all .28s; z-index: 200; white-space: nowrap;
+}
+.toast.show     { opacity: 1; transform: translateX(-50%25) translateY(0); }
+.toast.toast-ok  { background: #1a7a4a; }
+.toast.toast-err { background: #c0392b; }
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 400;
+  justify-content: center; align-items: flex-start;
+  padding: 20px 12px; overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #fff; border-radius: 14px; width: 100%25; max-width: 780px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25); margin: auto;
+}
+.modal-header {
+  background: #252c37; color: #fff; padding: 14px 20px;
+  border-radius: 14px 14px 0 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-header h2 { font-size: 1rem; font-weight: 700; }
+.btn-close { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0 4px; }
+.modal-body { padding: 20px; }
+#step-pwd { text-align: center; padding: 10px 0; }
+#step-pwd p { font-size: 0.88rem; color: #555; margin-bottom: 16px; }
+.pwd-input { padding: 9px 14px; border: 1.5px solid #d0d5dd; border-radius: 8px; font-size: 0.95rem; width: 220px; text-align: center; letter-spacing: 3px; }
+.pwd-input:focus { outline: none; border-color: #3d4eac; }
+.pwd-err { color: #c0392b; font-size: 0.8rem; margin-top: 8px; min-height: 18px; }
+.btn-pwd { display: block; margin: 14px auto 0; background: #3d4eac; color: #fff; border: none; border-radius: 8px; padding: 9px 28px; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+.btn-pwd:hover { background: #2d3e9c; }
+#step-editor { display: none; }
+.editor-info { background: #fff8e1; border: 1px solid #f0d060; border-radius: 8px; padding: 10px 14px; font-size: 0.81rem; color: #7a6010; margin-bottom: 16px; }
+.crit-table-wrap { overflow-x: auto; }
+table.crit-table { border-collapse: collapse; width: 100%25; font-size: 0.78rem; min-width: 900px; }
+table.crit-table th { background: #252c37; color: #fff; padding: 7px 8px; text-align: left; font-weight: 600; white-space: nowrap; }
+table.crit-table td { padding: 6px 6px; border-bottom: 1px solid #f0f2f5; vertical-align: top; }
+table.crit-table tr:nth-child(even) td { background: #f8f9fc; }
+table.crit-table tr:hover td { background: #f0f3ff; }
+.td-cargo { font-weight: 700; color: #1e2a40; white-space: nowrap; }
+.td-bono { min-width: 150px; }
+.td-crit { min-width: 140px; }
+.crit-input { width: 100%25; padding: 4px 6px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 0.77rem; font-family: inherit; transition: border-color .12s; }
+.crit-input:focus { outline: none; border-color: #3d4eac; background: #f4f6ff; }
+.editor-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.btn-cancel-edit { background: #f0f2f5; color: #555; border: 1px solid #ddd; border-radius: 7px; padding: 8px 18px; font-size: 0.87rem; font-weight: 600; cursor: pointer; }
+.btn-save-crit { background: #1a7a4a; color: #fff; border: none; border-radius: 7px; padding: 8px 20px; font-size: 0.87rem; font-weight: 700; cursor: pointer; transition: background .15s; }
+.btn-save-crit:hover { background: #145f38; }
+.btn-save-crit:disabled { background: #aaa; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-left">
+    <h1>⚙️ Control de Gestión</h1>
+    <p>Tinto Banquetería — Evaluación de bonos semanales</p>
+  </div>
+  <button class="btn-edit-crit" onclick="abrirEditorCriterios()">📝 Editar criterios</button>
+</header>
+
+<div class="container">
+  <div class="week-bar">
+    <label>📅 Semana</label>
+    <select id="sel-semana"></select>
+    <button class="btn-load" onclick="cargarSemana()">Cargar</button>
+  </div>
+  <div class="status-bar" id="status-bar"></div>
+  <div id="events-container">
+    <div class="loading"><div class="spinner"></div><p>Cargando...</p></div>
+  </div>
+</div>
+
+<div class="save-bar">
+  <span class="save-info" id="save-info">Selecciona una semana</span>
+  <button class="btn-save" id="btn-save" disabled onclick="guardarEvaluacion()">💾 Guardar evaluación</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="onOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📝 Edición de Criterios</h2>
+      <button class="btn-close" onclick="cerrarEditor()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="step-pwd">
+        <p>Esta sección es de acceso restringido.<br>Ingresa la contraseña para editar los criterios.</p>
+        <input class="pwd-input" type="password" id="pwd-input" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') verificarPwd()">
+        <div class="pwd-err" id="pwd-err"></div>
+        <button class="btn-pwd" onclick="verificarPwd()">Acceder</button>
+      </div>
+      <div id="step-editor">
+        <div class="editor-info">
+          ⚠️ <strong>Atención:</strong> Los cambios que guardes aquí aparecerán inmediatamente en la siguiente evaluación que abran los equipos.
+        </div>
+        <div class="crit-table-wrap">
+          <table class="crit-table">
+            <thead><tr>
+              <th>Cargo</th><th>Nombre Bono (Finanzas)</th>
+              <th>Crit 1</th><th>Crit 2</th><th>Crit 3</th><th>Crit 4</th><th>Crit 5</th>
+              <th>Crit 6</th><th>Crit 7</th><th>Crit 8</th><th>Crit 9</th><th>Crit 10</th>
+            </tr></thead>
+            <tbody id="crit-tbody"></tbody>
+          </table>
+        </div>
+        <div class="editor-actions">
+          <button class="btn-cancel-edit" onclick="cerrarEditor()">Cancelar</button>
+          <button class="btn-save-crit" id="btn-save-crit" onclick="confirmarGuardadoCriterios()">💾 Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = { semana: null, eventos: [], config: {}, configVajilla: {}, guardados: [], guardadosVajilla: [], criteriosData: [], nombres: [], vajillaConfig: { costoPorInvitado: 800 }, trabPorEvento: {} };
+const PWD = 'tinto1234';
+
+window.onload = () => {
+  google.script.run.withSuccessHandler(initSemanas).withFailureHandler(onErr).getWeeksData();
+};
+
+function initSemanas(data) {
+  const sel = document.getElementById('sel-semana');
+  data.weeks.forEach(w => {
+    const o = document.createElement('option');
+    o.value = w; o.textContent = `Semana del ${w}`;
+    sel.appendChild(o);
+  });
+  sel.value = data.defaultWeek;
+  cargarSemana();
+}
+
+function cargarSemana() {
+  S.semana = document.getElementById('sel-semana').value;
+  document.getElementById('events-container').innerHTML =
+    '<div class="loading"><div class="spinner"></div><p>Cargando eventos...</p></div>';
+  document.getElementById('status-bar').textContent = '';
+  document.getElementById('btn-save').disabled = true;
+  document.getElementById('save-info').textContent = 'Cargando...';
+  google.script.run
+    .withSuccessHandler(renderSemana).withFailureHandler(onErr)
+    .getDatosForSemana(S.semana);
+}
+
+function renderSemana(data) {
+  S.eventos          = data.eventos;
+  S.config           = data.criteriosConfig;
+  S.configVajilla    = data.criteriosVajilla || {};
+  S.guardados        = data.yaEvaluados || [];
+  S.guardadosVajilla = data.yaEvaluadosVajilla || [];
+  S.nombres          = data.nombresTrabajadores || [];
+  S.trabPorEvento    = data.trabajadoresPorEvento || {};
+  if (data.vajillaConfig) S.vajillaConfig = data.vajillaConfig;
+  const container = document.getElementById('events-container');
+  const cargos    = Object.keys(S.config);
+
+  if (!S.eventos.length) {
+    container.innerHTML = `<div class="empty"><div class="icon">📭</div>
+      <p>No hay matrimonios para la semana <strong>${S.semana}</strong>.</p>
+      <p class="sub">Verifica que el CRM tenga eventos de tipo Matrimonio en esa semana.</p></div>`;
+    updateSaveBar(); return;
+  }
+
+  const datalistHtml = `<datalist id="dl-trabajadores">${S.nombres.map(n => `<option value="${escHtml(n)}">`).join('')}</datalist>`;
+
+  let html = datalistHtml;
+  S.eventos.forEach(ev => {
+    const [y, m, d] = ev.fechaEvento.split('-');
+    html += `<div class="event-card">
+      <div class="event-header">
+        <div class="ev-name">🏛️ ${ev.centro}</div>
+        <div class="ev-meta">${d}/${m}/${y} &nbsp;&middot;&nbsp; ${ev.codigoEvento}</div>
+      </div>`;
+
+    cargos.forEach(cargo => {
+      const cfg   = S.config[cargo];
+      const saved = S.guardados.find(g => g.codigoEvento === ev.codigoEvento && g.cargo === cargo);
+
+      if (saved) {
+        const sid = safeid(ev.codigoEvento, cargo);
+        const savedTrab = (saved.trabajador && saved.trabajador !== saved.cargo) ? saved.trabajador : '';
+        let crits = '';
+        cfg.criterios.forEach((crit, i) => {
+          const cid = `cb-${sid}-${i}`;
+          const isChecked = (saved.criterioValues[i] || 'SI') === 'SI';
+          crits += `<label class="crit-row${!isChecked ? ' is-unchecked' : ''}" id="row-${cid}">
+            <input type="checkbox" id="${cid}" ${isChecked ? 'checked' : ''}
+              data-evento="${ev.codigoEvento}" data-cargo="${cargo}" data-idx="${i}"
+              onchange="onCheck(this)">
+            <span class="crit-label">${crit}</span>
+          </label>`;
+        });
+        html += `<div class="cargo-section" data-evento="${ev.codigoEvento}" data-cargo="${cargo}">
+          <div class="cargo-header">
+            <div><div class="cargo-title">${cargo}</div><div class="cargo-bono">${cfg.nombreBono}</div></div>
+            <span class="badge badge-saved">↩ Ya evaluado — editable</span>
+          </div>
+          <div class="trabajador-row">
+            <span class="trab-label">👤 Trabajador:</span>
+            <input type="text" class="trabajador-input${savedTrab ? ' is-filled' : ''}" id="trab-${sid}"
+              list="dl-trabajadores"
+              value="${escHtml(savedTrab)}"
+              placeholder="Escribe o selecciona el nombre..."
+              autocomplete="off" oninput="onTrabInput(this)">
+          </div>
+          <div class="criterios-list">${crits}</div>
+        </div>`;
+      } else {
+        const sid  = safeid(ev.codigoEvento, cargo);
+        let crits  = '';
+        cfg.criterios.forEach((crit, i) => {
+          const cid = `cb-${sid}-${i}`;
+          crits += `<label class="crit-row" id="row-${cid}">
+            <input type="checkbox" id="${cid}" checked
+              data-evento="${ev.codigoEvento}" data-cargo="${cargo}" data-idx="${i}"
+              onchange="onCheck(this)">
+            <span class="crit-label">${crit}</span>
+          </label>`;
+        });
+        const autoTrab = (S.trabPorEvento[ev.codigoEvento] || {})[cargo] || '';
+        html += `<div class="cargo-section" data-evento="${ev.codigoEvento}" data-cargo="${cargo}">
+          <div class="cargo-header">
+            <div><div class="cargo-title">${cargo}</div><div class="cargo-bono">${cfg.nombreBono}</div></div>
+            <span class="badge badge-pending">${cfg.criterios.length} criterios</span>
+          </div>
+          <div class="trabajador-row">
+            <span class="trab-label">👤 Trabajador:</span>
+            <input type="text" class="trabajador-input${autoTrab ? ' is-filled' : ''}" id="trab-${sid}"
+              list="dl-trabajadores"
+              value="${escHtml(autoTrab)}"
+              placeholder="${autoTrab ? '' : 'Escribe o selecciona el nombre...'}"
+              autocomplete="off" oninput="onTrabInput(this)">
+          </div>
+          <div class="criterios-list">${crits}</div>
+        </div>`;
+      }
+    });
+
+    const vajCargos = Object.keys(S.configVajilla);
+    if (vajCargos.length > 0) {
+      const vid = safeid(ev.codigoEvento, 'vajilla');
+      const vajSaved = S.guardadosVajilla.filter(g => g.codigoEvento === ev.codigoEvento);
+      const hasVajSaved = vajSaved.length > 0;
+      const savedFactura = hasVajSaved ? vajSaved[0].facturaMerma : '';
+      const savedInvitados = hasVajSaved ? vajSaved[0].invitadosComida : ev.invitadosComida;
+      const costoPorInv = S.vajillaConfig.costoPorInvitado || 800;
+      const mermaPermitida = costoPorInv * (savedInvitados || 0);
+
+      let vajBadge = '<span class="vajilla-badge vajilla-badge-pending">Pendiente</span>';
+      if (hasVajSaved) {
+        const allGana = vajSaved.every(g => g.gana === 'SI');
+        vajBadge = allGana
+          ? '<span class="vajilla-badge vajilla-badge-ok">Aprobado</span>'
+          : '<span class="vajilla-badge vajilla-badge-no">No ganado</span>';
+      }
+
+      html += '<div class="vajilla-section" data-evento="' + ev.codigoEvento + '">';
+      html += '<div class="vajilla-header"><span class="vajilla-title">🍽️ Vajilla</span>' + vajBadge + '</div>';
+
+      html += '<div class="vajilla-grid">';
+      html += '<div class="vajilla-field"><label>Invitados comida</label>';
+      html += '<input type="number" id="vaj-inv-' + vid + '" value="' + (savedInvitados || ev.invitadosComida || '') + '" onchange="calcMerma(\'' + vid + '\')" placeholder="0"></div>';
+      html += '<div class="vajilla-field"><label>Merma permitida</label>';
+      html += '<input type="text" id="vaj-merma-' + vid + '" value="$' + formatNum(mermaPermitida) + '" readonly></div>';
+      html += '<div class="vajilla-field"><label>Factura merma</label>';
+      html += '<input type="number" id="vaj-fact-' + vid + '" value="' + (savedFactura || '') + '" onchange="calcMerma(\'' + vid + '\')" placeholder="Ingrese monto $"></div>';
+      html += '</div>';
+
+      html += '<div class="vajilla-result ' + (hasVajSaved ? (vajSaved[0].gana === 'SI' ? 'vajilla-result-ok' : 'vajilla-result-no') : 'vajilla-result-wait') + '" id="vaj-result-' + vid + '">';
+      if (hasVajSaved) {
+        html += vajSaved[0].gana === 'SI'
+          ? '✅ Factura $' + formatNum(savedFactura) + ' ≤ Merma $' + formatNum(mermaPermitida) + ' — GANAN bono'
+          : '❌ Factura $' + formatNum(savedFactura) + ' > Merma $' + formatNum(mermaPermitida) + ' — NO ganan bono';
+      } else { html += 'Ingresa factura de merma para calcular'; }
+      html += '</div>';
+
+      html += '<div class="vajilla-cargos">';
+      vajCargos.forEach(cargo => {
+        const vs = vajSaved.find(g => g.cargo === cargo);
+        const statusCls = vs ? (vs.gana === 'SI' ? 'background:#e8f5e9;color:#2e7d32' : 'background:#ffebee;color:#c62828') : 'background:#f5f5f5;color:#999';
+        const statusTxt = vs ? vs.gana : '—';
+        const trabVal = vs ? (vs.trabajador !== vs.cargo ? vs.trabajador : '') : '';
+        html += '<div class="vajilla-cargo-row">';
+        html += '<span class="vajilla-cargo-name">' + cargo + '</span>';
+        html += '<span class="vajilla-cargo-status" style="' + statusCls + '">' + statusTxt + '</span>';
+        html += '<input type="text" class="vajilla-cargo-trab" id="vaj-trab-' + safeid(ev.codigoEvento, cargo) + '" list="dl-trabajadores" value="' + escHtml(trabVal) + '" placeholder="Nombre trabajador..." autocomplete="off">';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '<button class="btn-save-vajilla" id="btn-vaj-' + vid + '" onclick="guardarVajilla(\'' + ev.codigoEvento + '\')">🍽️ Guardar Vajilla</button>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+  const total = S.eventos.length * cargos.length;
+  document.getElementById('status-bar').textContent =
+    `${S.eventos.length} matrimonio(s) · ${cargos.length} cargos · ${S.guardados.length}/${total} ya evaluados`;
+  updateSaveBar();
+}
+
+function onCheck(cb) {
+  document.getElementById('row-' + cb.id).classList.toggle('is-unchecked', !cb.checked);
+}
+function onTrabInput(input) {
+  input.classList.toggle('is-filled', input.value.trim().length > 0);
+}
+
+function guardarEvaluacion() {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+  const evaluaciones = [];
+  document.querySelectorAll('.cargo-section:not(.is-saved)').forEach(sec => {
+    const codigoEvento = sec.dataset.evento, cargo = sec.dataset.cargo;
+    const cfg = S.config[cargo], ev = S.eventos.find(e => e.codigoEvento === codigoEvento);
+    if (!cfg || !ev) return;
+    const sid        = safeid(codigoEvento, cargo);
+    const trabInput  = document.getElementById('trab-' + sid);
+    const trabajador = trabInput ? trabInput.value.trim() : '';
+    const criterioValues = [];
+    sec.querySelectorAll('input[type=checkbox]').forEach(cb => criterioValues.push(cb.checked ? 'SI' : 'NO'));
+    evaluaciones.push({ semana: S.semana, fechaEvento: ev.fechaEvento,
+      codigoEvento, centro: ev.centro, cargo, trabajador, criterioValues });
+  });
+  if (!evaluaciones.length) { toast('No hay evaluaciones pendientes.', 'toast-err'); resetBtn(); return; }
+  google.script.run.withSuccessHandler(onSaveOk).withFailureHandler(onSaveErr).saveEvaluation(evaluaciones);
+}
+function onSaveOk(res) {
+  if (res.success) {
+    const msg = `✅ ${res.rowsAdded} nueva(s), ${res.rowsUpdated || 0} actualizada(s).`;
+    toast(msg, 'toast-ok');
+    setTimeout(cargarSemana, 1400);
+  } else { toast('Error: ' + (res.error || 'desconocido'), 'toast-err'); resetBtn(); }
+}
+function onSaveErr(err) { toast('Error: ' + err.message, 'toast-err'); resetBtn(); }
+function resetBtn() {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = false; btn.textContent = '💾 Guardar evaluación';
+}
+function updateSaveBar() {
+  const pending = document.querySelectorAll('.cargo-section:not(.is-saved)').length;
+  const btn = document.getElementById('btn-save'), info = document.getElementById('save-info');
+  if (pending > 0) { btn.disabled = false; btn.textContent = '💾 Guardar evaluación'; info.textContent = `${pending} evaluación(es) pendiente(s) o modificables`; }
+  else { btn.disabled = true; btn.textContent = '✅ Todo evaluado'; info.textContent = 'Semana completamente evaluada'; }
+}
+
+function abrirEditorCriterios() {
+  document.getElementById('step-pwd').style.display = 'block';
+  document.getElementById('step-editor').style.display = 'none';
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('pwd-err').textContent = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('pwd-input').focus(), 100);
+}
+function cerrarEditor() { document.getElementById('modal-overlay').classList.remove('open'); }
+function onOverlayClick(e) { if (e.target === document.getElementById('modal-overlay')) cerrarEditor(); }
+
+function verificarPwd() {
+  const val = document.getElementById('pwd-input').value;
+  if (val !== PWD) {
+    document.getElementById('pwd-err').textContent = 'Contrase\u00f1a incorrecta.';
+    document.getElementById('pwd-input').select(); return;
+  }
+  document.getElementById('pwd-err').textContent = '';
+  document.getElementById('step-pwd').style.display = 'none';
+  document.getElementById('step-editor').style.display = 'block';
+  const tbody = document.getElementById('crit-tbody');
+  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#999"><div class="spinner" style="margin:0 auto 8px"></div>Cargando...</td></tr>';
+  google.script.run
+    .withSuccessHandler(renderEditorTable)
+    .withFailureHandler(err => { toast('Error: ' + err.message, 'toast-err'); cerrarEditor(); })
+    .getCriteriosForEditor();
+}
+
+function renderEditorTable(data) {
+  S.criteriosData = data;
+  const tbody = document.getElementById('crit-tbody');
+  tbody.innerHTML = data.map((item, rowIdx) => {
+    const bonoInput  = `<input class="crit-input" data-row="${rowIdx}" data-col="bono" value="${escHtml(item.nombreBono)}">`;
+    const critInputs = item.criterios.map((c, ci) =>
+      `<td class="td-crit"><input class="crit-input" data-row="${rowIdx}" data-col="${ci}" value="${escHtml(c)}" placeholder="(vacío)"></td>`
+    ).join('');
+    return `<tr><td class="td-cargo">${escHtml(item.cargo)}</td><td class="td-bono">${bonoInput}</td>${critInputs}</tr>`;
+  }).join('');
+}
+
+function confirmarGuardadoCriterios() {
+  if (!confirm('¿Estás seguro de guardar estos cambios?\n\n⚠️ Este cambio será visible para los equipos en la próxima vez que abran su evaluación.')) return;
+  const config = S.criteriosData.map((item, rowIdx) => {
+    const bonoInput = document.querySelector(`input[data-row="${rowIdx}"][data-col="bono"]`);
+    const criterios = [];
+    for (let i = 0; i < 10; i++) {
+      const inp = document.querySelector(`input[data-row="${rowIdx}"][data-col="${i}"]`);
+      criterios.push(inp ? inp.value.trim() : '');
+    }
+    return { cargo: item.cargo, nombreBono: bonoInput ? bonoInput.value.trim() : item.nombreBono, criterios };
+  });
+  const btn = document.getElementById('btn-save-crit');
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios';
+      if (res.success) { toast('✅ Criterios actualizados.', 'toast-ok'); cerrarEditor(); if (S.semana) cargarSemana(); }
+      else toast('Error: ' + (res.error || 'desconocido'), 'toast-err');
+    })
+    .withFailureHandler(err => { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; toast('Error: ' + err.message, 'toast-err'); })
+    .saveCriteriosConfig(config);
+}
+
+function safeid(ev, cargo) { return (ev + '_' + cargo).replace(/[^a-zA-Z0-9]/g, '_'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, cls) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show ' + (cls || '');
+  setTimeout(() => { el.className = 'toast'; }, 3500);
+}
+function onErr(err) {
+  document.getElementById('events-container').innerHTML = `<div class="empty"><div class="icon">⚠️</div><p>Error al cargar datos.</p><p class="sub" style="color:#c0392b">${err.message || err}</p></div>`;
+}
+
+function formatNum(n) {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function calcMerma(vid) {
+  const inv  = Number(document.getElementById('vaj-inv-' + vid).value) || 0;
+  const fact = Number(document.getElementById('vaj-fact-' + vid).value) || 0;
+  const costo = S.vajillaConfig.costoPorInvitado || 800;
+  const merma = costo * inv;
+  document.getElementById('vaj-merma-' + vid).value = '$' + formatNum(merma);
+
+  const resultEl = document.getElementById('vaj-result-' + vid);
+  if (fact > 0 && inv > 0) {
+    if (fact <= merma) {
+      resultEl.className = 'vajilla-result vajilla-result-ok';
+      resultEl.innerHTML = '✅ Factura $' + formatNum(fact) + ' ≤ Merma $' + formatNum(merma) + ' — GANAN bono';
+    } else {
+      resultEl.className = 'vajilla-result vajilla-result-no';
+      resultEl.innerHTML = '❌ Factura $' + formatNum(fact) + ' > Merma $' + formatNum(merma) + ' — NO ganan bono';
+    }
+  } else {
+    resultEl.className = 'vajilla-result vajilla-result-wait';
+    resultEl.innerHTML = 'Ingresa factura de merma para calcular';
+  }
+}
+
+function guardarVajilla(codigoEvento) {
+  const ev = S.eventos.find(e => e.codigoEvento === codigoEvento);
+  if (!ev) { toast('Evento no encontrado', 'toast-err'); return; }
+
+  const vid  = safeid(codigoEvento, 'vajilla');
+  const inv  = Number(document.getElementById('vaj-inv-' + vid).value) || 0;
+  const fact = Number(document.getElementById('vaj-fact-' + vid).value) || 0;
+
+  if (inv <= 0) { toast('Ingresa invitados comida', 'toast-err'); return; }
+  if (fact <= 0) { toast('Ingresa factura de merma', 'toast-err'); return; }
+
+  const vajCargos = Object.keys(S.configVajilla);
+  const evaluaciones = vajCargos.map(cargo => {
+    const trabInput = document.getElementById('vaj-trab-' + safeid(codigoEvento, cargo));
+    return {
+      semana: S.semana,
+      fechaEvento: ev.fechaEvento,
+      codigoEvento: codigoEvento,
+      centro: ev.centro,
+      invitadosComida: inv,
+      facturaMerma: fact,
+      cargo: cargo,
+      trabajador: trabInput ? trabInput.value.trim() : ''
+    };
+  });
+
+  const btn = document.getElementById('btn-vaj-' + vid);
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false; btn.textContent = '🍽️ Guardar Vajilla';
+      if (res.success) {
+        toast('✅ Vajilla: ' + res.rowsAdded + ' nueva(s), ' + (res.rowsUpdated||0) + ' actualizada(s)', 'toast-ok');
+        setTimeout(cargarSemana, 1200);
+      } else { toast('Error: ' + (res.error || 'desconocido'), 'toast-err'); }
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false; btn.textContent = '🍽️ Guardar Vajilla';
+      toast('Error: ' + err.message, 'toast-err');
+    })
+    .saveVajillaEvaluation(evaluaciones);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+**/.git/**
+**/node_modules/**
+**/README.md
+**/CLAUDE.md
+**/.gitignore
+**/.clasprc.json
+**/tokens.json
+**/credentials.json
+**/.env
+**/.env.*

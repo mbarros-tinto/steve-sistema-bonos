@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Bonos — Tinto</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0f0;
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #1a1a2e;
+    border-bottom: 2px solid #c8aa6e;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-logo {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #c8aa6e, #a07840);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #1a1a2e;
+  }
+  .header-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #c8aa6e;
+    letter-spacing: 1px;
+  }
+  .header-subtitle {
+    font-size: 11px;
+    color: #8888aa;
+    margin-top: 2px;
+  }
+  .btn-sync {
+    background: linear-gradient(135deg, #c8aa6e, #a07840);
+    color: #1a1a2e;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .btn-sync:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,170,110,0.4); }
+  .btn-sync:active { transform: translateY(0); }
+  .btn-sync:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* ── TABS ── */
+  .tabs-bar {
+    background: #1a1a2e;
+    display: flex;
+    gap: 0;
+    padding: 0 24px;
+    border-bottom: 1px solid #2a2a4e;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: #8888aa;
+    padding: 12px 24px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .tab-btn:hover { color: #c8aa6e; }
+  .tab-btn.active {
+    color: #c8aa6e;
+    border-bottom-color: #c8aa6e;
+  }
+
+  /* ── MAIN CONTENT ── */
+  .main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .controls label {
+    font-size: 12px;
+    color: #8888aa;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .controls select, .controls input {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    color: #e0e0f0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    min-width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .controls select:focus, .controls input:focus { border-color: #c8aa6e; }
+  .controls select option { background: #1a1a2e; }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    border-radius: 10px;
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .stat-card .stat-val {
+    font-size: 24px;
+    font-weight: 700;
+    color: #c8aa6e;
+  }
+  .stat-card .stat-lbl {
+    font-size: 11px;
+    color: #8888aa;
+    text-transform: uppercase;
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+  .stat-card.green .stat-val { color: #4caf8a; }
+  .stat-card.red .stat-val { color: #e05a6a; }
+
+  /* ── CARGO SECTION ── */
+  .cargo-section {
+    margin-bottom: 24px;
+  }
+  .cargo-header {
+    background: linear-gradient(90deg, #1e1e3a, #1a1a2e);
+    border-left: 4px solid #c8aa6e;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #c8aa6e;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── EVENT CARD ── */
+  .event-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+  .event-card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.2s, transform 0.1s;
+  }
+  .event-card:hover { border-color: #c8aa6e44; transform: translateY(-1px); }
+  .event-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .event-code {
+    font-size: 11px;
+    color: #8888aa;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+  }
+  .event-fecha {
+    font-size: 11px;
+    color: #8888aa;
+  }
+  .event-centro {
+    font-size: 13px;
+    font-weight: 600;
+    color: #d0d0f0;
+    margin-bottom: 4px;
+  }
+  .event-trabajador {
+    font-size: 12px;
+    color: #a0a0c0;
+    margin-bottom: 10px;
+  }
+  .event-semana {
+    font-size: 11px;
+    color: #6666aa;
+    margin-bottom: 4px;
+  }
+  .event-cargo-badge {
+    display: inline-block;
+    background: #2a2a4e;
+    color: #8888cc;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  /* ── BONUS PILLS ── */
+  .bonos-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .bono-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    max-width: 100%;
+    word-break: break-word;
+  }
+  .bono-pill.gano {
+    background: rgba(76, 175, 138, 0.15);
+    color: #4caf8a;
+    border: 1px solid rgba(76, 175, 138, 0.4);
+  }
+  .bono-pill.no-gano {
+    background: rgba(224, 90, 106, 0.12);
+    color: #e05a6a;
+    border: 1px solid rgba(224, 90, 106, 0.3);
+  }
+  .bono-icon { font-style: normal; }
+  .bono-check { font-size: 12px; }
+
+  /* ── BONO DETAIL BLOCK (Semana tab) ── */
+  .bono-detail-block {
+    background: #141428;
+    border: 1px solid #2a2a4e;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .bono-detail-block.gano { border-left: 4px solid #4caf8a; }
+  .bono-detail-block.no-gano { border-left: 4px solid #e05a6a; }
+  .bono-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #2a2a4e;
+  }
+  .bono-detail-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #d0d0f0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bono-detail-result {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .bono-detail-result.gano {
+    background: rgba(76, 175, 138, 0.2);
+    color: #4caf8a;
+  }
+  .bono-detail-result.no-gano {
+    background: rgba(224, 90, 106, 0.15);
+    color: #e05a6a;
+  }
+  .bono-detail-body {
+    padding: 8px 12px;
+  }
+  .criterio-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 12px;
+    color: #b0b0d0;
+  }
+  .criterio-line .cr-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+  }
+  .criterio-line .cr-icon.si { color: #4caf8a; }
+  .criterio-line .cr-icon.no { color: #e05a6a; }
+  .criterio-line .cr-name {
+    flex: 1;
+    word-break: break-word;
+  }
+  .bono-detail-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 12px 8px 12px;
+    font-size: 11px;
+    color: #8888aa;
+    font-weight: 600;
+  }
+  .bono-detail-footer .pct-ok { color: #4caf8a; }
+  .bono-detail-footer .pct-bad { color: #e05a6a; }
+
+  /* ── EMPTY / SPINNER ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #5555aa;
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .spinner-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 60px;
+    gap: 12px;
+    color: #8888aa;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid #2a2a4e;
+    border-top-color: #c8aa6e;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1a1a2e;
+    border: 1px solid #c8aa6e;
+    border-radius: 10px;
+    padding: 12px 20px;
+    color: #e0e0f0;
+    font-size: 13px;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s;
+    max-width: 320px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok { border-color: #4caf8a; }
+  .toast.err { border-color: #e05a6a; }
+
+  /* ── TARIFAS TABLE ── */
+  .tarifas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .tarifas-table th {
+    background: #1e1e3a;
+    color: #c8aa6e;
+    padding: 10px 12px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #c8aa6e33;
+    white-space: nowrap;
+  }
+  .tarifas-table th:first-child { text-align: left; }
+  .tarifas-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #2a2a4e;
+    text-align: right;
+    color: #d0d0f0;
+  }
+  .tarifas-table td:first-child {
+    text-align: left;
+    font-weight: 700;
+    color: #e0e0f0;
+  }
+  .tarifas-table tr:hover td { background: #1a1a3a; }
+  .tarifas-table tr.row-sep td { border-top: 2px solid #2a2a4e; }
+  .tarifas-table .col-fotos { color: #42a5f5; }
+  .tarifas-table .col-sup { color: #ab47bc; }
+  .tarifas-table .col-act { color: #66bb6a; }
+  .tarifas-table .col-vaj { color: #ff9800; }
+  .tarifas-table .col-total {
+    color: #c8aa6e;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .tarifas-table .empty-bono { color: #444466; }
+  .tarifa-input {
+    background: #0f0f1a;
+    border: 1px solid #2a2a4e;
+    color: #e0e0f0;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 90px;
+    text-align: right;
+    font-family: inherit;
+  }
+  .tarifa-input:focus { border-color: #c8aa6e; outline: none; }
+  .tarifa-input:disabled { background: transparent; border-color: transparent; color: inherit; }
+  .tarifas-table tfoot td {
+    background: #1e1e3a;
+    font-weight: 700;
+    color: #c8aa6e;
+    border-top: 2px solid #c8aa6e33;
+    font-size: 14px;
+  }
+
+  /* ── RESULT LIST (cargo/historial) ── */
+  .result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .result-item {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.2s;
+  }
+  .result-item:hover { border-color: #c8aa6e44; }
+  .result-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ri-left { display: flex; flex-direction: column; gap: 2px; }
+  .ri-right { text-align: right; }
+
+  /* ── AUTOCOMPLETE ── */
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #1e1e36;
+    border: 1px solid #2a2a4e;
+    border-radius: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 200;
+    display: none;
+  }
+  .autocomplete-list.open { display: block; }
+  .ac-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #d0d0f0;
+    transition: background 0.15s;
+  }
+  .ac-item:hover, .ac-item.selected { background: #2a2a4e; color: #c8aa6e; }
+  .ac-item em { color: #c8aa6e; font-style: normal; font-weight: 700; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0f0f1a; }
+  ::-webkit-scrollbar-thumb { background: #2a2a4e; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #c8aa6e; }
+
+  /* ── CRITERIOS EDITOR ── */
+  .criterios-section { margin-bottom: 20px; }
+  .criterios-section-header {
+    border-left: 4px solid #c8aa6e;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .criterios-section-count {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+  /* Colores por tipo de bono */
+  .crit-tipo-Fotos .criterios-section-header { background: linear-gradient(90deg, #1a2a1e, #1a2e1a); border-left-color: #1565c0; color: #64b5f6; }
+  .crit-tipo-Fotos .crit-grid { border-color: #1a3a5e; }
+  .crit-tipo-Fotos .crit-grid-head { background: #0d2137; color: #64b5f6; }
+  .crit-tipo-Fotos .crit-cargo-cell { color: #64b5f6; }
+
+  .crit-tipo-Supervisora .criterios-section-header { background: linear-gradient(90deg, #2a1a2e, #2e1a2a); border-left-color: #9c27b0; color: #ce93d8; }
+  .crit-tipo-Supervisora .crit-grid { border-color: #3a1a4e; }
+  .crit-tipo-Supervisora .crit-grid-head { background: #1f0d2b; color: #ce93d8; }
+  .crit-tipo-Supervisora .crit-cargo-cell { color: #ce93d8; }
+
+  .crit-tipo-Activos .criterios-section-header { background: linear-gradient(90deg, #1a2e1a, #1e2a1a); border-left-color: #2e7d32; color: #81c784; }
+  .crit-tipo-Activos .crit-grid { border-color: #1a3e1a; }
+  .crit-tipo-Activos .crit-grid-head { background: #0d1f0d; color: #81c784; }
+  .crit-tipo-Activos .crit-cargo-cell { color: #81c784; }
+
+  .crit-tipo-Vajilla .criterios-section-header { background: linear-gradient(90deg, #2e2a1a, #2a1e1a); border-left-color: #e65100; color: #ffab40; }
+  .crit-tipo-Vajilla .crit-grid { border-color: #4e3a1a; }
+  .crit-tipo-Vajilla .crit-grid-head { background: #2b1f0d; color: #ffab40; }
+  .crit-tipo-Vajilla .crit-cargo-cell { color: #ffab40; }
+  .crit-grid {
+    display: grid;
+    grid-template-columns: 130px 80px repeat(var(--max-crit, 10), 1fr);
+    gap: 0;
+    margin-bottom: 8px;
+    border: 1px solid #2a2a4e;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .crit-grid-head {
+    background: #1a1a2e;
+    color: #c8aa6e;
+    padding: 6px 8px;
+    font-weight: 600;
+    font-size: 11px;
+    text-align: center;
+    border-bottom: 1px solid #2a2a4e;
+    white-space: nowrap;
+  }
+  .crit-grid-head:first-child { text-align: left; }
+  .crit-grid-head:nth-child(2) { text-align: right; }
+  .crit-grid-cell {
+    padding: 0;
+    border-bottom: 1px solid #1e1e36;
+    border-right: 1px solid #1e1e36;
+    min-height: 42px;
+    display: flex;
+    align-items: stretch;
+  }
+  .crit-grid-cell:last-child { border-right: none; }
+  .crit-grid .crit-grid-cell:nth-child(n) { }
+  .crit-cargo-cell {
+    font-weight: 700;
+    font-size: 12px;
+    color: #c8aa6e;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    background: #141428;
+  }
+  .crit-monto-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 4px 6px;
+    gap: 1px;
+    background: #141428;
+  }
+  .crit-monto-prefix {
+    color: #4caf8a;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .crit-monto-input {
+    background: transparent;
+    border: none;
+    color: #4caf8a;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    width: 58px;
+    text-align: right;
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .crit-monto-input.editable {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    border-radius: 4px;
+    padding: 2px 4px;
+    pointer-events: auto;
+    opacity: 1;
+  }
+  .crit-monto-input.editable:focus { outline: none; border-color: #4caf8a; }
+  .crit-text-cell {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: #d0d0f0;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    resize: none;
+    overflow: hidden;
+    word-break: break-word;
+    line-height: 1.35;
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .crit-text-cell.editable {
+    pointer-events: auto;
+    opacity: 1;
+    cursor: text;
+  }
+  .crit-text-cell.editable:focus { outline: none; background: #1e1e36; }
+  .crit-text-cell::placeholder { color: #333; font-style: italic; }
+  .crit-text-cell.editable::placeholder { color: #444; }
+  /* Tooltip on hover for long text */
+  .crit-grid-cell { position: relative; }
+  .crit-grid-cell:hover .crit-tooltip {
+    display: block;
+  }
+  .crit-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a2e;
+    color: #e0e0f0;
+    border: 1px solid #4a4a6e;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: 320px;
+    min-width: 160px;
+    width: max-content;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    pointer-events: none;
+    word-break: break-word;
+    white-space: normal;
+    margin-bottom: 4px;
+  }
+  .crit-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 10px;
+  }
+  .btn-enable-edit {
+    background: rgba(200, 170, 110, 0.15);
+    border: 1px solid #c8aa6e;
+    color: #c8aa6e;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-enable-edit:hover { background: rgba(200, 170, 110, 0.25); }
+  .btn-enable-edit.active {
+    background: #c8aa6e;
+    color: #1a1a2e;
+  }
+  .btn-save-criterios {
+    background: linear-gradient(135deg, #4caf8a, #2d8a6a);
+    color: #fff;
+    border: none;
+    padding: 10px 28px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+    margin: 12px auto 0;
+  }
+  .btn-save-criterios.visible { display: block; }
+  .btn-save-criterios:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(76,175,138,0.4); }
+  .btn-save-criterios:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-brand">
+    <div class="header-logo">T</div>
+    <div>
+      <div class="header-title">TINTO — Sistema Bonos</div>
+      <div class="header-subtitle">Panel centralizado de evaluación</div>
+    </div>
+  </div>
+  <button class="btn-sync" id="btnSync" onclick="sincronizar()">&#x21BB; Sincronizar</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="switchTab('semana', this)">Por Semana</button>
+  <button class="tab-btn" onclick="switchTab('cargo', this)">Por Cargo</button>
+  <button class="tab-btn" onclick="switchTab('historial', this)">Historial</button>
+  <button class="tab-btn" onclick="switchTab('criterios', this)">Criterios</button>
+  <button class="tab-btn" onclick="switchTab('tarifas', this)">Tarifas</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TAB: SEMANA -->
+  <div class="tab-panel active" id="panel-semana">
+    <div class="controls">
+      <label for="selSemana">Semana:</label>
+      <select id="selSemana" onchange="cargarSemana()">
+        <option value="">— Seleccionar semana —</option>
+      </select>
+    </div>
+    <div id="resultado-semana">
+      <div class="empty-state">
+        <div class="empty-icon">📅</div>
+        <p>Selecciona una semana para ver los resultados</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CARGO -->
+  <div class="tab-panel" id="panel-cargo">
+    <div class="controls">
+      <label for="selCargo">Cargo:</label>
+      <select id="selCargo" onchange="cargarCargo()">
+        <option value="">— Seleccionar cargo —</option>
+      </select>
+    </div>
+    <div id="resultado-cargo">
+      <div class="empty-state">
+        <div class="empty-icon">👥</div>
+        <p>Selecciona un cargo para ver el historial</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: HISTORIAL -->
+  <div class="tab-panel" id="panel-historial">
+    <div class="controls">
+      <label for="inputPersona">Persona:</label>
+      <div class="autocomplete-wrap">
+        <input type="text" id="inputPersona" placeholder="Buscar trabajador..." oninput="filtrarPersonas()" onblur="cerrarAC()" onfocus="abrirAC()" autocomplete="off">
+        <div class="autocomplete-list" id="acList"></div>
+      </div>
+    </div>
+    <div id="resultado-historial">
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <p>Busca un trabajador para ver su historial de bonos</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CRITERIOS -->
+  <div class="tab-panel" id="panel-criterios">
+    <div id="criterios-content">
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>Cargando criterios...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: TARIFAS -->
+  <div class="tab-panel" id="panel-tarifas">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2 style="font-size:16px;color:#c8aa6e;margin-bottom:4px;">Tarifas y Bonos — Matrimonios 2026</h2>
+        <p style="font-size:12px;color:#8888aa;">Visualiza el ingreso potencial total por cargo si se ganan todos los bonos.</p>
+      </div>
+      <button class="btn-sync" id="btnEditTarifas" onclick="toggleEditTarifas()" style="font-size:12px;padding:6px 16px;">🔒 Habilitar edición</button>
+    </div>
+    <div id="tarifas-content">
+      <div class="empty-state">
+        <div class="empty-icon">💰</div>
+        <p>Cargando tarifas...</p>
+      </div>
+    </div>
+    <div id="tarifas-actions" style="display:none;margin-top:16px;text-align:right;">
+      <button class="btn-sync" id="btnSaveTarifas" onclick="guardarTarifas()" style="background:linear-gradient(135deg,#4caf8a,#2e7d5a);">💾 Guardar cambios en Tarifas 2026</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────
+var APP = {
+  semanas: [],
+  cargos: [],
+  personas: [],
+  total: 0,
+  loaded: false,
+  acTimeout: null,
+  selectedPersona: '',
+  criteriosItems: [],
+  cargosItems: []
+};
+
+var criteriosLoaded = false;
+
+// ── INIT ────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  mostrarSpinner('resultado-semana');
+  mostrarSpinner('resultado-cargo');
+  mostrarSpinner('resultado-historial');
+  google.script.run
+    .withSuccessHandler(onInitData)
+    .withFailureHandler(function(e) { showToast('Error al cargar: ' + e.message, 'err'); })
+    .getWebAppData();
+});
+
+function onInitData(data) {
+  if (!data || !data.ok) {
+    showToast('Error: ' + (data ? data.msg : 'sin respuesta'), 'err');
+    return;
+  }
+  APP.semanas  = data.semanas  || [];
+  APP.cargos   = data.cargos   || [];
+  APP.personas = data.personas || [];
+  APP.total    = data.total    || 0;
+  APP.loaded   = true;
+
+  // Populate selects
+  var selS = document.getElementById('selSemana');
+  APP.semanas.forEach(function(s) {
+    var o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    selS.appendChild(o);
+  });
+
+  var selC = document.getElementById('selCargo');
+  APP.cargos.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    selC.appendChild(o);
+  });
+
+  resetPanel('resultado-semana', '📅', 'Selecciona una semana para ver los resultados');
+  resetPanel('resultado-cargo', '👥', 'Selecciona un cargo para ver el historial');
+  resetPanel('resultado-historial', '🔍', 'Busca un trabajador para ver su historial de bonos');
+
+  showToast('Datos cargados — ' + APP.total + ' registros', 'ok');
+}
+
+// ── TABS ────────────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'criterios' && !criteriosLoaded) {
+    cargarCriterios();
+  }
+  if (name === 'tarifas' && !tarifasLoaded) {
+    cargarTarifas();
+  }
+}
+
+// ── TAB SEMANA ──────────────────────────────────────────────────────────
+function cargarSemana() {
+  var semana = document.getElementById('selSemana').value;
+  if (!semana) return;
+  mostrarSpinner('resultado-semana');
+  var bonosResult = null, detalleResult = null;
+  function tryRender() {
+    if (bonosResult !== null && detalleResult !== null) {
+      renderSemana(bonosResult, detalleResult);
+    }
+  }
+  google.script.run.withSuccessHandler(function(d) { bonosResult = d; tryRender(); })
+    .withFailureHandler(function(e) { showToast('Error: ' + e.message, 'err'); })
+    .getDatosSemana(semana);
+  google.script.run.withSuccessHandler(function(d) { detalleResult = d; tryRender(); })
+    .withFailureHandler(function(e) { detalleResult = { ok: false }; tryRender(); })
+    .getDetalleCriteriosSemana(semana);
+}
+
+function renderSemana(data, detalle) {
+  var el = document.getElementById('resultado-semana');
+  if (!data || !data.ok) { el.innerHTML = emptyHTML('⚠️', data ? data.msg : 'Error'); return; }
+  var grupos = data.grupos;
+  var cargos = Object.keys(grupos).sort();
+  if (!cargos.length) { el.innerHTML = emptyHTML('📭', 'Sin registros para esta semana'); return; }
+
+  var html = '';
+  cargos.forEach(function(cargo) {
+    var eventos = grupos[cargo];
+    html += '<div class="cargo-section">';
+    html += '<div class="cargo-header">' + esc(cargo) + ' <span style="font-size:12px;color:#8888aa;font-weight:400;">(' + eventos.length + ' eventos)</span></div>';
+    html += '<div class="event-cards">';
+    eventos.forEach(function(ev) {
+      html += renderEventCardSemana(ev, cargo, detalle);
+    });
+    html += '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function renderEventCardSemana(ev, cargo, detalle) {
+  var html = '<div class="event-card">';
+  html += '<div class="event-card-header">';
+  html += '<span class="event-code">' + esc(ev.codigo) + '</span>';
+  html += '<span class="event-fecha">' + esc(ev.fecha || '') + '</span>';
+  html += '</div>';
+  html += '<div class="event-centro">' + esc(ev.centro || '—') + '</div>';
+  html += '<div class="event-trabajador">👤 ' + esc(ev.trabajador || '—') + '</div>';
+
+  // Render each bono as a detailed block
+  if (ev.bonos && ev.bonos.length) {
+    ev.bonos.forEach(function(b) {
+      html += renderBonoDetailBlock(b, ev.codigo, cargo, detalle);
+    });
+  } else {
+    html += '<span style="color:#5555aa;font-size:11px;">Sin bonos</span>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderBonoDetailBlock(bono, codigoEvento, cargo, detalle) {
+  var ganoCls = bono.cumplido === 1 ? 'gano' : 'no-gano';
+  var ganoTxt = bono.cumplido === 1 ? '✓ SI' : '✗ NO';
+  var icon = fuenteIcon(bono.fuente);
+
+  var html = '<div class="bono-detail-block ' + ganoCls + '">';
+
+  // Header
+  html += '<div class="bono-detail-header">';
+  html += '<span class="bono-detail-title">' + icon + ' ' + esc(bono.nombre) + '</span>';
+  html += '<span class="bono-detail-result ' + ganoCls + '">' + ganoTxt + '</span>';
+  html += '</div>';
+
+  // Body — criteria detail
+  html += '<div class="bono-detail-body">';
+
+  var fuente = bono.fuente || '';
+  var hasDetalle = detalle && detalle.ok;
+  var criteriaRendered = false;
+
+  if (hasDetalle && fuente.indexOf('CG') !== -1) {
+    // Find matching CG record
+    var cgMatch = findDetalleMatch(detalle.cg, codigoEvento, cargo);
+    if (cgMatch) {
+      // Get criteria names from criteriosConfig organized by fuente
+      var criterioNames = [];
+      if (detalle.criteriosConfig && detalle.criteriosConfig.CG && detalle.criteriosConfig.CG[cargo]) {
+        criterioNames = detalle.criteriosConfig.CG[cargo].criterioNames || [];
+      }
+      var vals = cgMatch.criterioValues || [];
+      var countSi = 0;
+      var countTotal = 0;
+      for (var i = 0; i < vals.length; i++) {
+        var v = String(vals[i]).trim();
+        if (!v || v === '—' || v === '-') continue; // skip inactive criteria
+        var isSi = (v.toUpperCase() === 'SI' || v === '1');
+        countTotal++;
+        if (isSi) countSi++;
+        var crName = (criterioNames[i]) ? criterioNames[i] : ('Criterio ' + (i + 1));
+        html += renderCriterioLine(isSi, crName);
+      }
+      html += renderPctFooter(countSi, countTotal);
+      criteriaRendered = true;
+    }
+  }
+
+  if (hasDetalle && fuente.indexOf('Fotos') !== -1) {
+    var fotosMatch = findDetalleMatch(detalle.fotos, codigoEvento, cargo);
+    if (fotosMatch) {
+      // Get criteria names from criteriosConfig organized by fuente
+      var fotosCriterioNames = [];
+      if (detalle.criteriosConfig && detalle.criteriosConfig.Fotos && detalle.criteriosConfig.Fotos[cargo]) {
+        fotosCriterioNames = detalle.criteriosConfig.Fotos[cargo].criterioNames || [];
+      }
+      var respVals = fotosMatch.respValues || [];
+      var fCountSi = 0;
+      var fCountTotal = 0;
+      for (var j = 0; j < respVals.length; j++) {
+        var rv = String(respVals[j]).trim();
+        if (!rv || rv === '—' || rv === '-') continue;
+        var fIsSi = (rv.toUpperCase() === 'SI' || rv === '1');
+        fCountTotal++;
+        if (fIsSi) fCountSi++;
+        var fCrName = (fotosCriterioNames[j]) ? fotosCriterioNames[j] : ('Resp ' + (j + 1));
+        html += renderCriterioLine(fIsSi, fCrName);
+      }
+      html += renderPctFooter(fCountSi, fCountTotal);
+      criteriaRendered = true;
+    }
+  }
+
+  if (hasDetalle && fuente.indexOf('Supervisoras') !== -1) {
+    var supMatch = findDetalleMatch(detalle.supervisoras, codigoEvento, cargo);
+    if (supMatch) {
+      // Get criteria names from criteriosConfig organized by fuente
+      var supCriterioNames = [];
+      if (detalle.criteriosConfig && detalle.criteriosConfig.Supervisoras && detalle.criteriosConfig.Supervisoras[cargo]) {
+        supCriterioNames = detalle.criteriosConfig.Supervisoras[cargo].criterioNames || [];
+      }
+      var critVals = supMatch.criterioValues || [];
+      if (critVals.length) {
+        // New format: show each criterion with its value
+        var sCountSi = 0;
+        var sCountTotal = 0;
+        for (var k = 0; k < critVals.length; k++) {
+          var sv = String(critVals[k]).trim();
+          if (!sv || sv === '—' || sv === '-') continue;
+          var sIsSi = (sv.toUpperCase() === 'SI' || sv === '1');
+          sCountTotal++;
+          if (sIsSi) sCountSi++;
+          var sCrName = (supCriterioNames[k]) ? supCriterioNames[k] : ('Criterio ' + (k + 1));
+          html += renderCriterioLine(sIsSi, sCrName);
+        }
+        html += renderPctFooter(sCountSi, sCountTotal);
+      } else {
+        // Fallback: legacy nota/gana format
+        var nota = supMatch.nota !== undefined ? supMatch.nota : '—';
+        var ganaBono = String(supMatch.ganaBono).toUpperCase();
+        var ganoSup = (ganaBono === 'SI' || ganaBono === 'SÍ');
+        var ganaIcon = ganoSup ? '✓' : '✗';
+        var ganaSCls = ganoSup ? 'si' : 'no';
+        html += '<div class="criterio-line"><span class="cr-icon ' + ganaSCls + '">' + ganaIcon + '</span><span class="cr-name">Nota promedio: ' + esc(String(nota)) + '</span></div>';
+        html += '<div class="criterio-line"><span class="cr-icon ' + ganaSCls + '">' + ganaIcon + '</span><span class="cr-name">Resultado: ' + (ganoSup ? 'Aprobado' : 'No aprobado') + '</span></div>';
+      }
+      criteriaRendered = true;
+    }
+  }
+
+  if (!criteriaRendered) {
+    html += '<div class="criterio-line"><span class="cr-name" style="color:#5555aa;font-style:italic;">Sin detalle de criterios disponible</span></div>';
+  }
+
+  html += '</div>'; // bono-detail-body
+  html += '</div>'; // bono-detail-block
+  return html;
+}
+
+function findDetalleMatch(arr, codigoEvento, cargo) {
+  if (!arr || !arr.length) return null;
+  for (var i = 0; i < arr.length; i++) {
+    if (arr[i].codigoEvento === codigoEvento && arr[i].cargo === cargo) {
+      return arr[i];
+    }
+  }
+  return null;
+}
+
+function renderCriterioLine(isSi, name) {
+  var icon = isSi ? '✓' : '✗';
+  var cls = isSi ? 'si' : 'no';
+  return '<div class="criterio-line"><span class="cr-icon ' + cls + '">' + icon + '</span><span class="cr-name">' + esc(name) + '</span></div>';
+}
+
+function renderPctFooter(countSi, countTotal) {
+  if (countTotal === 0) return '';
+  var pct = Math.round(countSi / countTotal * 100);
+  var pctCls = pct >= 50 ? 'pct-ok' : 'pct-bad';
+  return '<div class="bono-detail-footer"><span class="' + pctCls + '">' + pct + '% (' + countSi + '/' + countTotal + ')</span></div>';
+}
+
+// ── TAB CARGO ───────────────────────────────────────────────────────────
+function cargarCargo() {
+  var cargo = document.getElementById('selCargo').value;
+  if (!cargo) return;
+  mostrarSpinner('resultado-cargo');
+  google.script.run
+    .withSuccessHandler(renderCargo)
+    .withFailureHandler(function(e) { showToast('Error: ' + e.message, 'err'); })
+    .getDatosCargo(cargo);
+}
+
+function renderCargo(data) {
+  var el = document.getElementById('resultado-cargo');
+  if (!data || !data.ok) { el.innerHTML = emptyHTML('⚠️', data ? data.msg : 'Error'); return; }
+  var eventos = data.eventos;
+  if (!eventos || !eventos.length) { el.innerHTML = emptyHTML('📭', 'Sin registros para este cargo'); return; }
+
+  var ganados = eventos.reduce(function(acc, ev) {
+    return acc + ev.bonos.filter(function(b){ return b.cumplido === 1; }).length;
+  }, 0);
+  var total = eventos.reduce(function(acc, ev) { return acc + ev.bonos.length; }, 0);
+
+  var html = statsBar([
+    { val: eventos.length, lbl: 'Eventos', cls: '' },
+    { val: total, lbl: 'Bonos en juego', cls: '' },
+    { val: ganados, lbl: 'Ganados', cls: 'green' },
+    { val: total - ganados, lbl: 'No ganados', cls: 'red' },
+    { val: total > 0 ? Math.round(ganados/total*100) + '%' : '—', lbl: 'Tasa éxito', cls: 'green' }
+  ]);
+  html += '<div class="result-list">';
+  eventos.forEach(function(ev) {
+    html += '<div class="result-item">';
+    html += '<div class="result-item-top">';
+    html += '<div class="ri-left">';
+    html += '<span class="event-centro">' + esc(ev.centro || '—') + '</span>';
+    html += '<span class="event-trabajador">👤 ' + esc(ev.trabajador || '—') + '</span>';
+    html += '</div>';
+    html += '<div class="ri-right">';
+    html += '<span class="event-fecha">' + esc(ev.fecha || '') + '</span><br>';
+    html += '<span class="event-semana">' + esc(ev.semana || '') + '</span>';
+    html += '</div></div>';
+    html += '<span class="event-code">' + esc(ev.codigo) + '</span>';
+    html += '<div class="bonos-list" style="margin-top:8px">' + renderBonos(ev.bonos) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── TAB HISTORIAL ───────────────────────────────────────────────────────
+function filtrarPersonas() {
+  var q = document.getElementById('inputPersona').value.toLowerCase().trim();
+  var lista = document.getElementById('acList');
+  if (!q || !APP.personas.length) { lista.classList.remove('open'); return; }
+  var matches = APP.personas.filter(function(p) { return p.toLowerCase().indexOf(q) !== -1; }).slice(0, 12);
+  if (!matches.length) { lista.classList.remove('open'); return; }
+  lista.innerHTML = matches.map(function(p) {
+    var idx = p.toLowerCase().indexOf(q);
+    var hl = esc(p.substring(0,idx)) + '<em>' + esc(p.substring(idx, idx+q.length)) + '</em>' + esc(p.substring(idx+q.length));
+    return '<div class="ac-item" onmousedown="seleccionarPersona(\'' + esc(p).replace(/'/g,"\\'") + '\')">' + hl + '</div>';
+  }).join('');
+  lista.classList.add('open');
+}
+
+function abrirAC() {
+  if (document.getElementById('inputPersona').value.trim()) filtrarPersonas();
+}
+
+function cerrarAC() {
+  clearTimeout(APP.acTimeout);
+  APP.acTimeout = setTimeout(function() {
+    document.getElementById('acList').classList.remove('open');
+  }, 200);
+}
+
+function seleccionarPersona(nombre) {
+  document.getElementById('inputPersona').value = nombre;
+  document.getElementById('acList').classList.remove('open');
+  APP.selectedPersona = nombre;
+  mostrarSpinner('resultado-historial');
+  google.script.run
+    .withSuccessHandler(renderHistorial)
+    .withFailureHandler(function(e) { showToast('Error: ' + e.message, 'err'); })
+    .getDatosPersona(nombre);
+}
+
+function renderHistorial(data) {
+  var el = document.getElementById('resultado-historial');
+  if (!data || !data.ok) { el.innerHTML = emptyHTML('⚠️', data ? data.msg : 'Error'); return; }
+  var eventos = data.eventos;
+  var stats   = data.stats || {};
+  if (!eventos || !eventos.length) { el.innerHTML = emptyHTML('📭', 'Sin registros para esta persona'); return; }
+
+  var pct = stats.total > 0 ? Math.round(stats.ganados/stats.total*100) : 0;
+  var html = statsBar([
+    { val: eventos.length, lbl: 'Eventos', cls: '' },
+    { val: stats.total || 0, lbl: 'Bonos en juego', cls: '' },
+    { val: stats.ganados || 0, lbl: 'Ganados', cls: 'green' },
+    { val: (stats.total||0) - (stats.ganados||0), lbl: 'No ganados', cls: 'red' },
+    { val: pct + '%', lbl: 'Tasa éxito', cls: pct >= 70 ? 'green' : 'red' }
+  ]);
+
+  html += '<div class="result-list">';
+  eventos.forEach(function(ev) {
+    html += '<div class="result-item">';
+    html += '<div class="result-item-top">';
+    html += '<div class="ri-left">';
+    html += '<span class="event-centro">' + esc(ev.centro || '—') + '</span>';
+    html += '<span class="event-cargo-badge">' + esc(ev.cargo || '—') + '</span>';
+    html += '</div>';
+    html += '<div class="ri-right">';
+    html += '<span class="event-fecha">' + esc(ev.fecha || '') + '</span><br>';
+    html += '<span class="event-semana">' + esc(ev.semana || '') + '</span>';
+    html += '</div></div>';
+    html += '<span class="event-code">' + esc(ev.codigo) + '</span>';
+    html += '<div class="bonos-list" style="margin-top:8px">' + renderBonos(ev.bonos) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── TAB CRITERIOS ───────────────────────────────────────────────────────
+function cargarCriterios() {
+  mostrarSpinner('criterios-content');
+  google.script.run.withSuccessHandler(function(d) { renderCriterios(d); })
+    .withFailureHandler(function(e) { showToast('Error criterios: ' + e.message, 'err'); })
+    .getMaestroBonos();
+}
+
+function renderCriterios(criteriosData) {
+  criteriosLoaded = true;
+  var el = document.getElementById('criterios-content');
+  if (!criteriosData.ok) {
+    el.innerHTML = emptyHTML('⚠️', 'Error cargando datos');
+    return;
+  }
+
+  APP.criteriosItems = criteriosData.items;
+  APP.tarifasEditable = false;
+
+  var html = '<div class="crit-toolbar">';
+  html += '<button class="btn-enable-edit" id="btn-enable-tarifas" onclick="toggleTarifas()">🔒 Habilitar cambio de tarifas</button>';
+  html += '</div>';
+
+  var tipos = ['Fotos', 'Supervisora', 'Activos', 'Vajilla'];
+  var tipoIcons = { Fotos: '📸', Supervisora: '⭐', Activos: '📦', Vajilla: '🍽️' };
+  tipos.forEach(function(tipo) {
+    var items = criteriosData.items.filter(function(c) { return c.tipoBono === tipo; });
+    if (!items.length) return;
+
+    // Calc max criteria count for this section
+    var maxCrit = 0;
+    items.forEach(function(item) {
+      var cnt = 0;
+      for (var j = 0; j < 10; j++) { if (item.criterios[j] && item.criterios[j].trim()) cnt = j + 1; }
+      if (cnt > maxCrit) maxCrit = cnt;
+    });
+    if (maxCrit < 2) maxCrit = 2;
+
+    html += '<div class="criterios-section crit-tipo-' + tipo + '">';
+    html += '<div class="criterios-section-header"><span>' + (tipoIcons[tipo]||'') + ' Bono ' + tipo + ' (' + items[0].sistema + ')</span>';
+    html += '<span class="criterios-section-count">' + items.length + ' cargos</span></div>';
+
+    html += '<div class="crit-grid" style="--max-crit:' + maxCrit + '">';
+    // Header row
+    html += '<div class="crit-grid-head">Cargo</div>';
+    html += '<div class="crit-grid-head">Monto</div>';
+    for (var h = 1; h <= maxCrit; h++) html += '<div class="crit-grid-head">C' + h + '</div>';
+
+    // Data rows
+    items.forEach(function(item) {
+      var globalIdx = criteriosData.items.indexOf(item);
+      html += '<div class="crit-grid-cell crit-cargo-cell">' + esc(item.cargo) + '</div>';
+      html += '<div class="crit-grid-cell crit-monto-cell">';
+      html += '<span class="crit-monto-prefix">$</span>';
+      html += '<input class="crit-monto-input" data-crit-row="' + globalIdx + '" data-col="monto" value="' + formatMonto(item.monto||0) + '">';
+      html += '</div>';
+      for (var j = 0; j < maxCrit; j++) {
+        var critVal = item.criterios[j] || '';
+        html += '<div class="crit-grid-cell">';
+        if (critVal.length > 25) html += '<div class="crit-tooltip">' + esc(critVal) + '</div>';
+        html += '<textarea class="crit-text-cell" data-crit-row="' + globalIdx + '" data-col="crit' + j + '" rows="2" placeholder="">' + esc(critVal) + '</textarea>';
+        html += '</div>';
+      }
+    });
+    html += '</div></div>';
+  });
+
+  html += '<button class="btn-save-criterios" id="btn-save-criterios" onclick="guardarCriterios()">💾 Guardar Bonos</button>';
+  el.innerHTML = html;
+}
+
+function formatMonto(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function toggleTarifas() {
+  APP.tarifasEditable = !APP.tarifasEditable;
+  var btn = document.getElementById('btn-enable-tarifas');
+  var montoInputs = document.querySelectorAll('.crit-monto-input');
+  var textCells = document.querySelectorAll('.crit-text-cell');
+  var saveBtn = document.getElementById('btn-save-criterios');
+  if (APP.tarifasEditable) {
+    btn.textContent = '🔓 Edicion habilitada';
+    btn.classList.add('active');
+    montoInputs.forEach(function(inp) { inp.classList.add('editable'); });
+    textCells.forEach(function(ta) { ta.classList.add('editable'); });
+    saveBtn.classList.add('visible');
+  } else {
+    btn.textContent = '🔒 Habilitar cambio de tarifas';
+    btn.classList.remove('active');
+    montoInputs.forEach(function(inp) { inp.classList.remove('editable'); });
+    textCells.forEach(function(ta) { ta.classList.remove('editable'); });
+    saveBtn.classList.remove('visible');
+  }
+}
+
+function guardarCriterios() {
+  var items = APP.criteriosItems.map(function(item, globalIdx) {
+    var getVal = function(col) {
+      var el = document.querySelector('[data-crit-row="' + globalIdx + '"][data-col="' + col + '"]');
+      return el ? el.value.trim() : '';
+    };
+    var criterios = [];
+    for (var j = 0; j < 10; j++) criterios.push(getVal('crit' + j));
+    return {
+      cargo: item.cargo,
+      tipoBono: item.tipoBono,
+      monto: Number(String(getVal('monto')).replace(/\./g, '')) || 0,
+      sistema: item.sistema,
+      criterios: criterios
+    };
+  });
+  showToast('Guardando bonos...', '');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.ok) showToast('✅ Bonos guardados', 'ok');
+      else showToast('Error: ' + r.msg, 'err');
+    })
+    .withFailureHandler(function(e) { showToast('Error: ' + e.message, 'err'); })
+    .saveMaestroBonos(items);
+}
+
+// ── SYNC ────────────────────────────────────────────────────────────────
+function sincronizar() {
+  var btn = document.getElementById('btnSync');
+  btn.disabled = true;
+  btn.textContent = 'Sincronizando...';
+  showToast('Sincronizando datos, por favor espera...', '');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = '&#x21BB; Sincronizar';
+      if (res && res.ok) {
+        var d = res.data || {};
+        showToast('Sync OK — Fotos: +' + (d.fotos||0) + ' | CG: +' + (d.cg||0) + ' | Base: ' + (d.base||0) + ' filas', 'ok');
+        // Reload data
+        google.script.run.withSuccessHandler(onInitData).getWebAppData();
+      } else {
+        showToast('Error sync: ' + (res ? res.msg : 'sin respuesta'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '&#x21BB; Sincronizar';
+      showToast('Error: ' + e.message, 'err');
+    })
+    .sincronizarDesdeWebApp();
+}
+
+// ── HELPERS ─────────────────────────────────────────────────────────────
+function renderEventCard(ev, showSemana) {
+  var html = '<div class="event-card">';
+  html += '<div class="event-card-header">';
+  html += '<span class="event-code">' + esc(ev.codigo) + '</span>';
+  html += '<span class="event-fecha">' + esc(ev.fecha || '') + '</span>';
+  html += '</div>';
+  html += '<div class="event-centro">' + esc(ev.centro || '—') + '</div>';
+  html += '<div class="event-trabajador">👤 ' + esc(ev.trabajador || '—') + '</div>';
+  html += '<div class="bonos-list">' + renderBonos(ev.bonos) + '</div>';
+  html += '</div>';
+  return html;
+}
+
+function renderBonos(bonos) {
+  if (!bonos || !bonos.length) return '<span style="color:#5555aa;font-size:11px;">Sin bonos</span>';
+  return bonos.map(function(b) {
+    var icon = fuenteIcon(b.fuente);
+    var cls  = b.cumplido === 1 ? 'gano' : 'no-gano';
+    var mark = b.cumplido === 1 ? '✓' : '✗';
+    return '<span class="bono-pill ' + cls + '"><span class="bono-icon">' + icon + '</span><span class="bono-check">' + mark + '</span> ' + esc(b.nombre) + '</span>';
+  }).join('');
+}
+
+function fuenteIcon(fuente) {
+  if (!fuente) return '';
+  if (fuente.indexOf('Fotos') !== -1)        return '📸';
+  if (fuente.indexOf('CG') !== -1)           return '📦';
+  if (fuente.indexOf('Supervisoras') !== -1) return '⭐';
+  return '';
+}
+
+function statsBar(items) {
+  var html = '<div class="stats-bar">';
+  items.forEach(function(it) {
+    html += '<div class="stat-card ' + (it.cls||'') + '"><div class="stat-val">' + it.val + '</div><div class="stat-lbl">' + it.lbl + '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function mostrarSpinner(id) {
+  document.getElementById(id).innerHTML = '<div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div>';
+}
+
+function resetPanel(id, icon, msg) {
+  document.getElementById(id).innerHTML = emptyHTML(icon, msg);
+}
+
+function emptyHTML(icon, msg) {
+  return '<div class="empty-state"><div class="empty-icon">' + icon + '</div><p>' + esc(msg) + '</p></div>';
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── TARIFAS ──────────────────────────────────────────────────────────────
+var tarifasLoaded = false;
+var tarifasData = [];
+var tarifasEditable = false;
+
+function cargarTarifas() {
+  document.getElementById('tarifas-content').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Cargando tarifas...</div>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      tarifasLoaded = true;
+      if (!res || !res.ok) {
+        document.getElementById('tarifas-content').innerHTML = emptyHTML('⚠️', res ? res.msg : 'Error');
+        return;
+      }
+      tarifasData = res.filas || [];
+      renderTarifas();
+    })
+    .withFailureHandler(function(e) { showToast('Error: ' + e.message, 'err'); })
+    .getTarifas2026();
+}
+
+function renderTarifas() {
+  var el = document.getElementById('tarifas-content');
+  if (!tarifasData.length) { el.innerHTML = emptyHTML('💰', 'Sin datos de tarifas'); return; }
+
+  var html = '<table class="tarifas-table"><thead><tr>';
+  html += '<th>Cargo</th><th>Tarifa Base</th>';
+  html += '<th class="col-fotos">Bono Fotos</th>';
+  html += '<th class="col-sup">Bono Supervisora</th>';
+  html += '<th class="col-act">Bono Activos</th>';
+  html += '<th class="col-vaj">Bono Vajilla</th>';
+  html += '<th class="col-total">Total Potencial</th>';
+  html += '</tr></thead><tbody>';
+
+  var sumTarifa=0, sumFotos=0, sumSup=0, sumAct=0, sumVaj=0, sumTotal=0;
+  var isAsignacion = false;
+
+  tarifasData.forEach(function(f, idx) {
+    var cargo = f.cargo;
+    // Detectar separador asignaciones
+    if (cargo.toLowerCase().indexOf('asignaci') === 0 && !isAsignacion) {
+      isAsignacion = true;
+      html += '<tr class="row-sep"><td colspan="7" style="color:#8888aa;font-size:11px;text-align:left;padding:14px 12px 6px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Asignaciones</td></tr>';
+    }
+
+    var total = f.tarifa + f.bonoFotos + f.bonoSupervisora + f.bonoActivos + f.bonoVajilla;
+    sumTarifa += f.tarifa; sumFotos += f.bonoFotos; sumSup += f.bonoSupervisora;
+    sumAct += f.bonoActivos; sumVaj += f.bonoVajilla; sumTotal += total;
+
+    html += '<tr data-idx="' + idx + '">';
+    html += '<td>' + esc(cargo) + '</td>';
+    html += '<td>' + tarifaCell(idx, 'tarifa', f.tarifa) + '</td>';
+    html += '<td class="col-fotos">' + tarifaCell(idx, 'bonoFotos', f.bonoFotos) + '</td>';
+    html += '<td class="col-sup">' + tarifaCell(idx, 'bonoSupervisora', f.bonoSupervisora) + '</td>';
+    html += '<td class="col-act">' + tarifaCell(idx, 'bonoActivos', f.bonoActivos) + '</td>';
+    html += '<td class="col-vaj">' + tarifaCell(idx, 'bonoVajilla', f.bonoVajilla) + '</td>';
+    html += '<td class="col-total" id="total-' + idx + '">' + fmtMoney(total) + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody><tfoot><tr>';
+  html += '<td>TOTAL</td>';
+  html += '<td>' + fmtMoney(sumTarifa) + '</td>';
+  html += '<td>' + fmtMoney(sumFotos) + '</td>';
+  html += '<td>' + fmtMoney(sumSup) + '</td>';
+  html += '<td>' + fmtMoney(sumAct) + '</td>';
+  html += '<td>' + fmtMoney(sumVaj) + '</td>';
+  html += '<td style="font-size:15px;">' + fmtMoney(sumTotal) + '</td>';
+  html += '</tr></tfoot></table>';
+
+  el.innerHTML = html;
+
+  // Disable all inputs initially
+  if (!tarifasEditable) {
+    el.querySelectorAll('.tarifa-input').forEach(function(inp) { inp.disabled = true; });
+  }
+}
+
+function tarifaCell(idx, field, val) {
+  if (!val) return '<span class="empty-bono">—</span>';
+  return '<input type="text" class="tarifa-input" id="tf-' + idx + '-' + field + '" value="' + fmtMoney(val) + '" disabled onchange="onTarifaChange(' + idx + ')">';
+}
+
+function fmtMoney(n) {
+  if (!n) return '$0';
+  return '$' + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function parseMoney(s) {
+  return Number(String(s).replace(/\$/g,'').replace(/\./g,'').replace(/,/g,'').trim()) || 0;
+}
+
+function toggleEditTarifas() {
+  tarifasEditable = !tarifasEditable;
+  var btn = document.getElementById('btnEditTarifas');
+  var actions = document.getElementById('tarifas-actions');
+  if (tarifasEditable) {
+    btn.textContent = '🔓 Edición habilitada';
+    btn.style.background = 'linear-gradient(135deg,#e05a6a,#c0392b)';
+    actions.style.display = 'block';
+    document.querySelectorAll('.tarifa-input').forEach(function(inp) { inp.disabled = false; });
+  } else {
+    btn.textContent = '🔒 Habilitar edición';
+    btn.style.background = '';
+    actions.style.display = 'none';
+    document.querySelectorAll('.tarifa-input').forEach(function(inp) { inp.disabled = true; });
+  }
+}
+
+function onTarifaChange(idx) {
+  // Recalculate total for this row
+  var fields = ['tarifa', 'bonoFotos', 'bonoSupervisora', 'bonoActivos', 'bonoVajilla'];
+  var total = 0;
+  fields.forEach(function(f) {
+    var inp = document.getElementById('tf-' + idx + '-' + f);
+    if (inp) total += parseMoney(inp.value);
+  });
+  var totalEl = document.getElementById('total-' + idx);
+  if (totalEl) totalEl.textContent = fmtMoney(total);
+}
+
+function guardarTarifas() {
+  if (!confirm('¿Guardar los cambios en Tarifas 2026?\n\nEsto actualizará tanto la hoja Tarifas como los montos en Maestro_Bonos.')) return;
+  var cambios = [];
+  tarifasData.forEach(function(f, idx) {
+    var fields = ['tarifa', 'bonoFotos', 'bonoSupervisora', 'bonoActivos', 'bonoVajilla'];
+    var item = { fila: f.fila, cargo: f.cargo };
+    fields.forEach(function(field) {
+      var inp = document.getElementById('tf-' + idx + '-' + field);
+      item[field] = inp ? parseMoney(inp.value) : f[field];
+    });
+    cambios.push(item);
+  });
+  var btn = document.getElementById('btnSaveTarifas');
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios en Tarifas 2026';
+      if (res && res.ok) {
+        showToast('✅ Tarifas actualizadas (' + res.updated + ' filas)', 'ok');
+        toggleEditTarifas(); // Lock again
+        tarifasLoaded = false; // Force reload
+        cargarTarifas();
+      } else {
+        showToast('Error: ' + (res ? res.msg : 'desconocido'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios en Tarifas 2026';
+      showToast('Error: ' + e.message, 'err');
+    })
+    .saveTarifas2026(cambios);
+}
+
+var _toastTimer;
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 4000);
+}
+</script>
+</body>
+</html>

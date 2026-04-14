@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tinto - Sistema de Fotos</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  color: #1a1a2e;
+}
+.header {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: white;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-logo {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.header-text h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+.header-text p { font-size: 11px; opacity: 0.7; margin-top: 1px; }
+.container { max-width: 480px; margin: 0 auto; padding: 16px; }
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #666;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.form-group { margin-bottom: 16px; }
+.form-group:last-child { margin-bottom: 0; }
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+select, input[type="date"], input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #1a1a2e;
+  background: white;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+select:focus, input:focus {
+  outline: none;
+  border-color: #0f3460;
+}
+.btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #0f3460, #16213e);
+  color: white;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-secondary {
+  background: #f0f2f5;
+  color: #333;
+  margin-top: 8px;
+}
+.hidden { display: none !important; }
+/* BONO CARDS */
+.bonos-grid { display: flex; flex-direction: column; gap: 12px; }
+.bono-card {
+  border-radius: 12px;
+  padding: 14px;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.bono-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.bono-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.bono-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: rgba(255,255,255,0.6);
+}
+.bono-info { flex: 1; }
+.bono-nombre { font-size: 14px; font-weight: 700; }
+.bono-monto { font-size: 20px; font-weight: 800; }
+.bono-criterios {
+  background: rgba(255,255,255,0.5);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 8px;
+}
+.bono-criterios p { font-size: 12px; color: #555; margin-bottom: 4px; font-weight: 600; }
+.bono-criterios ul { list-style: none; }
+.bono-criterios li {
+  font-size: 12px;
+  color: #444;
+  padding: 3px 0;
+  padding-left: 14px;
+  position: relative;
+}
+.bono-criterios li::before { content: '\2022'; position: absolute; left: 4px; color: #999; }
+/* UPLOAD SECTION */
+.upload-section { margin-top: 8px; }
+.instruccion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8f9fa;
+  margin-bottom: 8px;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.instruccion-item.uploaded {
+  background: #e8f5e9;
+  border-color: #4caf50;
+}
+.instruccion-item.uploading {
+  background: #fff3e0;
+  border-color: #ff9800;
+  cursor: default;
+}
+.instruccion-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.3;
+}
+.instruccion-status {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.file-input { display: none; }
+/* PROGRESS */
+.upload-progress {
+  background: #f0f2f5;
+  border-radius: 8px;
+  height: 6px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.upload-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #0f3460, #4caf50);
+  border-radius: 8px;
+  transition: width 0.3s;
+}
+/* SUMMARY */
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f2f5;
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-label { font-size: 13px; color: #666; }
+.summary-value { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge-success { background: #e8f5e9; color: #2e7d32; }
+.badge-warning { background: #fff3e0; color: #e65100; }
+.badge-info { background: #e3f2fd; color: #1565c0; }
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #1a1a2e;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  transition: transform 0.3s;
+  z-index: 1000;
+  white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+/* LOADING */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  color: #666;
+  font-size: 14px;
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #0f3460;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* EVENT TAG */
+.event-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #0f3460, #16213e);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+/* STEPS */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #999;
+  font-weight: 600;
+}
+.step.active { color: #0f3460; }
+.step.done { color: #4caf50; }
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.step.active .step-num { background: #0f3460; color: white; }
+.step.done .step-num { background: #4caf50; color: white; }
+.step-sep { color: #ddd; font-size: 14px; }
+/* BONO INSTRUCTIVO toggle */
+.bono-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #999;
+  padding: 0;
+  text-decoration: underline;
+}
+/* Compact event selector */
+.event-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 2px solid #e8e8e8;
+  margin-bottom: 16px;
+}
+.event-compact-info { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+.event-compact-sub { font-size: 11px; color: #999; margin-top: 2px; }
+.btn-change {
+  background: #e8e8e8;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #333;
+}
+/* Nombre novia tag */
+.novia-tag {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+  margin-left: 4px;
+}
+/* section nav arrows for event */
+.nav-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.btn-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: #666;
+  padding: 0;
+  line-height: 1;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  flex: 1;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-logo">📸</div>
+  <div class="header-text">
+    <h1>Sistema de Fotos</h1>
+    <p>Tinto Banquetería</p>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- STEP 1: Fecha -->
+  <div id="step1" class="card">
+    <div class="card-title">📅 Fecha del Evento</div>
+    <div class="form-group">
+      <label>Fecha</label>
+      <input type="date" id="inputFecha" />
+    </div>
+    <button class="btn btn-primary" onclick="buscarEventos()">Buscar Eventos →</button>
+  </div>
+
+  <!-- STEP 2: Evento -->
+  <div id="step2" class="card hidden">
+    <div class="nav-header">
+      <button class="btn-back" onclick="volverA1()">←</button>
+      <span class="section-title">Seleccionar Evento</span>
+    </div>
+    <div id="listaEventos"></div>
+  </div>
+
+  <!-- STEP 3: Datos personales -->
+  <div id="step3" class="card hidden">
+    <div class="nav-header">
+      <button class="btn-back" onclick="volverA2()">←</button>
+      <span class="section-title">Tus Datos</span>
+    </div>
+    <div id="eventoSelTag" class="event-tag"></div>
+    <div class="form-group">
+      <label>Tu Nombre</label>
+      <input type="text" id="selectNombre" list="listaNombres" placeholder="Escribe tu nombre..." autocomplete="off" />
+      <datalist id="listaNombres"></datalist>
+    </div>
+    <div class="form-group">
+      <label>Tu Cargo</label>
+      <select id="selectCargo">
+        <option value="">Selecciona tu cargo...</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="btnVerBonos" onclick="mostrarBonos()">Ver mis Bonos →</button>
+  </div>
+
+  <!-- STEP 4: Instructivo Bonos -->
+  <div id="step4" class="card hidden">
+    <div class="nav-header">
+      <button class="btn-back" onclick="volverA3()">←</button>
+      <span class="section-title">Mis Bonos</span>
+    </div>
+    <div id="eventoSelTag2" class="event-tag"></div>
+    <div id="bonosGrid" class="bonos-grid"></div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="irASubirFotos()">📸 Subir Fotos →</button>
+  </div>
+
+  <!-- STEP 5: Subir Fotos -->
+  <div id="step5" class="card hidden">
+    <div class="nav-header">
+      <button class="btn-back" onclick="volverA4()">←</button>
+      <span class="section-title">Subir Fotos</span>
+    </div>
+    <div id="eventoSelTag3" class="event-tag"></div>
+    <div id="uploadSummary" class="upload-section">
+      <div id="uploadList"></div>
+      <div class="upload-progress" style="margin-top:12px">
+        <div class="upload-progress-bar" id="progressBar" style="width:0%"></div>
+      </div>
+      <div style="text-align:center; font-size:12px; color:#999; margin-top:4px" id="progressText"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────────
+var state = {
+  fecha: '',
+  eventos: [],
+  eventoSelIdx: -1,
+  nombre: '',
+  cargo: '',
+  trabajadores: [],
+  cargos: [],
+  bonos: [],
+  instrucciones: [],
+  fotosSubidas: {}
+};
+
+// ── INIT ─────────────────────────────────────────────────────────────────────────
+window.onload = function() {
+  var today = new Date();
+  var dd = ('0'+today.getDate()).slice(-2);
+  var mm = ('0'+(today.getMonth()+1)).slice(-2);
+  var yyyy = today.getFullYear();
+  document.getElementById('inputFecha').value = yyyy + '-' + mm + '-' + dd;
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      state.trabajadores = data.trabajadores || [];
+      state.cargos = data.cargos || [];
+      var dl = document.getElementById('listaNombres');
+      state.trabajadores.forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t;
+        dl.appendChild(opt);
+      });
+      var selC = document.getElementById('selectCargo');
+      state.cargos.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        selC.appendChild(opt);
+      });
+    })
+    .withFailureHandler(function(e) { showToast('Error cargando datos: ' + e.message); })
+    .getDatosIniciales();
+};
+
+// ── STEP 1 → 2: Buscar eventos ──────────────────────────────────────────────────
+function buscarEventos() {
+  var fecha = document.getElementById('inputFecha').value;
+  if (!fecha) { showToast('Selecciona una fecha'); return; }
+  state.fecha = fecha;
+
+  showStep('step2');
+  document.getElementById('listaEventos').innerHTML =
+    '<div class="loading"><div class="spinner"></div>Buscando eventos...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(eventos) {
+      state.eventos = eventos || [];
+      renderEventos();
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('listaEventos').innerHTML =
+        '<p style="color:red;text-align:center;padding:20px">' + e.message + '</p>';
+    })
+    .getEventosPorFecha(fecha);
+}
+
+function renderEventos() {
+  var container = document.getElementById('listaEventos');
+  if (state.eventos.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:#999;padding:20px">No hay eventos para esta fecha</p>';
+    return;
+  }
+  container.innerHTML = '';
+  state.eventos.forEach(function(ev, idx) {
+    var btn = document.createElement('div');
+    btn.className = 'instruccion-item';
+    btn.style.cursor = 'pointer';
+    // Display centro (nombre novia) plus codigo
+    btn.innerHTML = '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#1a1a2e">' +
+      ev.centro + '</div><div style="font-size:11px;color:#999">' + ev.codigo + '</div></div>' +
+      '<span style="font-size:18px">→</span>';
+    btn.onclick = function() { seleccionarEvento(idx); };
+    container.appendChild(btn);
+  });
+}
+
+function seleccionarEvento(idx) {
+  state.eventoSelIdx = idx;
+  var ev = state.eventos[idx];
+  showStep('step3');
+  document.getElementById('eventoSelTag').innerHTML =
+    '📅 ' + formatFechaDisplay(state.fecha) +
+    ' &nbsp;|&nbsp; ' + ev.centro +
+    '<span class="novia-tag">' + ev.codigo + '</span>';
+}
+
+// ── STEP 2 → 3 ──────────────────────────────────────────────────────────────────────
+function mostrarBonos() {
+  var nombre = document.getElementById('selectNombre').value;
+  var cargo  = document.getElementById('selectCargo').value;
+  if (!nombre || !cargo) { showToast('Selecciona nombre y cargo'); return; }
+  state.nombre = nombre;
+  state.cargo  = cargo;
+
+  var ev = state.eventos[state.eventoSelIdx];
+  showStep('step4');
+  document.getElementById('eventoSelTag2').innerHTML =
+    '📅 ' + formatFechaDisplay(state.fecha) +
+    ' &nbsp;|&nbsp; ' + ev.centro;
+
+  var grid = document.getElementById('bonosGrid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando bonos...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      state.bonos = data.bonos || [];
+      renderBonos();
+    })
+    .withFailureHandler(function(e) {
+      grid.innerHTML = '<p style="color:red">' + e.message + '</p>';
+    })
+    .getInstructivoBonos(cargo);
+}
+
+function renderBonos() {
+  var grid = document.getElementById('bonosGrid');
+  grid.innerHTML = '';
+  if (state.bonos.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;color:#999">No hay bonos definidos para este cargo.</p>';
+    return;
+  }
+  state.bonos.forEach(function(b) {
+    var card = document.createElement('div');
+    card.className = 'bono-card';
+    card.style.background = b.bg;
+    card.style.borderColor = b.color + '40';
+
+    var criteriosHtml = '';
+    if (b.criterios && b.criterios.length > 0) {
+      var items = b.criterios.map(function(c) { return '<li>' + c + '</li>'; }).join('');
+      criteriosHtml = '<div class="bono-criterios"><p>Criterios:</p><ul>' + items + '</ul></div>';
+    }
+
+    card.innerHTML =
+      '<div class="bono-header">' +
+        '<div class="bono-icon">' + b.icono + '</div>' +
+        '<div class="bono-info">' +
+          '<div class="bono-nombre" style="color:' + b.color + '">' + b.nombre + '</div>' +
+          '<div class="bono-monto" style="color:' + b.color + '">$' + b.monto.toLocaleString('es-CL') + '</div>' +
+        '</div>' +
+      '</div>' +
+      criteriosHtml;
+    grid.appendChild(card);
+  });
+}
+
+// ── STEP 4 → 5: Subir Fotos ────────────────────────────────────────────────────
+function irASubirFotos() {
+  var ev = state.eventos[state.eventoSelIdx];
+  showStep('step5');
+  document.getElementById('eventoSelTag3').innerHTML =
+    '📅 ' + formatFechaDisplay(state.fecha) +
+    ' &nbsp;|&nbsp; ' + ev.centro;
+
+  // Collect fotos instructions from bonos with source='fotos'
+  var instrs = [];
+  state.bonos.forEach(function(b) {
+    if (b.source === 'fotos' && b.criterios && b.criterios.length > 0) {
+      b.criterios.forEach(function(c) {
+        if (instrs.indexOf(c) === -1) instrs.push(c);
+      });
+    }
+  });
+  state.instrucciones = instrs;
+
+  // Load already uploaded fotos
+  var dateParts = state.fecha.split('-');
+  var fechaEvento = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
+  var loadingEl = document.createElement('div');
+  loadingEl.className = 'loading';
+  loadingEl.innerHTML = '<div class="spinner"></div>Cargando estado...';
+  document.getElementById('uploadList').innerHTML = '';
+  document.getElementById('uploadList').appendChild(loadingEl);
+
+  google.script.run
+    .withSuccessHandler(function(fotosMap) {
+      state.fotosSubidas = fotosMap || {};
+      renderUploadList();
+    })
+    .withFailureHandler(function(e) {
+      state.fotosSubidas = {};
+      renderUploadList();
+    })
+    .getFotosSubidas(fechaEvento, ev.centro, state.cargo, state.nombre);
+}
+
+function renderUploadList() {
+  var list = document.getElementById('uploadList');
+  list.innerHTML = '';
+
+  if (state.instrucciones.length === 0) {
+    list.innerHTML = '<p style="text-align:center;color:#999;padding:20px">No hay fotos requeridas para este cargo.</p>';
+    updateProgress();
+    return;
+  }
+
+  state.instrucciones.forEach(function(instr, idx) {
+    var item = document.createElement('div');
+    var isUploaded = !!state.fotosSubidas[instr];
+    item.className = 'instruccion-item' + (isUploaded ? ' uploaded' : '');
+    item.id = 'item_' + idx;
+
+    var fileInputId = 'file_' + idx;
+    item.innerHTML =
+      '<span class="instruccion-status" id="status_' + idx + '">' + (isUploaded ? '✅' : '📷') + '</span>' +
+      '<div style="flex:1"><span class="instruccion-label">' + instr + '</span>' +
+      (isUploaded ? '<div style="font-size:11px;color:#888;margin-top:2px">Toca para cambiar</div>' : '') +
+      '</div>' +
+      '<input type="file" accept="image/*,video/*" class="file-input" id="' + fileInputId + '">';
+
+    item.onclick = function() {
+      document.getElementById(fileInputId).click();
+    };
+
+    var fileInput = item.querySelector('.file-input');
+    fileInput.addEventListener('change', function(e) {
+      if (e.target.files && e.target.files[0]) {
+        uploadFoto(e.target.files[0], instr, idx);
+      }
+    });
+
+    list.appendChild(item);
+  });
+  updateProgress();
+}
+
+function compressImage(file, maxDim, quality, callback) {
+  var img = new Image();
+  img.onload = function() {
+    var w = img.width, h = img.height;
+    if (w > maxDim || h > maxDim) {
+      var ratio = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    var dataUrl = canvas.toDataURL('image/jpeg', quality);
+    callback(dataUrl.split(',')[1], 'image/jpeg', file.name.replace(/\.[^.]+$/, '.jpg'));
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+function compressVideo(file, maxDur, maxH, statusEl, callback) {
+  // Validar duracion solamente — no re-encodear (no funciona en moviles)
+  var video = document.createElement('video');
+  video.playsInline = true;
+  video.preload = 'metadata';
+  video.muted = true;
+
+  video.onloadedmetadata = function() {
+    URL.revokeObjectURL(video.src);
+    if (video.duration > maxDur) {
+      callback(null, null, null, 'Video demasiado largo (max ' + maxDur + 's). Duracion: ' + Math.round(video.duration) + 's');
+      return;
+    }
+    // Enviar archivo original sin re-encodear
+    statusEl.textContent = '🔄';
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      callback(e.target.result.split(',')[1], file.type || 'video/mp4', file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  video.onerror = function() {
+    URL.revokeObjectURL(video.src);
+    // Si no se puede leer metadata, enviar directo
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      callback(e.target.result.split(',')[1], file.type || 'video/mp4', file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  video.src = URL.createObjectURL(file);
+}
+
+function uploadFoto(file, instruccion, idx) {
+  var item = document.getElementById('item_' + idx);
+  var statusEl = document.getElementById('status_' + idx);
+  item.className = 'instruccion-item uploading';
+  statusEl.textContent = '⏳';
+
+  var ev = state.eventos[state.eventoSelIdx];
+  var dateParts = state.fecha.split('-');
+  var fechaEvento = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
+
+  function enviar(base64, mimeType, nombreArchivo) {
+    var params = {
+      fechaEvento:      fechaEvento,
+      centro:           ev.centro,
+      cargo:            state.cargo,
+      nombre:           state.nombre,
+      instruccion:      instruccion,
+      archivoBase64:    base64,
+      mimeType:         mimeType,
+      nombreArchivo:    nombreArchivo,
+      codigo:           ev.codigo,
+      semanaOperacion:  ev.semanaOperacion || ''
+    };
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res.ok) {
+          state.fotosSubidas[instruccion] = true;
+          item.className = 'instruccion-item uploaded';
+          statusEl.textContent = '✅';
+          showToast('✅ Archivo subido exitosamente');
+        } else {
+          item.className = 'instruccion-item';
+          statusEl.textContent = '📷';
+          showToast('❌ Error: ' + (res.mensaje || 'desconocido'));
+        }
+        updateProgress();
+        if (res.ok) {
+          var allDone = state.instrucciones.length > 0 &&
+            state.instrucciones.every(function(i) { return !!state.fotosSubidas[i]; });
+          if (allDone) showFinPage();
+        }
+      })
+      .withFailureHandler(function(e) {
+        item.className = 'instruccion-item';
+        statusEl.textContent = '📷';
+        showToast('❌ Error: ' + e.message);
+        updateProgress();
+      })
+      .procesarFoto(params);
+  }
+
+  if (file.type && file.type.startsWith('image/')) {
+    compressImage(file, 1200, 0.5, enviar);
+  } else if (file.type && file.type.startsWith('video/')) {
+    statusEl.textContent = '🔄';
+    compressVideo(file, 45, 480, statusEl, function(base64, mime, nombre, error) {
+      if (error) {
+        item.className = 'instruccion-item';
+        statusEl.textContent = '📷';
+        showToast('❌ ' + error);
+        return;
+      }
+      statusEl.textContent = '⏳';
+      enviar(base64, mime, nombre);
+    });
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      enviar(e.target.result.split(',')[1], file.type || 'application/octet-stream', file.name);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function showFinPage() {
+  document.body.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;padding:20px">' +
+      '<div style="background:white;border-radius:20px;padding:40px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.1)">' +
+        '<div style="font-size:3.5rem;margin-bottom:12px">✅</div>' +
+        '<div style="font-size:1.3rem;font-weight:800;color:#1a1a2e;margin-bottom:8px">Fotos subidas con éxito</div>' +
+        '<div style="font-size:0.9rem;color:#666;line-height:1.5">Ya puedes cerrar esta ventana.</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function updateProgress() {
+  var total = state.instrucciones.length;
+  var done  = state.instrucciones.filter(function(i) { return !!state.fotosSubidas[i]; }).length;
+  var pct   = total > 0 ? Math.round(done / total * 100) : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressText').textContent = done + ' / ' + total + ' fotos subidas (' + pct + '%)';
+}
+
+// ── NAVIGATION ──────────────────────────────────────────────────────────────────
+function showStep(id) {
+  ['step1','step2','step3','step4','step5'].forEach(function(s) {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+function volverA1() { showStep('step1'); }
+function volverA2() { showStep('step2'); }
+function volverA3() { showStep('step3'); }
+function volverA4() { showStep('step4'); }
+
+// ── HELPERS ─────────────────────────────────────────────────────────────────────
+function formatFechaDisplay(fechaISO) {
+  if (!fechaISO) return '';
+  var parts = fechaISO.split('-');
+  if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+  return fechaISO;
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+</script>
+</body>
+</html>

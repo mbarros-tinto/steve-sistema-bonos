@@ -1,0 +1,22 @@
+# clasp / credentials
+.clasprc.json
+**/.clasprc.json
+**/tokens.json
+**/credentials.json
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build / temp
+dist/
+build/
+*.log
