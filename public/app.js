@@ -1250,7 +1250,7 @@ function renderCriterios() {
     html += '<span class="crit-section-count">' + its.length + ' cargos</span>';
     html += '</div>';
 
-    html += '<div class="crit-grid" style="--max-crit:' + maxCrit + '">';
+    html += '<div class="crit-grid-wrap"><div class="crit-grid" style="--max-crit:' + maxCrit + '">';
     html += '<div class="crit-grid-head">Cargo</div>';
     html += '<div class="crit-grid-head">Monto</div>';
     for (var h = 1; h <= maxCrit; h++) html += '<div class="crit-grid-head">C' + h + '</div>';
@@ -1264,12 +1264,20 @@ function renderCriterios() {
       html += '</div>';
       for (var j = 0; j < maxCrit; j++) {
         var v = item.criterios[j] || '';
-        html += '<div class="crit-grid-cell">';
-        html += '<textarea class="crit-text-cell" data-row="' + globalIdx + '" data-col="crit' + j + '" rows="2"' + (APP.criteriosEditable ? '' : ' readonly') + '>' + esc(v) + '</textarea>';
+        var hasText = v && v.length > 0;
+        html += '<div class="crit-grid-cell" title="' + escAttr(v) + '">';
+        if (APP.criteriosEditable) {
+          html += '<textarea class="crit-text-cell editable" data-row="' + globalIdx + '" data-col="crit' + j + '" rows="2">' + esc(v) + '</textarea>';
+        } else {
+          html += '<div class="crit-text-readonly' + (hasText ? '' : ' empty') + '" data-row="' + globalIdx + '" data-col="crit' + j + '">' + esc(v || '—') + '</div>';
+          if (hasText && v.length > 35) {
+            html += '<div class="crit-popover">' + esc(v) + '</div>';
+          }
+        }
         html += '</div>';
       }
     });
-    html += '</div></div>';
+    html += '</div></div></div>';
   });
 
   el.innerHTML = html;
@@ -1277,19 +1285,7 @@ function renderCriterios() {
 
 function toggleEdicionCriterios() {
   APP.criteriosEditable = !APP.criteriosEditable;
-  var btn = document.getElementById('btnEditCrit');
-  var save = document.getElementById('btnSaveCrit');
-  if (APP.criteriosEditable) {
-    btn.textContent = '🔓 Edición habilitada';
-    btn.classList.remove('btn-secondary'); btn.classList.add('btn-success');
-    save.style.display = '';
-    document.querySelectorAll('.crit-monto-input, .crit-text-cell').forEach(function(el) { el.removeAttribute('readonly'); });
-  } else {
-    btn.textContent = '🔒 Habilitar edición';
-    btn.classList.add('btn-secondary'); btn.classList.remove('btn-success');
-    save.style.display = 'none';
-    document.querySelectorAll('.crit-monto-input, .crit-text-cell').forEach(function(el) { el.setAttribute('readonly', 'readonly'); });
-  }
+  renderCriterios(); // re-render: readonly usa div, editable usa textarea
 }
 
 function guardarCriterios() {
@@ -1345,9 +1341,20 @@ function cargarTarifas() {
   });
 }
 
+// Solo "tarifa" se edita en este tab. Los 4 bonos son visualización (la edición vive en Criterios).
 function fmtTarifaCell(idx, field, val) {
   if (!val) return '<span class="empty-bono">—</span>';
-  return '<input type="text" class="tarifa-input" id="tf-' + idx + '-' + field + '" value="' + fmtMontoSimple(val) + '"' + (APP.tarifasEditable ? '' : ' readonly') + ' onchange="onTarifaChange(' + idx + ')">';
+  var esTarifaBase = (field === 'tarifa');
+  if (esTarifaBase) {
+    return '<input type="text" class="tarifa-input tarifa-base" id="tf-' + idx + '-' + field + '" value="' + fmtMontoSimple(val) + '"' + (APP.tarifasEditable ? '' : ' readonly') + ' onchange="onTarifaChange(' + idx + ')">';
+  }
+  // Bonos: solo display, click → mensaje
+  return '<div class="tarifa-bono-readonly" onclick="alertEditarBonosEnCriterios()" title="Editar en tab Criterios">$' + fmtMontoSimple(val) + '</div>' +
+         '<input type="hidden" id="tf-' + idx + '-' + field + '" value="' + fmtMontoSimple(val) + '">';
+}
+
+function alertEditarBonosEnCriterios() {
+  showToast('Los montos de los bonos se editan en la tab Criterios', 'info');
 }
 
 function renderTarifas() {
@@ -1358,9 +1365,10 @@ function renderTarifas() {
   var html = '';
   html += '<div class="crit-toolbar">';
   html += '<button class="btn ' + (APP.tarifasEditable ? 'btn-success' : 'btn-secondary') + '" id="btnEditTarifas" onclick="toggleEdicionTarifas()">';
-  html += APP.tarifasEditable ? '🔓 Edición habilitada' : '🔒 Habilitar edición';
+  html += APP.tarifasEditable ? '🔓 Edición habilitada (tarifa base)' : '🔒 Editar tarifa base';
   html += '</button>';
-  html += '<button class="btn btn-primary" id="btnSaveTarifas" onclick="guardarTarifas()" style="' + (APP.tarifasEditable ? '' : 'display:none;') + '">💾 Guardar cambios</button>';
+  html += '<button class="btn btn-primary" id="btnSaveTarifas" onclick="guardarTarifas()" style="' + (APP.tarifasEditable ? '' : 'display:none;') + '">💾 Guardar tarifas</button>';
+  html += '<div class="tarifas-note">ℹ️ Los <b>montos de bonos</b> son solo visualización — se editan en la tab <b>Criterios</b>.</div>';
   html += '</div>';
 
   html += '<div style="overflow-x:auto;">';
@@ -1412,6 +1420,7 @@ function _parseMoneyInput(s) {
 }
 
 function onTarifaChange(idx) {
+  // Tarifa base es el único input editable; los bonos se leen de los hidden inputs.
   var fields = ['tarifa', 'bonoFotos', 'bonoSupervisora', 'bonoActivos', 'bonoVajilla'];
   var total = 0;
   fields.forEach(function(f) {
@@ -1424,18 +1433,19 @@ function onTarifaChange(idx) {
 
 function toggleEdicionTarifas() {
   APP.tarifasEditable = !APP.tarifasEditable;
+  // Solo afecta a inputs de tarifa base (los bonos viven como display siempre).
   var btn = document.getElementById('btnEditTarifas');
   var save = document.getElementById('btnSaveTarifas');
   if (APP.tarifasEditable) {
-    btn.textContent = '🔓 Edición habilitada';
+    btn.textContent = '🔓 Edición habilitada (tarifa base)';
     btn.classList.remove('btn-secondary'); btn.classList.add('btn-success');
     save.style.display = '';
-    document.querySelectorAll('.tarifa-input').forEach(function(el) { el.removeAttribute('readonly'); });
+    document.querySelectorAll('.tarifa-input.tarifa-base').forEach(function(el) { el.removeAttribute('readonly'); });
   } else {
-    btn.textContent = '🔒 Habilitar edición';
+    btn.textContent = '🔒 Editar tarifa base';
     btn.classList.add('btn-secondary'); btn.classList.remove('btn-success');
     save.style.display = 'none';
-    document.querySelectorAll('.tarifa-input').forEach(function(el) { el.setAttribute('readonly', 'readonly'); });
+    document.querySelectorAll('.tarifa-input.tarifa-base').forEach(function(el) { el.setAttribute('readonly', 'readonly'); });
   }
 }
 
