@@ -115,6 +115,17 @@ function cargarUsuarioCFAccess() {
     .catch(function() { /* no estamos detrás de CF Access — modo dev */ });
 }
 
+function _setBotonesSemana(enabled) {
+  ['btnPagos', 'btnMailBonos'].forEach(function(id) {
+    var b = document.getElementById(id);
+    if (!b) return;
+    b.disabled = !enabled;
+    b.title = enabled
+      ? (id === 'btnPagos' ? 'Enviar bonos a Planilla de Pagos' : 'Mandar mail bonos a trabajadores')
+      : 'Selecciona una semana para habilitar';
+  });
+}
+
 function poblarSelect(id, valores) {
   var sel = document.getElementById(id);
   if (!sel) return;
@@ -187,14 +198,17 @@ function renderSemana(datos, detalle) {
   var el = document.getElementById('resSemana');
   if (!datos || !datos.ok) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><p>' + esc((datos && datos.msg) || 'Error') + '</p></div>';
+    _setBotonesSemana(false);
     return;
   }
   var grupos = datos.grupos || {};
   var cargos = Object.keys(grupos).sort(comparadorCargos);
   if (cargos.length === 0) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Sin bonos para esta semana</p></div>';
+    _setBotonesSemana(false);
     return;
   }
+  _setBotonesSemana(true);
 
   var html = '';
   cargos.forEach(function(cargo) {

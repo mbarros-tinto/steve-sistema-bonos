@@ -48,8 +48,8 @@
               <option value="">— Seleccionar semana —</option>
             </select>
             <button class="btn btn-secondary" onclick="sincronizar(this)" title="Sincronizar Fotos + CG + Vajilla + Supervisoras">🔄 Sync</button>
-            <button class="btn btn-success" onclick="abrirModalPagos()" title="Enviar bonos a Planilla de Pagos">📤 Pagos</button>
-            <button class="btn btn-mail" onclick="abrirModalMailBonos()" title="Mandar mail bonos a trabajadores">📧 Mail bonos</button>
+            <button class="btn btn-success" id="btnPagos" disabled onclick="abrirModalPagos()" title="Selecciona una semana para habilitar">📤 Pagos</button>
+            <button class="btn btn-mail" id="btnMailBonos" disabled onclick="abrirModalMailBonos()" title="Selecciona una semana para habilitar">📧 Mail bonos</button>
           </div>
         </div>
         <div id="resSemana">
