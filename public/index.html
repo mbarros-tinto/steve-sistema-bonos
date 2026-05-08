@@ -47,7 +47,9 @@
             <select id="selSemana" onchange="cargarSemana()">
               <option value="">— Seleccionar semana —</option>
             </select>
-            <button class="btn btn-secondary" onclick="sincronizar()" title="Sincronizar Fotos + CG + Vajilla + Supervisoras">🔄 Sync</button>
+            <button class="btn btn-secondary" onclick="sincronizar(this)" title="Sincronizar Fotos + CG + Vajilla + Supervisoras">🔄 Sync</button>
+            <button class="btn btn-success" onclick="abrirModalPagos()" title="Enviar bonos a Planilla de Pagos">📤 Pagos</button>
+            <button class="btn btn-mail" onclick="abrirModalMailBonos()" title="Mandar mail bonos a trabajadores">📧 Mail bonos</button>
           </div>
         </div>
         <div id="resSemana">
@@ -141,6 +143,21 @@
 <!-- MODAL: Override (editar ganó/no ganó) -->
 <div class="modal-backdrop" id="modalOverrideBackdrop" onclick="if(event.target===this)cerrarModal('modalOverrideBackdrop')">
   <div class="modal-box" id="modalOverrideBox"></div>
+</div>
+
+<!-- MODAL: Enviar bonos a Planilla de Pagos -->
+<div class="modal-backdrop" id="modalPagosBackdrop" onclick="if(event.target===this)cerrarModal('modalPagosBackdrop')">
+  <div class="modal-box" id="modalPagosBox" style="max-width:720px;"></div>
+</div>
+
+<!-- MODAL: Mail bonos a trabajadores -->
+<div class="modal-backdrop" id="modalMailBackdrop" onclick="if(event.target===this)cerrarModal('modalMailBackdrop')">
+  <div class="modal-box" id="modalMailBox" style="max-width:760px;"></div>
+</div>
+
+<!-- MODAL: Confirmación de envío de mails (sub-modal sobre modalMail) -->
+<div class="modal-backdrop" id="modalConfirmBackdrop" onclick="if(event.target===this)cerrarModal('modalConfirmBackdrop')" style="z-index:9999;">
+  <div class="modal-box" id="modalConfirmBox" style="max-width:560px;"></div>
 </div>
 
 <script src="config.js"></script>

@@ -138,8 +138,9 @@ function switchTab(name, btn) {
 }
 
 // ===== Sync =====
-function sincronizar() {
-  var btn = event.target;
+function sincronizar(btnEl) {
+  var btn = btnEl || (typeof event !== 'undefined' ? event.target : null);
+  if (!btn) return;
   var old = btn.textContent;
   btn.disabled = true;
   btn.textContent = '⏳ Sincronizando…';
@@ -522,6 +523,589 @@ function eliminarOverride() {
       }
     })
     .catch(function(e) { showToast('Error: ' + e.message, 'err'); });
+}
+
+// ===== MODAL PAGOS (paso 4-5: escribir bonos a Planilla Maestra) =====
+var _pagos = { codigo: null, eventosAll: [] };
+
+var ORDEN_TIPOS = { 'Fotos': 1, 'Supervisora': 2, 'Control Gestión': 3, 'Vajilla': 4 };
+var ORDEN_CARGOS_PREVIEW = {
+  'Super metre': 1, 'Metre': 2, 'Jefe de Bar': 3, 'Jefe Cocina': 4,
+  'Copero Jefe': 5, 'Copero': 6, 'Barmans': 7, 'Garzones': 8,
+  'Jefa de Floristas': 9, 'Jefa de Decoración': 10, 'Asignación Encargados Novios': 11
+};
+function _cargoRank(c) { return ORDEN_CARGOS_PREVIEW[c] || 999; }
+function _tipoRank(t)  { return ORDEN_TIPOS[t]   || 999; }
+
+// Agrupa matches del paso 4-5 por cargoBase → tipoBono → trabajadores.
+function agruparPreview(matches) {
+  if (!matches || !matches.length) return [];
+  var grupos = {};
+  matches.forEach(function(m) {
+    var cb = m.cargoBase || m.cargo || '(sin cargo)';
+    if (!grupos[cb]) grupos[cb] = { cargoBase: cb, tipos: {} };
+    var tb = m.tipoBono || '(otro)';
+    if (!grupos[cb].tipos[tb]) grupos[cb].tipos[tb] = { tipoBono: tb, nombreBono: m.nombreBono, monto: m.monto, trabajadores: [] };
+    grupos[cb].tipos[tb].trabajadores.push(m);
+  });
+  var arr = [];
+  Object.keys(grupos).forEach(function(cb) {
+    var g = grupos[cb];
+    var tiposArr = [];
+    Object.keys(g.tipos).forEach(function(tb) {
+      var tg = g.tipos[tb];
+      tg.trabajadores.sort(function(a, b) { return a.trabajador.localeCompare(b.trabajador); });
+      tiposArr.push(tg);
+    });
+    tiposArr.sort(function(a, b) { return _tipoRank(a.tipoBono) - _tipoRank(b.tipoBono); });
+    arr.push({ cargoBase: cb, tipos: tiposArr });
+  });
+  arr.sort(function(a, b) {
+    var ra = _cargoRank(a.cargoBase), rb = _cargoRank(b.cargoBase);
+    if (ra !== rb) return ra - rb;
+    return a.cargoBase.localeCompare(b.cargoBase);
+  });
+  return arr;
+}
+
+function _renderBonosAgrupados(bonos) {
+  var grupos = agruparPreview(bonos);
+  var html = '';
+  grupos.forEach(function(g) {
+    html += '<div class="prev-grupo">';
+    html += '<div class="prev-grupo-head">' + esc(g.cargoBase) + '</div>';
+    g.tipos.forEach(function(t) {
+      var n = t.trabajadores.length;
+      var totalTipo = 0;
+      t.trabajadores.forEach(function(tr) { totalTipo += Number(tr.monto) || 0; });
+      var personasTxt = n + (n === 1 ? ' persona' : ' personas');
+      html += '<div class="prev-tipo">';
+      html += '<div class="prev-tipo-name">';
+      html += '<span class="prev-tag">' + esc(t.tipoBono) + '</span> ';
+      html += esc(t.nombreBono);
+      html += '<span class="prev-meta"> · <b>' + personasTxt + '</b></span>';
+      html += '<span class="prev-monto">$' + fmtMoney(totalTipo) + '</span>';
+      html += '</div>';
+      t.trabajadores.forEach(function(tr) {
+        html += '<div class="prev-trab">';
+        html += '<span class="prev-trab-name">↳ ' + esc(tr.trabajador) + '<span class="prev-trab-meta"> · ' + esc(tr.cargo) + '</span></span>';
+        html += '<span class="prev-trab-estado">' + esc(tr.estado) + '</span>';
+        html += '<span class="prev-trab-monto">$' + fmtMoney(tr.monto) + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function abrirModalPagos() {
+  var semana = document.getElementById('selSemana').value;
+  if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
+  if (!APP.semanaData || !APP.semanaData.ok) { showToast('Carga una semana primero', 'err'); return; }
+  var eventosSet = {};
+  Object.keys(APP.semanaData.grupos || {}).forEach(function(cargo) {
+    (APP.semanaData.grupos[cargo] || []).forEach(function(ev) {
+      if (ev.codigo) eventosSet[ev.codigo] = { codigo: ev.codigo, centro: ev.centro, fecha: ev.fecha };
+    });
+  });
+  var eventos = Object.keys(eventosSet).map(function(k) { return eventosSet[k]; });
+  if (!eventos.length) { showToast('No hay eventos en esta semana', 'err'); return; }
+
+  _pagos.codigo = null;
+  _pagos.eventosAll = eventos.map(function(ev) { return ev.codigo; });
+
+  var html = '';
+  html += '<div class="modal-title">📤 Enviar bonos a Planilla de <span style="color:var(--gold);font-style:italic;">Pagos</span></div>';
+  html += '<div class="modal-sub">Semana ' + esc(semana) + ' — Selecciona un evento o "Todos" para revisar y enviar la semana completa.</div>';
+  html += '<div class="modal-section">';
+  html += '<select id="modalSelEvento" onchange="previewEventoPagos()" style="width:100%;">';
+  html += '<option value="">— Seleccionar evento —</option>';
+  html += '<option value="__ALL__">🌐 Todos los eventos aprobados (' + eventos.length + ')</option>';
+  eventos.forEach(function(ev) {
+    html += '<option value="' + escAttr(ev.codigo) + '">' + esc(ev.codigo) + ' · ' + esc(ev.centro || '') + ' · ' + esc(ev.fecha || '') + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  html += '<div id="pagosContent"></div>';
+  html += '<div class="modal-actions">';
+  html += '<button class="btn btn-secondary" onclick="cerrarModal(\'modalPagosBackdrop\')">Cerrar</button>';
+  html += '<button class="btn btn-success" id="btnEscribirPagos" disabled onclick="confirmarEscrituraPagos()">Escribir bonos</button>';
+  html += '</div>';
+  document.getElementById('modalPagosBox').innerHTML = html;
+  showModal('modalPagosBackdrop');
+}
+
+function previewEventoPagos() {
+  var codigo = document.getElementById('modalSelEvento').value;
+  var contentEl = document.getElementById('pagosContent');
+  var btn = document.getElementById('btnEscribirPagos');
+  btn.disabled = true;
+  _pagos.codigo = null;
+  if (!codigo) { contentEl.innerHTML = ''; return; }
+  contentEl.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Cargando preview…</div>';
+
+  if (codigo === '__ALL__') {
+    apiGet('previewBonosTodosLosEventos', { codigos: JSON.stringify(_pagos.eventosAll) })
+      .then(function(r) { renderPreviewMultiPagos(r); })
+      .catch(function(e) { contentEl.innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>'; });
+  } else {
+    apiGet('previewBonosParaPlanillaMaestra', { codigo: codigo })
+      .then(function(r) { renderPreviewSingle(r, codigo); })
+      .catch(function(e) { contentEl.innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>'; });
+  }
+}
+
+function renderPreviewSingle(r, codigo) {
+  var contentEl = document.getElementById('pagosContent');
+  var btn = document.getElementById('btnEscribirPagos');
+  if (!r || !r.ok) {
+    contentEl.innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    btn.disabled = true;
+    return;
+  }
+  var html = '';
+  html += '<div class="modal-section">';
+  html += '<div class="modal-section-title">Evento</div>';
+  html += '<div style="font-size:0.82em;color:rgba(255,255,255,0.7);">' + esc(r.evento.lugar) + ' · ' + esc(r.evento.fecha) + (r.evento.linea ? ' · ' + esc(r.evento.linea) : '') + '</div>';
+  if (r.yaEscritos > 0) {
+    html += '<div style="font-size:0.78em;color:var(--warn);margin-top:6px;">⚠️ Ya hay ' + r.yaEscritos + ' bono(s) escrito(s) previamente para este evento. Se reemplazarán.</div>';
+  }
+  html += '</div>';
+
+  if (r.mismatches && r.mismatches.length) {
+    html += '<div class="modal-section mismatch">';
+    html += '<div class="modal-section-title" style="color:var(--err);">❌ Mismatches (' + r.mismatches.length + ')</div>';
+    r.mismatches.forEach(function(m) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + '<span class="modal-row-meta"> · ' + esc(m.cargo) + '</span></span><span style="color:var(--err);font-size:0.78em;">' + esc(m.motivo || '') + '</span></div>';
+    });
+    html += '<div style="font-size:0.78em;color:rgba(255,107,107,0.85);margin-top:6px;">Resolver en Planilla Maestra y reintentar. <b>Hasta entonces, no se escribirá ningún bono.</b></div>';
+    html += '</div>';
+  }
+
+  if (r.bonos && r.bonos.length) {
+    html += '<div class="modal-section">';
+    html += '<div class="modal-section-title">Bonos a escribir (' + r.bonos.length + ')</div>';
+    html += _renderBonosAgrupados(r.bonos);
+    html += '<div class="modal-total">Total: $' + fmtMoney(r.totalMonto) + '</div>';
+    html += '</div>';
+  } else {
+    html += '<div class="empty">Sin bonos ganados listos para escribir.</div>';
+  }
+
+  contentEl.innerHTML = html;
+  var habilitar = r.bonos && r.bonos.length && (!r.mismatches || !r.mismatches.length);
+  btn.disabled = !habilitar;
+  btn.textContent = habilitar ? 'Escribir ' + r.bonos.length + ' bono(s) · $' + fmtMoney(r.totalMonto) : 'Resolvé los mismatches';
+  _pagos.codigo = codigo;
+}
+
+function renderPreviewMultiPagos(r) {
+  var contentEl = document.getElementById('pagosContent');
+  var btn = document.getElementById('btnEscribirPagos');
+  if (!r || !r.ok) {
+    contentEl.innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    btn.disabled = true;
+    return;
+  }
+  var html = '';
+  var totalBonos = 0, totalMismatches = 0, eventosOk = 0, eventosFail = 0;
+  (r.eventos || []).forEach(function(ev) {
+    var p = ev.preview || {};
+    html += '<div class="modal-section">';
+    html += '<div class="modal-section-title">🏛️ ' + esc(ev.codigo) + (p.ok && p.evento ? ' · ' + esc(p.evento.fecha) : '') + '</div>';
+    if (!p.ok) {
+      html += '<div class="empty" style="padding:10px;">' + esc(p.msg || 'No se pudo previsualizar') + '</div>';
+      eventosFail++;
+    } else {
+      if (p.yaEscritos > 0) html += '<div style="font-size:0.78em;color:var(--warn);margin-bottom:6px;">⚠️ ' + p.yaEscritos + ' bono(s) previos serán reemplazados.</div>';
+      if (p.mismatches && p.mismatches.length) {
+        html += '<div class="mismatch" style="padding:8px;border-radius:6px;margin-bottom:6px;">';
+        html += '<div style="font-weight:700;color:var(--err);font-size:0.82em;">❌ ' + p.mismatches.length + ' mismatch(es)</div>';
+        p.mismatches.forEach(function(m) {
+          html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + ' · ' + esc(m.cargo) + '</span><span class="modal-row-monto" style="color:var(--err);">$' + fmtMoney(m.monto) + '</span></div>';
+        });
+        html += '</div>';
+        totalMismatches += p.mismatches.length;
+        eventosFail++;
+      } else {
+        eventosOk++;
+      }
+      if (p.bonos && p.bonos.length) {
+        html += _renderBonosAgrupados(p.bonos);
+        html += '<div class="modal-total" style="margin-top:4px;">Subtotal evento: $' + fmtMoney(p.totalMonto) + '</div>';
+        totalBonos += p.bonos.length;
+      } else {
+        html += '<div class="empty" style="padding:10px;">Sin bonos.</div>';
+      }
+    }
+    html += '</div>';
+  });
+
+  html = '<div class="modal-section" style="background:rgba(46,125,90,0.15);border-color:rgba(46,125,90,0.4);">' +
+         '<div class="modal-section-title" style="color:var(--ok);">📊 Resumen semana</div>' +
+         '<div style="font-size:0.85em;color:rgba(255,255,255,0.8);">' +
+         eventosOk + ' evento(s) OK · ' + eventosFail + ' con problemas · ' + totalBonos + ' filas a escribir · ' + totalMismatches + ' mismatch(es)' +
+         '</div>' +
+         '<div class="modal-total" style="margin-top:6px;">Total global: $' + fmtMoney(r.totalGlobal || 0) + '</div>' +
+         '</div>' + html;
+  contentEl.innerHTML = html;
+  var habilitar = totalBonos > 0 && totalMismatches === 0;
+  btn.disabled = !habilitar;
+  btn.textContent = habilitar
+    ? 'Escribir bonos de todos los eventos · $' + fmtMoney(r.totalGlobal || 0)
+    : 'Resolvé los mismatches antes de escribir';
+  _pagos.codigo = '__ALL__';
+}
+
+function confirmarEscrituraPagos() {
+  if (!_pagos.codigo) return;
+  var btn = document.getElementById('btnEscribirPagos');
+  var prev = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Escribiendo…';
+  var contentEl = document.getElementById('pagosContent');
+
+  if (_pagos.codigo === '__ALL__') {
+    apiPost('escribirBonosMultipleEventos', { codigos: _pagos.eventosAll })
+      .then(function(r) { _onEscritoPagos(r, btn, prev, contentEl, true); })
+      .catch(function(e) { btn.disabled = false; btn.textContent = prev; contentEl.innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>'; });
+  } else {
+    apiPost('escribirBonosEnPlanillaMaestra', { codigo: _pagos.codigo })
+      .then(function(r) { _onEscritoPagos(r, btn, prev, contentEl, false); })
+      .catch(function(e) { btn.disabled = false; btn.textContent = prev; contentEl.innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>'; });
+  }
+}
+
+function _onEscritoPagos(r, btn, prev, contentEl, multi) {
+  if (r && r.ok) {
+    contentEl.innerHTML = '<div class="modal-section" style="background:rgba(46,125,90,0.18);border-color:rgba(46,125,90,0.4);"><div style="color:var(--ok);font-weight:700;">✅ ' + esc(r.msg || 'Bonos escritos') + '</div></div>';
+    showToast('Bonos escritos en Planilla de Pagos', 'ok');
+    btn.textContent = 'Listo';
+  } else {
+    var msg = (r && r.msg) || 'Error';
+    var html = '<div class="empty" style="color:var(--err);">⚠️ ' + esc(msg) + '</div>';
+    if (multi && r && r.fallos) {
+      r.fallos.forEach(function(f) {
+        html += '<div class="modal-section mismatch"><div class="modal-section-title" style="color:var(--err);">❌ ' + esc(f.codigo) + '</div><div style="font-size:0.82em;color:rgba(255,107,107,0.8);">' + esc(f.msg) + '</div></div>';
+      });
+    }
+    if (multi && r && r.escritos && r.escritos.length) {
+      html += '<div class="modal-section"><div class="modal-section-title" style="color:var(--ok);">✓ OK (' + r.escritos.length + ')</div>';
+      r.escritos.forEach(function(e) {
+        html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.codigo) + '</span><span class="modal-row-monto">' + e.escritos + ' filas · $' + fmtMoney(e.totalMonto) + '</span></div>';
+      });
+      html += '</div>';
+    }
+    contentEl.innerHTML = html;
+    btn.disabled = false; btn.textContent = prev;
+  }
+}
+
+// ===== MODAL MAIL BONOS =====
+var _mail = { preview: null, filtro: 'todos' };
+
+function abrirModalMailBonos() {
+  var semana = document.getElementById('selSemana').value;
+  if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
+  _mail.filtro = 'todos';
+
+  var box = document.getElementById('modalMailBox');
+  box.innerHTML =
+    '<div class="modal-title">📧 Mandar mail <span style="color:var(--gold);font-style:italic;">bonos</span></div>' +
+    '<div class="modal-sub">Semana ' + esc(semana) + ' — Cargando preview…</div>' +
+    '<div id="mailContent"><div class="spinner-wrap"><div class="spinner"></div>Calculando bonos por trabajador…</div></div>' +
+    '<div class="modal-actions"><button class="btn btn-secondary" onclick="cerrarModal(\'modalMailBackdrop\')">Cerrar</button></div>';
+  showModal('modalMailBackdrop');
+
+  apiGet('getMailPreviewSemana', { semana: semana })
+    .then(function(r) { renderMailPreview(r, semana); })
+    .catch(function(e) {
+      document.getElementById('mailContent').innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>';
+    });
+}
+
+function mailCambiarFiltro(f) {
+  _mail.filtro = f;
+  if (_mail.preview) renderMailPreview(_mail.preview, _mail.preview.semana);
+}
+
+function mailToggleAll(state) {
+  document.querySelectorAll('.mail-check').forEach(function(c) { c.checked = !!state; });
+}
+
+function _iconTipoMail(tipo) {
+  var t = String(tipo || '').toLowerCase();
+  if (t.indexOf('fotos') !== -1)        return '📸';
+  if (t.indexOf('supervisora') !== -1)  return '⭐';
+  if (t.indexOf('vajilla') !== -1)      return '🍽';
+  if (t.indexOf('control') !== -1)      return '📦';
+  return '🎯';
+}
+
+function renderMailPreview(r, semana) {
+  var el = document.getElementById('mailContent');
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    return;
+  }
+  _mail.preview = r;
+  var trabs    = r.trabajadores || [];
+  var sinEmail = r.sinEmail || [];
+
+  var box = document.getElementById('modalMailBox');
+  box.querySelector('.modal-sub').textContent = 'Semana ' + semana + ' — ' + r.totalEmails + ' destinatarios · Total $' + fmtMoney(r.totalGlobal);
+
+  if (trabs.length === 0 && sinEmail.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No hay trabajadores con bonos para esta semana</p></div>';
+    return;
+  }
+
+  // Filtros
+  function pasa(t) {
+    if (_mail.filtro === 'ganaron-todo')  return t.noGanados === 0 && t.ganados > 0;
+    if (_mail.filtro === 'algun-perdido') return t.noGanados > 0;
+    if (_mail.filtro === 'pendientes')    return !t.yaEnviado;
+    if (_mail.filtro === 'enviados')      return !!t.yaEnviado;
+    return true;
+  }
+  var trabsFiltrados    = trabs.filter(pasa);
+  var sinEmailFiltrados = sinEmail.filter(pasa);
+
+  var totalAll     = trabs.length + sinEmail.length;
+  var ganaronTodo  = [].concat(trabs, sinEmail).filter(function(t) { return t.noGanados === 0 && t.ganados > 0; }).length;
+  var algunPerdido = [].concat(trabs, sinEmail).filter(function(t) { return t.noGanados > 0; }).length;
+  var pendientes   = trabs.filter(function(t) { return !t.yaEnviado; }).length;
+  var yaEnviadosN  = trabs.filter(function(t) { return  t.yaEnviado; }).length;
+
+  // Agrupar por cargo (cargo principal del primer evento)
+  var grupos = {};
+  function pushGrupo(t, sin) {
+    var cargo = (t.eventos && t.eventos[0] && t.eventos[0].cargo) || '(sin cargo)';
+    if (!grupos[cargo]) grupos[cargo] = { cargo: cargo, trabs: [], total: 0 };
+    grupos[cargo].trabs.push(Object.assign({ _sinEmail: !!sin }, t));
+    grupos[cargo].total += t.totalMonto;
+  }
+  trabsFiltrados.forEach(function(t) { pushGrupo(t, false); });
+  sinEmailFiltrados.forEach(function(t) { pushGrupo(t, true); });
+
+  var ordenCargos = [
+    'Super metre', 'Metre', 'Jefe de Bar', 'Jefe Cocina', 'Copero Jefe', 'Copero',
+    'Barmans', 'Barman', 'Garzones', 'Garzón', 'Garzon Decoración',
+    'Jefa de Decoración', 'Jefa de Floristas', 'Florista', 'Asignación Encargados Novios'
+  ];
+  var cargosKeys = Object.keys(grupos).sort(function(a, b) {
+    var ia = ordenCargos.indexOf(a); if (ia < 0) ia = 999;
+    var ib = ordenCargos.indexOf(b); if (ib < 0) ib = 999;
+    if (ia !== ib) return ia - ib;
+    return a.localeCompare(b);
+  });
+
+  var html = '';
+  // Tabs filtros
+  html += '<div class="mail-filtros">';
+  html += '<button class="mail-tab' + (_mail.filtro === 'todos' ? ' active' : '') + '" onclick="mailCambiarFiltro(\'todos\')">Todos <span>' + totalAll + '</span></button>';
+  html += '<button class="mail-tab' + (_mail.filtro === 'pendientes' ? ' active' : '') + '" onclick="mailCambiarFiltro(\'pendientes\')">📨 Pendientes <span>' + pendientes + '</span></button>';
+  html += '<button class="mail-tab' + (_mail.filtro === 'enviados' ? ' active' : '') + '" onclick="mailCambiarFiltro(\'enviados\')">✉ Ya enviados <span>' + yaEnviadosN + '</span></button>';
+  html += '<button class="mail-tab' + (_mail.filtro === 'ganaron-todo' ? ' active' : '') + '" onclick="mailCambiarFiltro(\'ganaron-todo\')">✓ Ganaron todo <span>' + ganaronTodo + '</span></button>';
+  html += '<button class="mail-tab' + (_mail.filtro === 'algun-perdido' ? ' active' : '') + '" onclick="mailCambiarFiltro(\'algun-perdido\')">✗ Algún perdido <span>' + algunPerdido + '</span></button>';
+  html += '</div>';
+
+  html += '<div class="mail-section-head">';
+  html += '<div>' + cargosKeys.length + ' cargo(s) · ' + trabsFiltrados.length + ' destinatario(s)' + (sinEmailFiltrados.length ? ' · ' + sinEmailFiltrados.length + ' sin email' : '') + '</div>';
+  html += '<div><span class="mail-toggle" onclick="mailToggleAll(true)">Marcar todos</span> · <span class="mail-toggle" onclick="mailToggleAll(false)">Ninguno</span></div>';
+  html += '</div>';
+
+  if (cargosKeys.length === 0) {
+    html += '<div class="empty">Sin trabajadores para el filtro seleccionado.</div>';
+    el.innerHTML = html;
+    _renderMailActions(0);
+    return;
+  }
+
+  var ordenTipo = ['Fotos', 'Supervisora', 'Control Gestión', 'Vajilla'];
+  cargosKeys.forEach(function(cargo) {
+    var g = grupos[cargo];
+    var nSinEmail = g.trabs.filter(function(t) { return t._sinEmail; }).length;
+    html += '<div class="mail-cargo">';
+    html += '<div class="mail-cargo-head">';
+    html += '<div class="mail-cargo-title">👥 ' + esc(cargo) + '</div>';
+    html += '<div class="mail-cargo-meta">' + g.trabs.length + ' persona(s)';
+    if (nSinEmail > 0) html += ' <span style="color:var(--err);">(' + nSinEmail + ' sin email)</span>';
+    html += ' · <b style="color:var(--ok);">$' + fmtMoney(g.total) + '</b></div>';
+    html += '</div>';
+
+    g.trabs.forEach(function(t) {
+      var rowCls = t._sinEmail ? 'mail-trab no-email' : 'mail-trab';
+      if (t.yaEnviado) rowCls += ' enviado';
+      html += '<div class="' + rowCls + '">';
+
+      html += '<label class="mail-trab-head">';
+      if (!t._sinEmail) {
+        var checkedAttr = t.yaEnviado ? '' : ' checked';
+        html += '<input type="checkbox" class="mail-check" data-trab="' + escAttr(t.nombreNorm) + '"' + checkedAttr + '>';
+      } else {
+        html += '<span class="mail-warn-icon" title="Sin email">⚠</span>';
+      }
+      html += '<div class="mail-trab-info">';
+      html += '<div class="mail-trab-nombre">' + esc(t.nombre);
+      if (t.yaEnviado) {
+        html += ' <span class="mail-enviado-badge" title="' + esc('Enviado el ' + (t.yaEnviado.fecha || '') + (t.yaEnviado.autor ? ' por ' + t.yaEnviado.autor : '')) + '">✉ ' + esc(t.yaEnviado.fecha || 'enviado') + '</span>';
+      }
+      html += '</div>';
+      html += '<div class="mail-trab-email"' + (t._sinEmail ? ' style="color:var(--err);"' : '') + '>' + esc(t.email || 'Sin email en Maestro Inscripcion') + '</div>';
+      html += '</div>';
+      html += '<div class="mail-trab-stats">' + t.ganados + '✓' + (t.noGanados ? ' · ' + t.noGanados + '✗' : '') + '</div>';
+      html += '<div class="mail-trab-monto">$' + fmtMoney(t.totalMonto) + '</div>';
+      html += '</label>';
+
+      // Línea por evento con chips icono+tick/cruz
+      (t.eventos || []).forEach(function(ev) {
+        var bonosOrd = (ev.bonos || []).slice().sort(function(a, b) {
+          var ia = ordenTipo.indexOf(a.tipoBono); if (ia < 0) ia = 99;
+          var ib = ordenTipo.indexOf(b.tipoBono); if (ib < 0) ib = 99;
+          return ia - ib;
+        });
+        html += '<div class="mail-evento">';
+        html += '<div class="mail-evento-meta"><b>' + esc(ev.lugar || ev.codigo) + '</b> · ' + esc(ev.fecha || '') + ' · ' + esc(ev.cargo) + '</div>';
+        html += '<div class="mail-bonos-mini">';
+        bonosOrd.forEach(function(b) {
+          var ic = _iconTipoMail(b.tipoBono);
+          var cls = b.cumplido ? 'gano' : 'no-gano';
+          var mark = b.cumplido ? '✓' : '✗';
+          var tip = b.nombreBono + (b.cumplido ? ' · ganó $' + fmtMoney(b.monto) : ' · NO ganó');
+          html += '<span class="mail-bono-mini ' + cls + '" title="' + escAttr(tip) + '">' + ic + mark + '</span>';
+        });
+        html += '</div>';
+        html += '<div class="mail-evento-monto">$' + fmtMoney(ev.subtotal) + '</div>';
+        html += '</div>';
+      });
+
+      html += '</div>'; // mail-trab
+    });
+
+    html += '</div>'; // mail-cargo
+  });
+
+  if (sinEmail.length > 0) {
+    html += '<div class="mail-warn-block">⚠ ' + sinEmail.length + ' trabajador(es) sin email en Maestro Inscripcion no recibirán mail. Agrega su correo en col F para incluirlos.</div>';
+  }
+
+  el.innerHTML = html;
+  _renderMailActions(trabsFiltrados.length);
+}
+
+function _renderMailActions(n) {
+  var box = document.getElementById('modalMailBox');
+  var actions = box.querySelector('.modal-actions');
+  if (!actions) return;
+  actions.innerHTML =
+    '<button class="btn btn-secondary" onclick="cerrarModal(\'modalMailBackdrop\')">Cancelar</button>' +
+    '<button class="btn btn-mail" id="btnMailEnviar"' + (n === 0 ? ' disabled' : '') + ' onclick="abrirConfirmEnvioMails()">📧 Enviar a ' + n + '</button>';
+}
+
+// Sub-modal de confirmación
+function abrirConfirmEnvioMails() {
+  if (!_mail.preview) return;
+  var seleccionados = [];
+  document.querySelectorAll('.mail-check:checked').forEach(function(c) { seleccionados.push(c.dataset.trab); });
+  if (seleccionados.length === 0) { showToast('Selecciona al menos un destinatario', 'err'); return; }
+
+  var setSel = {};
+  seleccionados.forEach(function(n) { setSel[n] = true; });
+  var trabsSel = (_mail.preview.trabajadores || []).filter(function(t) { return setSel[t.nombreNorm]; });
+  var totalMonto = trabsSel.reduce(function(s, t) { return s + t.totalMonto; }, 0);
+  var reenvios = trabsSel.filter(function(t) { return t.yaEnviado; }).length;
+  var nuevos   = trabsSel.length - reenvios;
+
+  var html = '';
+  html += '<div class="modal-title">📧 Confirmar envío</div>';
+  html += '<div class="modal-sub">Estás por enviar el resumen de bonos. Revisa antes de confirmar.</div>';
+  html += '<div class="modal-section"><div class="confirm-grid">';
+  html += '<div class="confirm-stat"><div class="confirm-num">' + trabsSel.length + '</div><div class="confirm-lbl">Total</div></div>';
+  html += '<div class="confirm-stat"><div class="confirm-num" style="color:#7fa8d4;">' + nuevos + '</div><div class="confirm-lbl">Nuevos</div></div>';
+  if (reenvios > 0) html += '<div class="confirm-stat"><div class="confirm-num" style="color:var(--warn);">' + reenvios + '</div><div class="confirm-lbl">Reenvíos ⚠</div></div>';
+  html += '<div class="confirm-stat"><div class="confirm-num" style="color:var(--ok);">$' + fmtMoney(totalMonto) + '</div><div class="confirm-lbl">Monto total</div></div>';
+  html += '</div>';
+  html += '<div style="font-size:0.78em;color:rgba(255,255,255,0.55);margin-top:6px;">Remitente: <b>Bonos Tinto Banquetería &lt;bonos@tintobanqueteria.cl&gt;</b></div>';
+  html += '</div>';
+
+  if (reenvios > 0) {
+    html += '<div class="modal-section mismatch">';
+    html += '<div class="modal-section-title" style="color:var(--warn);">⚠ ' + reenvios + ' reenvío(s) — el trabajador ya recibió el mail de esta semana</div>';
+    trabsSel.filter(function(t) { return t.yaEnviado; }).forEach(function(t) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(t.nombre) + '<span class="modal-row-meta"> · ' + esc(t.email) + '</span></span><span style="color:var(--warn);font-size:0.78em;">enviado ' + esc(t.yaEnviado.fecha || '') + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="modal-section"><div class="modal-section-title">Lista (' + trabsSel.length + ')</div><div class="confirm-list">';
+  trabsSel.forEach(function(t) {
+    html += '<div class="modal-row"><span class="modal-row-name">' + esc(t.nombre) + '<span class="modal-row-meta"> · ' + esc(t.email) + '</span></span><span class="modal-row-monto">$' + fmtMoney(t.totalMonto) + '</span></div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="modal-actions">';
+  html += '<button class="btn btn-secondary" onclick="cerrarModal(\'modalConfirmBackdrop\')">Cancelar</button>';
+  html += '<button class="btn btn-mail" id="btnConfirmEnviar" onclick="ejecutarEnvioMails()">Confirmar envío de ' + trabsSel.length + ' mail(s)</button>';
+  html += '</div>';
+
+  document.getElementById('modalConfirmBox').innerHTML = html;
+  showModal('modalConfirmBackdrop');
+}
+
+function ejecutarEnvioMails() {
+  var seleccionados = [];
+  document.querySelectorAll('#modalMailBox .mail-check:checked').forEach(function(c) { seleccionados.push(c.dataset.trab); });
+  if (seleccionados.length === 0) { showToast('Sin destinatarios', 'err'); return; }
+
+  var btn = document.getElementById('btnConfirmEnviar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando ' + seleccionados.length + '…';
+
+  apiPost('enviarMailsBonos', { semana: _mail.preview.semana, lista: seleccionados })
+    .then(function(r) {
+      cerrarModal('modalConfirmBackdrop');
+      _renderResultadoEnvioMails(r);
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Confirmar envío';
+      showToast('Error: ' + e.message, 'err');
+    });
+}
+
+function _renderResultadoEnvioMails(r) {
+  var el = document.getElementById('mailContent');
+  if (!el) return;
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    return;
+  }
+  var html = '';
+  if (r.totalEnviados > 0) {
+    html += '<div class="modal-section" style="background:rgba(46,125,90,0.18);border-color:rgba(46,125,90,0.4);"><div style="color:var(--ok);font-weight:700;">✅ ' + r.totalEnviados + ' mail(s) enviado(s) correctamente</div></div>';
+    if (r.enviados && r.enviados.length) {
+      html += '<div class="modal-section"><div class="modal-section-title">Enviados</div>';
+      r.enviados.forEach(function(e) {
+        html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-meta"> · ' + esc(e.email) + '</span></span><span class="modal-row-monto">$' + fmtMoney(e.monto) + '</span></div>';
+      });
+      html += '</div>';
+    }
+  }
+  if (r.totalErrores > 0) {
+    html += '<div class="modal-section mismatch"><div class="modal-section-title" style="color:var(--err);">❌ Errores (' + r.totalErrores + ')</div>';
+    (r.errores || []).forEach(function(e) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-meta"> · ' + esc(e.email) + '</span></span><span style="color:var(--err);font-size:0.78em;">' + esc(e.error) + '</span></div>';
+    });
+    html += '</div>';
+  }
+  el.innerHTML = html;
+
+  var box = document.getElementById('modalMailBox');
+  var actions = box.querySelector('.modal-actions');
+  if (actions) actions.innerHTML = '<button class="btn btn-secondary" onclick="cerrarModal(\'modalMailBackdrop\')">Cerrar</button>';
+  showToast('Mails: ' + r.totalEnviados + ' enviados · ' + r.totalErrores + ' errores', r.totalErrores > 0 ? 'err' : 'ok');
 }
 
 // ===== TAB CARGO (placeholder iteración siguiente) =====

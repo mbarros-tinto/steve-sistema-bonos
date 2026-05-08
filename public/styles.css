@@ -484,6 +484,307 @@ select option { background: var(--ink); color: #fff; }
 .radio-card-label.si { color: var(--ok); }
 .radio-card-label.no { color: var(--err); }
 
+/* ===== Mismatch (errores en pagos / mail) ===== */
+.mismatch {
+  background: rgba(255, 107, 107, 0.08);
+  border-color: rgba(255, 107, 107, 0.35) !important;
+}
+
+.modal-total {
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--ok);
+  text-align: right;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ===== Preview pagos: cargo → tipo → trabajadores ===== */
+.prev-grupo {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.prev-grupo-head {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.3px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--line-soft);
+  margin-bottom: 6px;
+}
+.prev-tipo {
+  margin: 6px 0 8px;
+}
+.prev-tipo-name {
+  font-size: 0.83em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.prev-tag {
+  background: rgba(201, 169, 110, 0.18);
+  color: var(--gold);
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.prev-meta { color: rgba(255, 255, 255, 0.55); font-size: 0.78em; font-weight: 500; }
+.prev-meta b { color: var(--gold); }
+.prev-monto {
+  margin-left: auto;
+  color: var(--ok);
+  font-weight: 700;
+  font-size: 0.88em;
+}
+.prev-trab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78em;
+  padding: 3px 0 3px 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.prev-trab-name { flex: 1; min-width: 0; }
+.prev-trab-meta { color: rgba(255, 255, 255, 0.5); font-size: 0.92em; }
+.prev-trab-estado {
+  font-size: 0.72em;
+  color: var(--gold);
+  font-style: italic;
+}
+.prev-trab-monto {
+  color: var(--ok);
+  font-weight: 700;
+  min-width: 70px;
+  text-align: right;
+}
+
+/* ===== Mail bonos modal ===== */
+.mail-filtros {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 12px;
+}
+.mail-tab {
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.78em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mail-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--gold);
+  border-color: rgba(201, 169, 110, 0.4);
+}
+.mail-tab.active {
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  color: var(--ink);
+  border-color: var(--gold);
+}
+.mail-tab span {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.85em;
+}
+.mail-tab.active span {
+  background: rgba(0, 0, 0, 0.2);
+}
+.mail-section-head {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 10px;
+}
+.mail-toggle {
+  color: var(--gold);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.85em;
+}
+.mail-cargo {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.mail-cargo-head {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 8px;
+}
+.mail-cargo-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.3px;
+}
+.mail-cargo-meta {
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.7);
+}
+.mail-trab {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.mail-trab.no-email {
+  background: rgba(255, 107, 107, 0.05);
+  border-color: rgba(255, 107, 107, 0.25);
+}
+.mail-trab.enviado {
+  background: linear-gradient(180deg, rgba(201, 169, 110, 0.06), rgba(255, 255, 255, 0.02));
+  border-color: rgba(201, 169, 110, 0.25);
+}
+.mail-trab-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.mail-check { margin: 0; cursor: pointer; }
+.mail-warn-icon { width: 16px; text-align: center; color: var(--err); font-weight: 700; }
+.mail-trab-info { flex: 1; min-width: 0; }
+.mail-trab-nombre {
+  font-weight: 600; font-size: 0.85em; color: #fff;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+}
+.mail-trab-email { font-size: 0.72em; color: rgba(255, 255, 255, 0.55); }
+.mail-trab-stats {
+  font-size: 0.72em; color: var(--gold);
+  min-width: 70px; text-align: right;
+}
+.mail-trab-monto {
+  color: var(--ok);
+  font-weight: 700;
+  min-width: 80px;
+  text-align: right;
+  font-size: 0.85em;
+}
+.mail-enviado-badge {
+  display: inline-block;
+  font-size: 0.7em; font-weight: 700;
+  padding: 1px 7px; border-radius: 8px;
+  background: rgba(201, 169, 110, 0.18);
+  color: var(--gold);
+  border: 1px solid rgba(201, 169, 110, 0.35);
+}
+.mail-evento {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 10px 5px 36px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.78em;
+}
+.mail-evento-meta {
+  flex: 1; min-width: 0;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.92em;
+}
+.mail-evento-meta b { color: var(--gold-soft); }
+.mail-bonos-mini { display: flex; flex-wrap: wrap; gap: 4px; }
+.mail-bono-mini {
+  display: inline-flex; align-items: center; gap: 1px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 0.85em;
+  font-weight: 700;
+  border: 1px solid;
+  cursor: help;
+  line-height: 1.1;
+  user-select: none;
+}
+.mail-bono-mini.gano {
+  background: rgba(143, 209, 158, 0.15);
+  color: var(--ok);
+  border-color: rgba(143, 209, 158, 0.45);
+}
+.mail-bono-mini.no-gano {
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff9090;
+  border-color: rgba(255, 107, 107, 0.45);
+}
+.mail-evento-monto {
+  color: var(--ok);
+  font-weight: 600;
+  min-width: 70px;
+  text-align: right;
+  font-size: 0.95em;
+}
+.mail-warn-block {
+  font-size: 0.78em;
+  color: rgba(255, 107, 107, 0.85);
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 107, 107, 0.08);
+  border-left: 3px solid var(--err);
+  border-radius: 4px;
+}
+
+/* ===== Modal confirmación ===== */
+.confirm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+.confirm-stat {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  text-align: center;
+}
+.confirm-num {
+  font-size: 1.5em;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.confirm-lbl {
+  font-size: 0.7em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 6px;
+}
+.confirm-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
 /* Mobile */
 @media (max-width: 700px) {
   .topbar { flex-direction: column; gap: 8px; align-items: flex-start; }
