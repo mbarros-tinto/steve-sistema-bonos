@@ -13,7 +13,14 @@ var APP = {
   semanaData: null,         // resultado cacheado de getDatosSemana
   detalleData: null,        // resultado cacheado de getDetalleCriteriosSemana
   bonosInfoCache: null,     // {Maestro_Bonos info para resolver tipo/icono}
-  toastTimer: null
+  toastTimer: null,
+  // Criterios + Tarifas (lazy)
+  criteriosLoaded: false,
+  criteriosItems: [],
+  criteriosEditable: false,
+  tarifasLoaded: false,
+  tarifasData: [],
+  tarifasEditable: false
 };
 
 // ===== API helpers =====
@@ -146,6 +153,9 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById('panel-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
+  // Lazy load
+  if (name === 'criterios' && !APP.criteriosLoaded) cargarCriterios();
+  if (name === 'tarifas'   && !APP.tarifasLoaded)   cargarTarifas();
 }
 
 // ===== Sync =====
@@ -1181,4 +1191,280 @@ function cargarPersona(persona) {
     else eventos.forEach(function(ev) { html += renderEventoCard(ev, ev.cargo, null); });
     el.innerHTML = html;
   });
+}
+
+// ===== TAB CRITERIOS =====
+function cargarCriterios() {
+  spinner('resCriterios', 'Cargando Maestro de Bonos…');
+  apiGet('getMaestroBonos').then(function(r) {
+    APP.criteriosLoaded = true;
+    if (!r || !r.ok) {
+      document.getElementById('resCriterios').innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+      return;
+    }
+    APP.criteriosItems = r.items || [];
+    APP.criteriosEditable = false;
+    renderCriterios();
+  }).catch(function(e) {
+    document.getElementById('resCriterios').innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>';
+  });
+}
+
+function fmtMontoSimple(n) {
+  return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function renderCriterios() {
+  var el = document.getElementById('resCriterios');
+  var items = APP.criteriosItems;
+  if (!items.length) { el.innerHTML = '<div class="empty">Sin items en Maestro_Bonos</div>'; return; }
+
+  var html = '';
+  html += '<div class="crit-toolbar">';
+  html += '<button class="btn ' + (APP.criteriosEditable ? 'btn-success' : 'btn-secondary') + '" id="btnEditCrit" onclick="toggleEdicionCriterios()">';
+  html += APP.criteriosEditable ? '🔓 Edición habilitada' : '🔒 Habilitar edición';
+  html += '</button>';
+  html += '<button class="btn btn-primary" id="btnSaveCrit" onclick="guardarCriterios()" style="' + (APP.criteriosEditable ? '' : 'display:none;') + '">💾 Guardar cambios</button>';
+  html += '</div>';
+
+  var tipos = ['Fotos', 'Supervisora', 'Control Gestión', 'Vajilla'];
+  var tipoIcons = { 'Fotos': '📸', 'Supervisora': '⭐', 'Control Gestión': '📦', 'Vajilla': '🍽' };
+  var tipoSlug  = { 'Fotos': 'Fotos', 'Supervisora': 'Supervisora', 'Control Gestión': 'CG', 'Vajilla': 'Vajilla' };
+
+  tipos.forEach(function(tipo) {
+    var its = items.filter(function(c) { return c.tipoBono === tipo; });
+    if (!its.length) return;
+
+    // Calcular max de criterios activos en esta sección
+    var maxCrit = 0;
+    its.forEach(function(item) {
+      var cnt = 0;
+      for (var j = 0; j < 10; j++) if (item.criterios[j] && String(item.criterios[j]).trim()) cnt = j + 1;
+      if (cnt > maxCrit) maxCrit = cnt;
+    });
+    if (maxCrit < 2) maxCrit = 2;
+
+    html += '<div class="crit-section crit-tipo-' + tipoSlug[tipo] + '">';
+    html += '<div class="crit-section-head">';
+    html += '<span>' + (tipoIcons[tipo] || '') + ' Bono ' + esc(tipo) + ' <span style="opacity:0.6;font-size:0.8em;font-weight:500;">(' + its[0].sistema + ')</span></span>';
+    html += '<span class="crit-section-count">' + its.length + ' cargos</span>';
+    html += '</div>';
+
+    html += '<div class="crit-grid" style="--max-crit:' + maxCrit + '">';
+    html += '<div class="crit-grid-head">Cargo</div>';
+    html += '<div class="crit-grid-head">Monto</div>';
+    for (var h = 1; h <= maxCrit; h++) html += '<div class="crit-grid-head">C' + h + '</div>';
+
+    its.forEach(function(item) {
+      var globalIdx = items.indexOf(item);
+      html += '<div class="crit-grid-cell crit-cargo-cell">' + esc(item.cargo) + '</div>';
+      html += '<div class="crit-grid-cell crit-monto-cell">';
+      html += '<span class="crit-monto-prefix">$</span>';
+      html += '<input class="crit-monto-input" data-row="' + globalIdx + '" data-col="monto" value="' + fmtMontoSimple(item.monto || 0) + '"' + (APP.criteriosEditable ? '' : ' readonly') + '>';
+      html += '</div>';
+      for (var j = 0; j < maxCrit; j++) {
+        var v = item.criterios[j] || '';
+        html += '<div class="crit-grid-cell">';
+        html += '<textarea class="crit-text-cell" data-row="' + globalIdx + '" data-col="crit' + j + '" rows="2"' + (APP.criteriosEditable ? '' : ' readonly') + '>' + esc(v) + '</textarea>';
+        html += '</div>';
+      }
+    });
+    html += '</div></div>';
+  });
+
+  el.innerHTML = html;
+}
+
+function toggleEdicionCriterios() {
+  APP.criteriosEditable = !APP.criteriosEditable;
+  var btn = document.getElementById('btnEditCrit');
+  var save = document.getElementById('btnSaveCrit');
+  if (APP.criteriosEditable) {
+    btn.textContent = '🔓 Edición habilitada';
+    btn.classList.remove('btn-secondary'); btn.classList.add('btn-success');
+    save.style.display = '';
+    document.querySelectorAll('.crit-monto-input, .crit-text-cell').forEach(function(el) { el.removeAttribute('readonly'); });
+  } else {
+    btn.textContent = '🔒 Habilitar edición';
+    btn.classList.add('btn-secondary'); btn.classList.remove('btn-success');
+    save.style.display = 'none';
+    document.querySelectorAll('.crit-monto-input, .crit-text-cell').forEach(function(el) { el.setAttribute('readonly', 'readonly'); });
+  }
+}
+
+function guardarCriterios() {
+  if (!confirm('¿Guardar cambios en Maestro_Bonos?\n\nEsto sobreescribe cargos, montos y criterios para los items mostrados.')) return;
+  var items = APP.criteriosItems.map(function(item, idx) {
+    function val(col) {
+      var el = document.querySelector('[data-row="' + idx + '"][data-col="' + col + '"]');
+      return el ? el.value.trim() : '';
+    }
+    var crits = [];
+    for (var j = 0; j < 10; j++) crits.push(val('crit' + j));
+    return {
+      cargo:    item.cargo,
+      tipoBono: item.tipoBono,
+      monto:    Number(String(val('monto')).replace(/\./g, '')) || 0,
+      sistema:  item.sistema,
+      criterios: crits
+    };
+  });
+  var btn = document.getElementById('btnSaveCrit');
+  btn.disabled = true; btn.textContent = '⏳ Guardando…';
+  apiPost('saveMaestroBonos', { items: items })
+    .then(function(r) {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios';
+      if (r && r.ok) {
+        showToast('✅ Maestro_Bonos guardado', 'ok');
+        APP.criteriosLoaded = false; // forzar recarga al re-entrar
+        cargarCriterios();
+      } else {
+        showToast('Error: ' + ((r && r.msg) || 'desconocido'), 'err');
+      }
+    })
+    .catch(function(e) {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios';
+      showToast('Error: ' + e.message, 'err');
+    });
+}
+
+// ===== TAB TARIFAS =====
+function cargarTarifas() {
+  spinner('resTarifas', 'Cargando Tarifas 2026…');
+  apiGet('getTarifas2026').then(function(r) {
+    APP.tarifasLoaded = true;
+    if (!r || !r.ok) {
+      document.getElementById('resTarifas').innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+      return;
+    }
+    APP.tarifasData = r.filas || [];
+    APP.tarifasEditable = false;
+    renderTarifas();
+  }).catch(function(e) {
+    document.getElementById('resTarifas').innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>';
+  });
+}
+
+function fmtTarifaCell(idx, field, val) {
+  if (!val) return '<span class="empty-bono">—</span>';
+  return '<input type="text" class="tarifa-input" id="tf-' + idx + '-' + field + '" value="' + fmtMontoSimple(val) + '"' + (APP.tarifasEditable ? '' : ' readonly') + ' onchange="onTarifaChange(' + idx + ')">';
+}
+
+function renderTarifas() {
+  var el = document.getElementById('resTarifas');
+  var data = APP.tarifasData;
+  if (!data.length) { el.innerHTML = '<div class="empty">Sin datos de tarifas</div>'; return; }
+
+  var html = '';
+  html += '<div class="crit-toolbar">';
+  html += '<button class="btn ' + (APP.tarifasEditable ? 'btn-success' : 'btn-secondary') + '" id="btnEditTarifas" onclick="toggleEdicionTarifas()">';
+  html += APP.tarifasEditable ? '🔓 Edición habilitada' : '🔒 Habilitar edición';
+  html += '</button>';
+  html += '<button class="btn btn-primary" id="btnSaveTarifas" onclick="guardarTarifas()" style="' + (APP.tarifasEditable ? '' : 'display:none;') + '">💾 Guardar cambios</button>';
+  html += '</div>';
+
+  html += '<div style="overflow-x:auto;">';
+  html += '<table class="tarifas-table"><thead><tr>';
+  html += '<th>Cargo</th><th>Tarifa Base</th>';
+  html += '<th>📸 Fotos</th><th>⭐ Supervisora</th><th>📦 CG</th><th>🍽 Vajilla</th>';
+  html += '<th>Total Potencial</th>';
+  html += '</tr></thead><tbody>';
+
+  var sumT = 0, sumF = 0, sumS = 0, sumA = 0, sumV = 0, sumTotal = 0;
+  var asignacionMarcada = false;
+
+  data.forEach(function(f, idx) {
+    if (String(f.cargo).toLowerCase().indexOf('asignaci') === 0 && !asignacionMarcada) {
+      asignacionMarcada = true;
+      html += '<tr class="row-sep"><td colspan="7">Asignaciones</td></tr>';
+    }
+    var total = (f.tarifa || 0) + (f.bonoFotos || 0) + (f.bonoSupervisora || 0) + (f.bonoActivos || 0) + (f.bonoVajilla || 0);
+    sumT += f.tarifa || 0; sumF += f.bonoFotos || 0; sumS += f.bonoSupervisora || 0;
+    sumA += f.bonoActivos || 0; sumV += f.bonoVajilla || 0; sumTotal += total;
+
+    html += '<tr>';
+    html += '<td>' + esc(f.cargo) + '</td>';
+    html += '<td>' + fmtTarifaCell(idx, 'tarifa', f.tarifa) + '</td>';
+    html += '<td>' + fmtTarifaCell(idx, 'bonoFotos', f.bonoFotos) + '</td>';
+    html += '<td>' + fmtTarifaCell(idx, 'bonoSupervisora', f.bonoSupervisora) + '</td>';
+    html += '<td>' + fmtTarifaCell(idx, 'bonoActivos', f.bonoActivos) + '</td>';
+    html += '<td>' + fmtTarifaCell(idx, 'bonoVajilla', f.bonoVajilla) + '</td>';
+    html += '<td class="col-total" id="total-' + idx + '">$' + fmtMontoSimple(total) + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody><tfoot><tr>';
+  html += '<td>TOTAL</td>';
+  html += '<td>$' + fmtMontoSimple(sumT) + '</td>';
+  html += '<td>$' + fmtMontoSimple(sumF) + '</td>';
+  html += '<td>$' + fmtMontoSimple(sumS) + '</td>';
+  html += '<td>$' + fmtMontoSimple(sumA) + '</td>';
+  html += '<td>$' + fmtMontoSimple(sumV) + '</td>';
+  html += '<td class="grand-total">$' + fmtMontoSimple(sumTotal) + '</td>';
+  html += '</tr></tfoot></table>';
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+function _parseMoneyInput(s) {
+  return Number(String(s).replace(/\$/g, '').replace(/\./g, '').replace(/,/g, '').trim()) || 0;
+}
+
+function onTarifaChange(idx) {
+  var fields = ['tarifa', 'bonoFotos', 'bonoSupervisora', 'bonoActivos', 'bonoVajilla'];
+  var total = 0;
+  fields.forEach(function(f) {
+    var inp = document.getElementById('tf-' + idx + '-' + f);
+    if (inp) total += _parseMoneyInput(inp.value);
+  });
+  var totalEl = document.getElementById('total-' + idx);
+  if (totalEl) totalEl.textContent = '$' + fmtMontoSimple(total);
+}
+
+function toggleEdicionTarifas() {
+  APP.tarifasEditable = !APP.tarifasEditable;
+  var btn = document.getElementById('btnEditTarifas');
+  var save = document.getElementById('btnSaveTarifas');
+  if (APP.tarifasEditable) {
+    btn.textContent = '🔓 Edición habilitada';
+    btn.classList.remove('btn-secondary'); btn.classList.add('btn-success');
+    save.style.display = '';
+    document.querySelectorAll('.tarifa-input').forEach(function(el) { el.removeAttribute('readonly'); });
+  } else {
+    btn.textContent = '🔒 Habilitar edición';
+    btn.classList.add('btn-secondary'); btn.classList.remove('btn-success');
+    save.style.display = 'none';
+    document.querySelectorAll('.tarifa-input').forEach(function(el) { el.setAttribute('readonly', 'readonly'); });
+  }
+}
+
+function guardarTarifas() {
+  if (!confirm('¿Guardar los cambios en Tarifas 2026?\n\nEsto actualizará la hoja Tarifas y propagará los montos a Maestro_Bonos.')) return;
+  var fields = ['tarifa', 'bonoFotos', 'bonoSupervisora', 'bonoActivos', 'bonoVajilla'];
+  var cambios = APP.tarifasData.map(function(f, idx) {
+    var item = { fila: f.fila, cargo: f.cargo };
+    fields.forEach(function(field) {
+      var inp = document.getElementById('tf-' + idx + '-' + field);
+      item[field] = inp ? _parseMoneyInput(inp.value) : f[field];
+    });
+    return item;
+  });
+  var btn = document.getElementById('btnSaveTarifas');
+  btn.disabled = true; btn.textContent = '⏳ Guardando…';
+  apiPost('saveTarifas2026', { cambios: cambios })
+    .then(function(r) {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios';
+      if (r && r.ok) {
+        showToast('✅ Tarifas guardadas (' + (r.updated || cambios.length) + ' filas)', 'ok');
+        APP.tarifasLoaded = false;
+        cargarTarifas();
+      } else {
+        showToast('Error: ' + ((r && r.msg) || 'desconocido'), 'err');
+      }
+    })
+    .catch(function(e) {
+      btn.disabled = false; btn.textContent = '💾 Guardar cambios';
+      showToast('Error: ' + e.message, 'err');
+    });
 }
