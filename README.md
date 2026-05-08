@@ -28,9 +28,9 @@ Fuentes asociadas:
 
 | Módulo | Versión | Deployment ID |
 |---|---|---|
-| Centralizado | v29 | `AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H` |
-| Fotos 2.0 | v37 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
-| CG | v17 | `AKfycbyzQPkvD6HGelsOgO72ZI0N30G7BV6UN3I1Gyaq65135PfnWBytlhs4YHhzTjOQQa16` |
+| Centralizado | v45 | `AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H` |
+| Fotos 2.0 | v39 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
+| CG | v19 | `AKfycbyzQPkvD6HGelsOgO72ZI0N30G7BV6UN3I1Gyaq65135PfnWBytlhs4YHhzTjOQQa16` |
 
 URL Web App = `https://script.google.com/macros/s/<deploymentId>/exec`
 
@@ -81,6 +81,34 @@ steve-sistema-bonos/
 ├── README.md
 └── CLAUDE.md
 ```
+
+## Funcionalidad actual (post v45)
+
+### Centralizado (dashboard principal)
+- 5 tabs: **Semana**, **Cargo**, **Historial**, **Criterios**, **Tarifas**
+- Bonos consolidados por cargo con AND estricto entre cargos aplicables (Garzones agrupa Garzón + Jefa Decoración + Garzón Decoración; Barmans agrupa todos los Barman)
+- `Maestro_Bonos` con col R `Cargos Aplicables` define el mapeo cargo → bono consolidado
+- **Paso 4-5 → Planilla Maestra**: preview ordenado + envío por evento individual o todos los eventos del weekend, expande bono a N filas (1 por trabajador con cargo aplicable)
+- **Mail bonos** desde alias `bonos@tintobanqueteria.cl` con preview agrupado por cargo, filtros (Pendientes / Ya enviados / Ganaron todo / Algún perdido), modal de confirmación, tracking en hoja `Mails_Enviados`
+- **Overrides_Bonos**: edición manual de "ganó / no ganó" desde el dashboard (key: codigo+nombreBono)
+- **Fotos on-demand**: modal con thumbnails Drive vía normalización fuzzy de cargos
+- Normalización de tildes (`Garzón` ≡ `Garzon`) en match con Planilla Maestra
+- Sync de Vajilla en hoja `Fuente_Vajilla` (separado de `Fuente_CG` desde v36)
+
+### Fotos 2.0
+- Dedup por `(codigoEvento, cargo, instruccion)` — sin nombre del trabajador en la key
+- Detección de fotos previas al cambiar de cargo
+
+### CG
+- Form consolidado: evalúa **Garzones** y **Barmans** como bonos grupales (sin pedir nombre individual del trabajador)
+- 4 cargos individuales: Super metre, Metre, Jefe de Bar, Jefe Cocina
+- Módulo Vajilla: evalúa merma de vajilla por evento ($800/invitado por defecto)
+
+## Migración a Cloudflare Pages (en progreso)
+
+Plan: migrar el **dashboard del Centralizado** a frontend estático en CF Pages bajo `bonos.tintobanqueteria.cl`, manteniendo Apps Script como API. El sistema viejo (`script.google.com/.../exec` con `WebApp.html`) sigue funcionando en paralelo durante el shadow testing.
+
+Ver `docs/MIGRACION.md` (próximamente) para el plan detallado.
 
 ## Relación con otros sistemas
 

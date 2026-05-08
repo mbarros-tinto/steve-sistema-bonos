@@ -75,6 +75,17 @@ header {
 }
 .trabajador-input:focus { outline: none; border-color: #3d4eac; background: #f4f6ff; }
 .trabajador-input.is-filled { border-color: #1a7a4a; background: #f0faf5; }
+.trabajador-row-grupal {
+  background: #fffaf0;
+  border-color: #f0d9a8;
+}
+.trabajador-row-grupal .trab-label { color: #7a5510; }
+.trab-grupo-list {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #5a3810;
+  font-style: italic;
+}
 .criterios-list { display: flex; flex-direction: column; gap: 4px; }
 .crit-row {
   display: flex; align-items: flex-start; gap: 9px;
@@ -372,6 +383,29 @@ function renderSemana(data) {
       const cfg   = S.config[cargo];
       const saved = S.guardados.find(g => g.codigoEvento === ev.codigoEvento && g.cargo === cargo);
 
+      // Renderizado del input de trabajador. Para bonos grupales (Garzones,
+      // Barmans) no pedimos un trabajador específico — mostramos los cargos
+      // aplicables. El pago se reparte entre todos en Planilla Maestra.
+      const esGrupal = !!cfg.esGrupal;
+      const cargosApl = cfg.cargosAplicables || [cargo];
+      function trabajadorRow(sid, valor) {
+        if (esGrupal) {
+          return `<div class="trabajador-row trabajador-row-grupal">
+            <span class="trab-label">👥 Grupo:</span>
+            <span class="trab-grupo-list">${escHtml(cargosApl.join(' · '))}</span>
+            <input type="hidden" id="trab-${sid}" value="">
+          </div>`;
+        }
+        return `<div class="trabajador-row">
+          <span class="trab-label">👤 Trabajador:</span>
+          <input type="text" class="trabajador-input${valor ? ' is-filled' : ''}" id="trab-${sid}"
+            list="dl-trabajadores"
+            value="${escHtml(valor || '')}"
+            placeholder="${valor ? '' : 'Escribe o selecciona el nombre...'}"
+            autocomplete="off" oninput="onTrabInput(this)">
+        </div>`;
+      }
+
       if (saved) {
         const sid = safeid(ev.codigoEvento, cargo);
         const savedTrab = (saved.trabajador && saved.trabajador !== saved.cargo) ? saved.trabajador : '';
@@ -391,14 +425,7 @@ function renderSemana(data) {
             <div><div class="cargo-title">${cargo}</div><div class="cargo-bono">${cfg.nombreBono}</div></div>
             <span class="badge badge-saved">↩ Ya evaluado — editable</span>
           </div>
-          <div class="trabajador-row">
-            <span class="trab-label">👤 Trabajador:</span>
-            <input type="text" class="trabajador-input${savedTrab ? ' is-filled' : ''}" id="trab-${sid}"
-              list="dl-trabajadores"
-              value="${escHtml(savedTrab)}"
-              placeholder="Escribe o selecciona el nombre..."
-              autocomplete="off" oninput="onTrabInput(this)">
-          </div>
+          ${trabajadorRow(sid, savedTrab)}
           <div class="criterios-list">${crits}</div>
         </div>`;
       } else {
@@ -413,20 +440,13 @@ function renderSemana(data) {
             <span class="crit-label">${crit}</span>
           </label>`;
         });
-        const autoTrab = (S.trabPorEvento[ev.codigoEvento] || {})[cargo] || '';
+        const autoTrab = esGrupal ? '' : ((S.trabPorEvento[ev.codigoEvento] || {})[cargo] || '');
         html += `<div class="cargo-section" data-evento="${ev.codigoEvento}" data-cargo="${cargo}">
           <div class="cargo-header">
             <div><div class="cargo-title">${cargo}</div><div class="cargo-bono">${cfg.nombreBono}</div></div>
             <span class="badge badge-pending">${cfg.criterios.length} criterios</span>
           </div>
-          <div class="trabajador-row">
-            <span class="trab-label">👤 Trabajador:</span>
-            <input type="text" class="trabajador-input${autoTrab ? ' is-filled' : ''}" id="trab-${sid}"
-              list="dl-trabajadores"
-              value="${escHtml(autoTrab)}"
-              placeholder="${autoTrab ? '' : 'Escribe o selecciona el nombre...'}"
-              autocomplete="off" oninput="onTrabInput(this)">
-          </div>
+          ${trabajadorRow(sid, autoTrab)}
           <div class="criterios-list">${crits}</div>
         </div>`;
       }

@@ -56,7 +56,7 @@ function getWeeksData() {
 function getDatosForSemana(semana) {
   return {
     eventos:             _getEventosDeSemana(semana),
-    criteriosConfig:     _getCriteriosConfig('Activos'),
+    criteriosConfig:     _getCriteriosConfig('Control Gestión'),
     criteriosVajilla:    _getCriteriosConfig('Vajilla'),
     yaEvaluados:         _getYaEvaluados(semana),
     yaEvaluadosVajilla:  _getYaEvaluadosVajilla(semana),
@@ -91,11 +91,12 @@ function _getEventosDeSemana(semana) {
 }
 
 function _getCriteriosConfig(tipoBono) {
-  tipoBono = tipoBono || 'Activos';
+  tipoBono = tipoBono || 'Control Gestión';
   const sheet   = SpreadsheetApp.openById(ID_CENTRALIZADO).getSheetByName('Maestro_Bonos');
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return {};
-  const data   = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
+  // Ahora leemos 18 cols para incluir col R "Cargos Aplicables"
+  const data   = sheet.getRange(2, 1, lastRow - 1, 18).getValues();
   const config = {};
   data.forEach(row => {
     const cargo   = String(row[0]).trim();
@@ -110,7 +111,21 @@ function _getCriteriosConfig(tipoBono) {
       if (c && c !== '--' && c !== '-' && c !== '--') criterios.push(c);
     }
     if (criterios.length === 0) return;
-    config[cargo] = { nombreBono: 'Bono ' + tipo + ' ' + cargo, monto, criterios };
+    const aplStr = String(row[17] || '').trim();
+    const cargosAplicables = aplStr
+      ? aplStr.split(',').map(s => s.trim()).filter(s => s)
+      : [cargo];
+    // Bono grupal: si cargosAplicables tiene más de uno, o el único cargo aplicable
+    // es distinto al cargo base. Ej: Garzones → [Garzón, Jefa de Decoración, Garzon Decoración].
+    const esGrupal = cargosAplicables.length > 1 ||
+                     (cargosAplicables.length === 1 && cargosAplicables[0] !== cargo);
+    config[cargo] = {
+      nombreBono: 'Bono ' + tipo + ' ' + cargo,
+      monto,
+      criterios,
+      cargosAplicables,
+      esGrupal
+    };
   });
   return config;
 }
@@ -399,3 +414,4 @@ function abrirWebApp() {
   ).setWidth(10).setHeight(10);
   SpreadsheetApp.getUi().showModalDialog(html, 'Abriendo evaluador...');
 }
+

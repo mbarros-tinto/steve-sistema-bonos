@@ -123,7 +123,7 @@ function _leerBonosDesdeAux() {
     var themes = {
       'Fotos':       { source: 'fotos' },
       'Supervisora': { source: 'supervisora' },
-      'Activos':     { source: 'cg' },
+      'Control Gestión': { source: 'cg' },
       'Vajilla':     { source: 'cg' }
     };
 
@@ -252,7 +252,10 @@ function _leerCriteriosCGPorCargo(cgCargo) {
 // Registro cols: Timestamp(0), Fecha Evento(1), Centro(2), Cargo(3),
 //               Nombre(4), Instruccion(5), URL Drive(6), Codigo Evento(7), Valida(8)
 // ==================================================================
-function getFotosSubidas(fecha, centro, cargo, nombre) {
+// getFotosSubidas — ahora busca por (codigoEvento, cargo), ignorando nombre.
+// Retorna { instruccion: { url, nombre }, ... } para mostrar estado en el WebApp.
+// Signature mantiene parámetros legacy para compatibilidad, pero usa código+cargo.
+function getFotosSubidas(fecha, centro, cargo, nombre, codigo) {
   try {
     var ss   = SpreadsheetApp.openById(CONFIG.SHEET_ID);
     var hoja = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
@@ -260,16 +263,21 @@ function getFotosSubidas(fecha, centro, cargo, nombre) {
 
     var datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 9).getValues();
     var result = {};
-    var fechaNorm = _normFecha(fecha);
     datos.forEach(function(row) {
-      var rFecha  = _normFecha(row[1]);     // col B: Fecha Evento (normalizado)
-      var rCentro = String(row[2]).trim();   // col C: Centro
+      var rCodigo = String(row[7]).trim();   // col H: Codigo Evento
       var rCargo  = String(row[3]).trim();   // col D: Cargo
-      var rNombre = String(row[4]).trim();   // col E: Nombre
       var rInstr  = String(row[5]).trim();   // col F: Instruccion
       var rValida = row[8];                  // col I: Valida
-      if (rFecha === fechaNorm && rCentro === centro && rCargo === cargo &&
-          rNombre === nombre && rInstr &&
+      // Si viene código, usar código+cargo. Si no, fallback a fecha+centro+cargo (legacy).
+      var match = false;
+      if (codigo) {
+        match = (rCodigo === codigo && rCargo === cargo);
+      } else {
+        var fechaNorm = _normFecha(fecha);
+        match = (_normFecha(row[1]) === fechaNorm &&
+                 String(row[2]).trim() === centro && rCargo === cargo);
+      }
+      if (match && rInstr &&
           (rValida === true || String(rValida).toUpperCase() === 'TRUE')) {
         result[rInstr] = true;
       }
@@ -289,7 +297,7 @@ function getFotosSubidas(fecha, centro, cargo, nombre) {
 //         |_- MM/AAAA Fotos           ej: "03/2026 Fotos"
 //             |_- Semana X            ej: "Semana 3"  (X = semana del mes del lunes)
 //                 |_- DD/MM/AAAA Nombre novia  ej: "20/03/2026 Josefina Fuentes"
-//                     |_- Cargo       ej: "Super Metre"
+//                     |_- Cargo       ej: "Super metre"
 //                         |_- NombreInstruccion.jpg
 //
 // Registro cols: Timestamp | Fecha Evento | Centro | Cargo | Nombre
@@ -344,7 +352,8 @@ function procesarFoto(params) {
     var file    = cargoFolder.createFile(blob);
     var fileUrl = file.getUrl();
 
-    // -- 2. Registro en hoja -- upsert por (fechaEvento, centro, cargo, nombre, instruccion) --
+    // -- 2. Registro en hoja -- upsert por (codigoEvento, cargo, instruccion) --
+    //    Si cambia el nombre del trabajador, se sobreescribe (no crear duplicado).
     var ss   = SpreadsheetApp.openById(CONFIG.SHEET_ID);
     var hReg = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
     var ts   = new Date();
@@ -363,14 +372,11 @@ function procesarFoto(params) {
     var filaExistente = -1;
     var lastReg = hReg.getLastRow();
     if (lastReg >= 2) {
-      var regData    = hReg.getRange(2, 1, lastReg - 1, 9).getValues();
-      var fechaNorm  = _normFecha(params.fechaEvento);
+      var regData = hReg.getRange(2, 1, lastReg - 1, 9).getValues();
       for (var i = 0; i < regData.length; i++) {
         var r = regData[i];
-        if (_normFecha(r[1])    === fechaNorm          &&
-            String(r[2]).trim() === params.centro      &&
+        if (String(r[7]).trim() === params.codigo      &&
             String(r[3]).trim() === params.cargo       &&
-            String(r[4]).trim() === params.nombre      &&
             String(r[5]).trim() === params.instruccion) {
           filaExistente = 2 + i;
           break;
@@ -393,6 +399,53 @@ function procesarFoto(params) {
   } catch(e) {
     try { lock.releaseLock(); } catch(le) {}
     Logger.log('procesarFoto error: ' + e.toString());
+    return { ok: false, mensaje: e.toString() };
+  }
+}
+
+// ==================================================================
+// CONSULTAR FOTOS EXISTENTES POR CARGO+EVENTO
+// Retorna { nombre, fotos: { instruccion: url, ... }, faltantes: ['crit1', ...] }
+// El WebApp usa esto para mostrar solo las fotos que faltan.
+// ==================================================================
+function getExistingPhotosForCargo(codigo, cargo) {
+  try {
+    var ss   = SpreadsheetApp.openById(CONFIG.SHEET_ID);
+    var hReg = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
+    var lastReg = hReg.getLastRow();
+
+    var fotos  = {};  // instruccion -> { url, nombre }
+    var nombre = '';
+    if (lastReg >= 2) {
+      var regData = hReg.getRange(2, 1, lastReg - 1, 9).getValues();
+      for (var i = 0; i < regData.length; i++) {
+        var r = regData[i];
+        if (String(r[7]).trim() === codigo &&
+            String(r[3]).trim() === cargo &&
+            (r[8] === true || String(r[8]).toUpperCase() === 'TRUE')) {
+          var instr = String(r[5]).trim();
+          fotos[instr] = { url: String(r[6]).trim() };
+          nombre = String(r[4]).trim(); // último nombre registrado
+        }
+      }
+    }
+
+    // Obtener criterios del cargo para saber cuáles faltan
+    var instrMap  = _leerInstrucciones();
+    var criterios = instrMap[cargo] || [];
+    var faltantes = criterios.filter(function(c) { return !fotos[c]; });
+
+    return {
+      ok: true,
+      nombre: nombre,
+      subidas: Object.keys(fotos).length,
+      total: criterios.length,
+      fotos: fotos,
+      faltantes: faltantes,
+      completo: faltantes.length === 0 && criterios.length > 0
+    };
+  } catch(e) {
+    Logger.log('getExistingPhotosForCargo error: ' + e.toString());
     return { ok: false, mensaje: e.toString() };
   }
 }
@@ -543,19 +596,17 @@ function _actualizarBonoFotos(params, ss) {
     if (criterios.length === 0) return; // Sin criterios definidos para este cargo
 
     // 2. Leer Registro para contar qué instrucciones ya están subidas y válidas
+    //    Dedup por (codigoEvento, cargo) — sin filtrar por nombre para tolerar cambios de nombre.
     //    Registro cols: Timestamp(0) | Fecha Evento(1) | Centro(2) | Cargo(3)
     //                   Nombre(4) | Instruccion(5) | URL Drive(6) | Codigo(7) | Valida(8)
     var hReg         = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
     var lastReg      = hReg.getLastRow();
     var fotosSubidas = {}; // instruccion -> true
     if (lastReg >= 2) {
-      var regData    = hReg.getRange(2, 1, lastReg - 1, 9).getValues();
-      var fechaNorm  = _normFecha(params.fechaEvento); // normaliza YYYY-MM-DD, DD/MM/YYYY, Date -> YYYYMMDD
+      var regData = hReg.getRange(2, 1, lastReg - 1, 9).getValues();
       regData.forEach(function(row) {
-        if (_normFecha(row[1]) === fechaNorm &&
-            String(row[2]).trim() === params.centro &&
+        if (String(row[7]).trim() === params.codigo &&
             String(row[3]).trim() === params.cargo &&
-            String(row[4]).trim() === params.nombre &&
             (row[8] === true || String(row[8]).toUpperCase() === 'TRUE')) {
           fotosSubidas[String(row[5]).trim()] = true;
         }
@@ -602,16 +653,16 @@ function _actualizarBonoFotos(params, ss) {
        new Date()          // col 19: Timestamp
      ]);
 
-    // 6. Buscar fila existente en Bono Fotos por (Codigo Evento, Cargo, Trabajador)
-    //    para sobreescribir en lugar de duplicar
+    // 6. Buscar fila existente en Bono Fotos por (Codigo Evento, Cargo)
+    //    Sin filtrar por nombre — un solo registro por cargo+evento.
+    //    Si cambia el nombre, se sobreescribe el anterior.
     var lastBono      = hBono.getLastRow();
     var filaExistente = -1;
     if (lastBono >= 4) {
       var bonoData = hBono.getRange(4, 1, lastBono - 3, 20).getValues();
       for (var j = 0; j < bonoData.length; j++) {
         if (String(bonoData[j][2]).trim() === params.codigo &&
-            String(bonoData[j][4]).trim() === params.cargo &&
-            String(bonoData[j][6]).trim() === params.nombre) {
+            String(bonoData[j][4]).trim() === params.cargo) {
           filaExistente = 4 + j; // número de fila en sheet (1-indexed)
           break;
         }

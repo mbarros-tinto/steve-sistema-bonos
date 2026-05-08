@@ -559,7 +559,23 @@ function mostrarBonos() {
   state.nombre = nombre;
   state.cargo  = cargo;
 
+  // Verificar si ya hay fotos para este cargo+evento (dedup check)
   var ev = state.eventos[state.eventoSelIdx];
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok && r.subidas > 0) {
+        if (r.nombre && r.nombre !== nombre) {
+          showToast('Ya hay ' + r.subidas + '/' + r.total + ' fotos por ' + r.nombre + '. Se actualiza nombre.');
+          document.getElementById('selectNombre').value = r.nombre;
+          state.nombre = r.nombre;
+        } else {
+          showToast('Ya hay ' + r.subidas + '/' + r.total + ' fotos. Faltan ' + r.faltantes.length + '.');
+        }
+      }
+    })
+    .withFailureHandler(function() {})
+    .getExistingPhotosForCargo(ev.codigo, cargo);
+
   showStep('step4');
   document.getElementById('eventoSelTag2').innerHTML =
     '📅 ' + formatFechaDisplay(state.fecha) +
@@ -648,7 +664,7 @@ function irASubirFotos() {
       state.fotosSubidas = {};
       renderUploadList();
     })
-    .getFotosSubidas(fechaEvento, ev.centro, state.cargo, state.nombre);
+    .getFotosSubidas(fechaEvento, ev.centro, state.cargo, state.nombre, ev.codigo);
 }
 
 function renderUploadList() {

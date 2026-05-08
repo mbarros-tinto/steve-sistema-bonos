@@ -70,6 +70,395 @@
   .btn-sync:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,170,110,0.4); }
   .btn-sync:active { transform: translateY(0); }
   .btn-sync:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .btn-pagos {
+    background: linear-gradient(135deg, #2d7a4d, #1e5534);
+    color: #fff; border: none; padding: 8px 16px; border-radius: 20px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.3px; margin-left: auto;
+  }
+  .btn-pagos:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,122,77,0.4); }
+  .btn-pagos:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-mail-bonos {
+    background: linear-gradient(135deg, #6a4dac, #4a3578);
+    color: #fff; border: none; padding: 8px 16px; border-radius: 20px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.3px; margin-left: 8px;
+  }
+  .btn-mail-bonos:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(106,77,172,0.4); }
+  .btn-mail-bonos:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-mail-test {
+    background: #2a2a48; color: #a0a0c0; border: 1px solid #3a3a5e;
+    padding: 6px 12px; border-radius: 16px; font-size: 11px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; margin-left: 6px;
+  }
+  .btn-mail-test:hover { background: #3a3a5a; color: #c0c0e0; }
+  .btn-mail-test:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* Mail bonos modal — listas */
+  .mb-trab-row {
+    display: flex; align-items: center; padding: 8px 10px;
+    background: #16162a; border: 1px solid #2a2a4e; border-radius: 6px;
+    margin-bottom: 6px; gap: 10px;
+  }
+  .mb-trab-row.no-email { background: #2a1a1a; border-color: #5a2a2a; }
+  .mb-check { margin: 0; cursor: pointer; }
+  .mb-trab-info { flex: 1; min-width: 0; }
+  .mb-trab-nombre { font-weight: 700; color: #e0e0f0; font-size: 13px; }
+  .mb-trab-email { font-size: 11px; color: #8888aa; }
+  .mb-trab-stats { font-size: 11px; color: #c8aa6e; min-width: 110px; text-align: right; }
+  .mb-trab-monto { color: #7fd48a; font-weight: 700; min-width: 80px; text-align: right; }
+  .mb-section-header { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .mb-toggle-all { font-size: 11px; color: #c8aa6e; cursor: pointer; text-decoration: underline; }
+  /* Agrupación por cargo */
+  .mb-cargo-grupo {
+    background: #16162a;
+    border: 1px solid #2a2a4e;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .mb-cargo-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 8px; border-bottom: 1px solid #2a2a4e; margin-bottom: 10px;
+  }
+  .mb-cargo-title { font-weight: 700; color: #c8aa6e; font-size: 14px; letter-spacing: 0.3px; }
+  .mb-cargo-meta { font-size: 12px; color: #b0b0c0; }
+  .mb-cargo-bonos {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 4px 0 10px;
+    border-bottom: 1px dashed #2a2a4e;
+    margin-bottom: 10px;
+  }
+  .mb-bono-chip {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .mb-bono-chip.gano {
+    background: rgba(76, 175, 138, 0.12);
+    color: #7fd48a;
+    border-color: rgba(76, 175, 138, 0.4);
+  }
+  .mb-bono-chip.no-gano {
+    background: rgba(224, 90, 106, 0.12);
+    color: #ff9090;
+    border-color: rgba(224, 90, 106, 0.4);
+  }
+  .mb-bono-chip.mixed {
+    background: rgba(200, 170, 110, 0.12);
+    color: #d4b87e;
+    border-color: rgba(200, 170, 110, 0.4);
+  }
+  .mb-no-email-icon {
+    width: 14px; text-align: center;
+    color: #ff9090; font-weight: 700;
+  }
+  /* Chips compactos por trabajador (icono + tick/cruz) */
+  .mb-trab-bonos {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    align-items: center;
+    margin-right: 10px;
+  }
+  .mb-bono-mini {
+    display: inline-flex; align-items: center; gap: 1px;
+    padding: 3px 7px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid;
+    cursor: help;
+    line-height: 1;
+    user-select: none;
+  }
+  .mb-bono-mini.gano {
+    background: rgba(76, 175, 138, 0.15);
+    color: #7fd48a;
+    border-color: rgba(76, 175, 138, 0.45);
+  }
+  .mb-bono-mini.no-gano {
+    background: rgba(224, 90, 106, 0.15);
+    color: #ff9090;
+    border-color: rgba(224, 90, 106, 0.45);
+  }
+  /* Tabs de filtro */
+  .mb-filtros {
+    display: flex; gap: 6px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a2a4e;
+  }
+  .mb-filtro-tab {
+    background: #16162a; color: #8888aa;
+    border: 1px solid #2a2a4e;
+    padding: 6px 14px; border-radius: 16px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .mb-filtro-tab:hover {
+    background: #1a1a2e; color: #c8aa6e; border-color: #3a3a5e;
+  }
+  .mb-filtro-tab.active {
+    background: #c8aa6e; color: #1a1a2e; border-color: #c8aa6e;
+  }
+  .mb-filtro-count {
+    background: rgba(0,0,0,0.2); padding: 1px 7px; border-radius: 10px;
+    font-size: 11px; font-weight: 700;
+  }
+  .mb-filtro-tab.active .mb-filtro-count {
+    background: rgba(0,0,0,0.25); color: #1a1a2e;
+  }
+  /* Card del trabajador con sus eventos */
+  .mb-trab-card {
+    background: #16162a;
+    border: 1px solid #2a2a4e;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .mb-trab-card.no-email { background: #2a1a1a; border-color: #5a2a2a; }
+  .mb-trab-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+  }
+  .mb-trab-evento {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 12px 6px 36px;
+    background: rgba(0,0,0,0.15);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    font-size: 12px;
+  }
+  .mb-evento-meta { flex: 1; min-width: 0; color: #b0b0c0; font-size: 11px; }
+  .mb-evento-nombre { font-weight: 600; color: #d4b87e; }
+  .mb-evento-fecha, .mb-evento-cargo { color: #8888aa; }
+  .mb-evento-subtotal { color: #7fd48a; font-weight: 600; min-width: 80px; text-align: right; font-size: 12px; }
+  .mb-trab-card.enviado {
+    border-color: #c8aa6e44;
+    background: linear-gradient(180deg, #1f1a14, #16162a 30%);
+  }
+  .mb-enviado-badge {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px;
+    background: rgba(200, 170, 110, 0.18);
+    color: #c8aa6e;
+    border: 1px solid rgba(200, 170, 110, 0.4);
+    margin-left: 6px; letter-spacing: 0.2px;
+  }
+  .mb-filtros-sep {
+    flex: 1;
+    border-bottom: 1px dashed transparent;
+    margin: 0 4px;
+  }
+  /* Modal de confirmación */
+  .confirm-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    padding: 4px 0 8px;
+  }
+  .confirm-stat {
+    background: #0f0f1e;
+    border: 1px solid #2a2a4e;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .confirm-stat-num {
+    font-size: 22px; font-weight: 800; color: #e0e0f0;
+    line-height: 1;
+  }
+  .confirm-stat-lbl {
+    font-size: 10px; color: #8888aa;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    margin-top: 4px;
+  }
+  .confirm-trabs-list {
+    max-height: 240px; overflow-y: auto;
+    border: 1px solid #2a2a4e;
+    border-radius: 4px;
+    padding: 6px;
+    background: #0f0f1e;
+  }
+
+  /* -- Modal Bonos -> Planilla de Pagos -- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.visible { display: flex; }
+  .modal-box {
+    background: #1e1e3e; border: 1px solid #3a3a5a;
+    border-radius: 12px; padding: 24px; max-width: 720px; width: 90%;
+    max-height: 86vh; overflow-y: auto; color: #e0e0f0;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal-title { font-size: 18px; font-weight: 700; color: #c8aa6e; margin-bottom: 4px; }
+  .modal-subtitle { font-size: 12px; color: #8888aa; margin-bottom: 16px; }
+  .modal-section { margin: 14px 0; padding: 12px; background: #16162a; border-radius: 8px; border: 1px solid #2a2a48; }
+  .modal-section-title { font-size: 13px; font-weight: 700; color: #c8aa6e; margin-bottom: 8px; letter-spacing: 0.3px; }
+  .modal-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; border-bottom: 1px dotted #2a2a48; }
+  .modal-row:last-child { border-bottom: none; }
+  .modal-row-name { color: #e0e0f0; flex: 1; }
+  .modal-row-cargo { color: #8888aa; font-size: 11px; }
+  .modal-row-monto { color: #7fd48a; font-weight: 700; min-width: 80px; text-align: right; }
+  .modal-row-estado { color: #c8aa6e; font-size: 10px; min-width: 80px; text-align: right; }
+  .modal-mismatch { background: #3a1a1a; border: 1px solid #7a2a2a; }
+  .modal-mismatch .modal-row-name { color: #ffb0b0; }
+  .modal-mismatch .modal-row-monto { color: #ff8080; }
+  .modal-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 8px; }
+  .modal-badge.ok { background: #1e4d2e; color: #7fd48a; }
+  .modal-badge.warn { background: #4d3a1a; color: #ffc88a; }
+  .modal-badge.err { background: #4d1e1e; color: #ff8080; }
+  .modal-total { font-size: 16px; font-weight: 700; color: #7fd48a; text-align: right; margin-top: 8px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  .modal-btn {
+    padding: 10px 22px; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; border: none;
+    transition: all 0.2s;
+  }
+  .modal-btn.primary { background: linear-gradient(135deg, #2d7a4d, #1e5534); color: #fff; }
+  .modal-btn.primary:disabled { background: #3a3a5a; color: #666; cursor: not-allowed; }
+  .modal-btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,122,77,0.4); }
+  .modal-btn.secondary { background: #2a2a48; color: #e0e0f0; }
+  .modal-btn.secondary:hover { background: #3a3a5a; }
+  .modal-msg-err { background: #3a1a1a; border: 1px solid #7a2a2a; padding: 12px; border-radius: 6px; color: #ffb0b0; font-size: 13px; margin: 10px 0; }
+  .modal-msg-ok { background: #1a3a1a; border: 1px solid #2a7a2a; padding: 12px; border-radius: 6px; color: #7fd48a; font-size: 13px; margin: 10px 0; }
+
+  /* Preview agrupado por cargo base → tipo de bono → trabajadores */
+  .preview-cargo-grupo {
+    margin: 6px 0 10px;
+    border-left: 3px solid #c8aa6e;
+    padding-left: 10px;
+  }
+  .preview-cargo-header {
+    font-size: 13px;
+    font-weight: 700;
+    color: #c8aa6e;
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+  }
+  .preview-tipo-row {
+    margin-bottom: 6px;
+  }
+  .preview-tipo-name {
+    font-size: 11px;
+    color: #d0d0f0;
+    font-weight: 600;
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .preview-tipo-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #2a2a4e;
+    color: #a0c4e8;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .preview-tipo-monto {
+    margin-left: auto;
+    color: #7fd48a;
+    font-weight: 700;
+  }
+  .preview-tipo-meta {
+    color: #8888aa;
+    font-size: 10px;
+    font-weight: 500;
+  }
+  .preview-tipo-meta b {
+    color: #c8aa6e;
+    font-weight: 700;
+  }
+  .preview-trab-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0 2px 14px;
+    font-size: 11px;
+    border-bottom: 1px dotted #1e1e34;
+  }
+  .preview-trab-row:last-child { border-bottom: none; }
+  .preview-trab-name { color: #c0c0d0; flex: 1; }
+  .preview-trab-cargo { color: #6a6a8a; font-size: 10px; }
+  .preview-trab-estado { color: #c8aa6e; font-size: 10px; min-width: 70px; text-align: right; }
+  .preview-trab-monto { color: #7fd48a; font-weight: 700; min-width: 70px; text-align: right; }
+
+  /* ── Modal Fotos ── */
+  .fotos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .foto-card {
+    background: #16162a;
+    border: 1px solid #2a2a4e;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .foto-thumb {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #0f0f1e;
+    display: block;
+  }
+  .foto-caption {
+    font-size: 11px;
+    color: #d0d0f0;
+    font-weight: 600;
+    line-height: 1.3;
+    max-height: 30px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .foto-link {
+    font-size: 10px;
+    color: #c8aa6e;
+    text-decoration: none;
+    align-self: flex-start;
+  }
+  .foto-link:hover { text-decoration: underline; }
+
+  /* ── Modal Override ── */
+  .override-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .override-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #0f0f1e;
+    border: 1px solid #2a2a4e;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .override-radio:hover { border-color: #c8aa6e; }
+  .override-radio input { margin: 0; cursor: pointer; }
+  .override-radio-lbl { font-size: 13px; font-weight: 600; }
+  .override-radio-lbl.si { color: #4caf8a; }
+  .override-radio-lbl.no { color: #e05a6a; }
+  .modal-evento-selector { margin: 12px 0; }
+  .modal-evento-selector select { width: 100%; padding: 10px; background: #16162a; color: #e0e0f0; border: 1px solid #3a3a5a; border-radius: 6px; font-size: 13px; }
 
   /* ── TABS ── */
   .tabs-bar {
@@ -275,6 +664,48 @@
   }
   .bono-detail-block.gano { border-left: 4px solid #4caf8a; }
   .bono-detail-block.no-gano { border-left: 4px solid #e05a6a; }
+  .bono-detail-block.has-override { background: linear-gradient(180deg, #221a2e, #141428); }
+  .bono-detail-block.has-override .bono-detail-header { background: #261a34; }
+  .override-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(200, 170, 110, 0.2);
+    color: #c8aa6e;
+    letter-spacing: 0.3px;
+    margin-left: 6px;
+  }
+  .bono-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bono-action-btn {
+    background: transparent;
+    border: 1px solid #2a2a4e;
+    color: #8888aa;
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bono-action-btn:hover {
+    background: #1a1a2e;
+    color: #c8aa6e;
+    border-color: #c8aa6e;
+  }
+  .bono-action-btn.chip-trabs {
+    color: #7fa8d4;
+    border-color: #2a3a5e;
+  }
+  .bono-action-btn.chip-trabs:hover {
+    color: #a0c4e8;
+    border-color: #4a6a9e;
+    background: #1a2438;
+  }
   .bono-detail-header {
     display: flex;
     justify-content: space-between;
@@ -536,10 +967,10 @@
   .crit-tipo-Supervisora .crit-grid-head { background: #1f0d2b; color: #ce93d8; }
   .crit-tipo-Supervisora .crit-cargo-cell { color: #ce93d8; }
 
-  .crit-tipo-Activos .criterios-section-header { background: linear-gradient(90deg, #1a2e1a, #1e2a1a); border-left-color: #2e7d32; color: #81c784; }
-  .crit-tipo-Activos .crit-grid { border-color: #1a3e1a; }
-  .crit-tipo-Activos .crit-grid-head { background: #0d1f0d; color: #81c784; }
-  .crit-tipo-Activos .crit-cargo-cell { color: #81c784; }
+  .crit-tipo-ControlGestion .criterios-section-header { background: linear-gradient(90deg, #1a2e1a, #1e2a1a); border-left-color: #2e7d32; color: #81c784; }
+  .crit-tipo-ControlGestion .crit-grid { border-color: #1a3e1a; }
+  .crit-tipo-ControlGestion .crit-grid-head { background: #0d1f0d; color: #81c784; }
+  .crit-tipo-ControlGestion .crit-cargo-cell { color: #81c784; }
 
   .crit-tipo-Vajilla .criterios-section-header { background: linear-gradient(90deg, #2e2a1a, #2a1e1a); border-left-color: #e65100; color: #ffab40; }
   .crit-tipo-Vajilla .crit-grid { border-color: #4e3a1a; }
@@ -745,6 +1176,9 @@
       <select id="selSemana" onchange="cargarSemana()">
         <option value="">— Seleccionar semana —</option>
       </select>
+      <button class="btn-pagos" id="btnPagos" onclick="abrirModalPagos()" title="Enviar bonos a Planilla de Pagos">📤 Enviar bonos a Pagos</button>
+      <button class="btn-mail-bonos" id="btnMailBonos" onclick="abrirModalMailBonos()" title="Enviar mail con resumen de bonos a cada trabajador">📧 Mandar mail bonos</button>
+      <button class="btn-mail-test" id="btnMailTest" onclick="enviarMailPrueba()" title="Enviar mail de prueba desde bonos@tintobanqueteria.cl">🧪 Mail prueba</button>
     </div>
     <div id="resultado-semana">
       <div class="empty-state">
@@ -917,7 +1351,8 @@ function cargarSemana() {
 
 function renderSemana(data, detalle) {
   var el = document.getElementById('resultado-semana');
-  if (!data || !data.ok) { el.innerHTML = emptyHTML('⚠️', data ? data.msg : 'Error'); return; }
+  if (!data || !data.ok) { APP.semanaData = null; el.innerHTML = emptyHTML('⚠️', data ? data.msg : 'Error'); return; }
+  APP.semanaData = data;
   var grupos = data.grupos;
   var cargos = Object.keys(grupos).sort();
   if (!cargos.length) { el.innerHTML = emptyHTML('📭', 'Sin registros para esta semana'); return; }
@@ -962,13 +1397,24 @@ function renderBonoDetailBlock(bono, codigoEvento, cargo, detalle) {
   var ganoCls = bono.cumplido === 1 ? 'gano' : 'no-gano';
   var ganoTxt = bono.cumplido === 1 ? '✓ SI' : '✗ NO';
   var icon = fuenteIcon(bono.fuente);
+  var esFotos = (bono.fuente || '').indexOf('Fotos') !== -1;
+  var hasOverride = bono.override && bono.override.activo;
 
-  var html = '<div class="bono-detail-block ' + ganoCls + '">';
+  var html = '<div class="bono-detail-block ' + ganoCls + (hasOverride ? ' has-override' : '') + '">';
 
   // Header
   html += '<div class="bono-detail-header">';
-  html += '<span class="bono-detail-title">' + icon + ' ' + esc(bono.nombre) + '</span>';
+  html += '<span class="bono-detail-title">' + icon + ' ' + esc(bono.nombre);
+  if (hasOverride) html += ' <span class="override-badge" title="Override manual' + (bono.override.razon ? ': ' + esc(bono.override.razon) : '') + '">✎ editado</span>';
+  html += '</span>';
+  html += '<span class="bono-detail-actions">';
+  html += '<button class="bono-action-btn chip-trabs" title="Ver trabajadores que reciben este bono" onclick="abrirModalTrabajadores(\'' + escAttr(codigoEvento) + '\',\'' + escAttr(bono.nombre) + '\')">👤</button>';
+  if (esFotos) {
+    html += '<button class="bono-action-btn" title="Ver fotos del evento" onclick="abrirModalFotos(\'' + escAttr(codigoEvento) + '\',\'' + escAttr(cargo) + '\')">📷</button>';
+  }
+  html += '<button class="bono-action-btn" title="Editar si se ganó o no el bono" onclick="abrirModalOverride(\'' + escAttr(codigoEvento) + '\',\'' + escAttr(bono.nombre) + '\',' + (bono.cumplido === 1 ? 'true' : 'false') + ',' + (hasOverride ? 'true' : 'false') + ')">✎</button>';
   html += '<span class="bono-detail-result ' + ganoCls + '">' + ganoTxt + '</span>';
+  html += '</span>';
   html += '</div>';
 
   // Body — criteria detail
@@ -992,7 +1438,7 @@ function renderBonoDetailBlock(bono, codigoEvento, cargo, detalle) {
       var countTotal = 0;
       for (var i = 0; i < vals.length; i++) {
         var v = String(vals[i]).trim();
-        if (!v || v === '—' || v === '-') continue; // skip inactive criteria
+        if (!v || /^[-—\s]*$/.test(v)) continue; // skip inactive criteria (vacío, "-", "--", "—", espacios)
         var isSi = (v.toUpperCase() === 'SI' || v === '1');
         countTotal++;
         if (isSi) countSi++;
@@ -1017,7 +1463,7 @@ function renderBonoDetailBlock(bono, codigoEvento, cargo, detalle) {
       var fCountTotal = 0;
       for (var j = 0; j < respVals.length; j++) {
         var rv = String(respVals[j]).trim();
-        if (!rv || rv === '—' || rv === '-') continue;
+        if (!rv || /^[-—\s]*$/.test(rv)) continue; // skip inactive criteria
         var fIsSi = (rv.toUpperCase() === 'SI' || rv === '1');
         fCountTotal++;
         if (fIsSi) fCountSi++;
@@ -1044,7 +1490,7 @@ function renderBonoDetailBlock(bono, codigoEvento, cargo, detalle) {
         var sCountTotal = 0;
         for (var k = 0; k < critVals.length; k++) {
           var sv = String(critVals[k]).trim();
-          if (!sv || sv === '—' || sv === '-') continue;
+          if (!sv || /^[-—\s]*$/.test(sv)) continue; // skip inactive criteria
           var sIsSi = (sv.toUpperCase() === 'SI' || sv === '1');
           sCountTotal++;
           if (sIsSi) sCountSi++;
@@ -1243,8 +1689,10 @@ function renderCriterios(criteriosData) {
   html += '<button class="btn-enable-edit" id="btn-enable-tarifas" onclick="toggleTarifas()">🔒 Habilitar cambio de tarifas</button>';
   html += '</div>';
 
-  var tipos = ['Fotos', 'Supervisora', 'Activos', 'Vajilla'];
-  var tipoIcons = { Fotos: '📸', Supervisora: '⭐', Activos: '📦', Vajilla: '🍽️' };
+  var tipos = ['Fotos', 'Supervisora', 'Control Gestión', 'Vajilla'];
+  var tipoIcons = { 'Fotos': '📸', 'Supervisora': '⭐', 'Control Gestión': '📦', 'Vajilla': '🍽️' };
+  // Los selectores CSS no admiten espacios: mapear el tipo a un slug.
+  var tipoClass = { 'Fotos': 'Fotos', 'Supervisora': 'Supervisora', 'Control Gestión': 'ControlGestion', 'Vajilla': 'Vajilla' };
   tipos.forEach(function(tipo) {
     var items = criteriosData.items.filter(function(c) { return c.tipoBono === tipo; });
     if (!items.length) return;
@@ -1258,7 +1706,7 @@ function renderCriterios(criteriosData) {
     });
     if (maxCrit < 2) maxCrit = 2;
 
-    html += '<div class="criterios-section crit-tipo-' + tipo + '">';
+    html += '<div class="criterios-section crit-tipo-' + (tipoClass[tipo] || tipo) + '">';
     html += '<div class="criterios-section-header"><span>' + (tipoIcons[tipo]||'') + ' Bono ' + tipo + ' (' + items[0].sistema + ')</span>';
     html += '<span class="criterios-section-count">' + items.length + ' cargos</span></div>';
 
@@ -1427,6 +1875,17 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Escapa un string para usar dentro de atributos HTML con comillas simples (onclick="fn('...')").
+function escAttr(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ── TARIFAS ──────────────────────────────────────────────────────────────
 var tarifasLoaded = false;
 var tarifasData = [];
@@ -1456,7 +1915,7 @@ function renderTarifas() {
   html += '<th>Cargo</th><th>Tarifa Base</th>';
   html += '<th class="col-fotos">Bono Fotos</th>';
   html += '<th class="col-sup">Bono Supervisora</th>';
-  html += '<th class="col-act">Bono Activos</th>';
+  html += '<th class="col-act">Bono CG</th>';
   html += '<th class="col-vaj">Bono Vajilla</th>';
   html += '<th class="col-total">Total Potencial</th>';
   html += '</tr></thead><tbody>';
@@ -1589,6 +2048,948 @@ function showToast(msg, type) {
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 4000);
 }
+
+// ==================================================================
+// MODAL: Enviar bonos a Planilla de Pagos (paso 4-5)
+// ==================================================================
+var _modalCodigoActual = null;
+var _modalEventosAll   = [];
+
+// Orden canónico de cargos base (para ordenar el preview por bloques).
+var ORDEN_CARGOS = {
+  'Super metre':                   1,
+  'Metre':                         2,
+  'Jefe de Bar':                   3,
+  'Jefe Cocina':                   4,
+  'Copero Jefe':                   5,
+  'Copero':                        6,
+  'Barmans':                       7,
+  'Garzones':                      8,
+  'Jefa de Floristas':             9,
+  'Jefa de Decoración':           10,
+  'Asignación Encargados Novios': 11
+};
+var ORDEN_TIPOS = { 'Fotos': 1, 'Supervisora': 2, 'Control Gestión': 3, 'Vajilla': 4 };
+
+function _cargoRank(c)     { return ORDEN_CARGOS[c] || 999; }
+function _tipoRank(t)      { return ORDEN_TIPOS[t]   || 999; }
+
+// Agrupa matches por cargoBase → tipoBono → trabajadores. Retorna array ordenado.
+function agruparPreview(matches) {
+  if (!matches || !matches.length) return [];
+  var grupos = {};
+  matches.forEach(function(m) {
+    var cb = m.cargoBase || m.cargo || '(sin cargo)';
+    if (!grupos[cb]) grupos[cb] = { cargoBase: cb, tipos: {} };
+    var tb = m.tipoBono || '(otro)';
+    if (!grupos[cb].tipos[tb]) grupos[cb].tipos[tb] = { tipoBono: tb, nombreBono: m.nombreBono, monto: m.monto, trabajadores: [] };
+    grupos[cb].tipos[tb].trabajadores.push(m);
+  });
+  var arr = [];
+  Object.keys(grupos).forEach(function(cb) {
+    var g = grupos[cb];
+    var tiposArr = [];
+    Object.keys(g.tipos).forEach(function(tb) {
+      var tg = g.tipos[tb];
+      tg.trabajadores.sort(function(a, b) { return a.trabajador.localeCompare(b.trabajador); });
+      tiposArr.push(tg);
+    });
+    tiposArr.sort(function(a, b) { return _tipoRank(a.tipoBono) - _tipoRank(b.tipoBono); });
+    arr.push({ cargoBase: cb, tipos: tiposArr });
+  });
+  arr.sort(function(a, b) {
+    var ra = _cargoRank(a.cargoBase), rb = _cargoRank(b.cargoBase);
+    if (ra !== rb) return ra - rb;
+    return a.cargoBase.localeCompare(b.cargoBase);
+  });
+  return arr;
+}
+
+function _modoMulti() { return _modalCodigoActual === '__ALL__'; }
+
+// ── MAIL BONOS — modal ──────────────────────────────────────────────────
+var _mailPreview = null;       // cache del preview cargado
+var _mailFiltro  = 'todos';     // 'todos' | 'ganaron-todo' | 'algun-perdido'
+
+function abrirModalMailBonos() {
+  var semana = document.getElementById('selSemana').value;
+  if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
+
+  _mailFiltro = 'todos'; // reset al abrir
+  var box = document.getElementById('modalMailBonosBox');
+  box.innerHTML =
+    '<div class="modal-title">📧 Mandar mail bonos</div>' +
+    '<div class="modal-subtitle">Semana ' + esc(semana) + ' — Cargando preview...</div>' +
+    '<div id="mbContent"><div style="text-align:center;padding:40px;color:#8888aa;">⏳ Calculando bonos por trabajador...</div></div>' +
+    '<div class="modal-actions"><button class="modal-btn secondary" onclick="cerrarModalMailBonos()">Cerrar</button></div>';
+  document.getElementById('modalMailBonosBackdrop').classList.add('visible');
+
+  google.script.run
+    .withSuccessHandler(function(r) { renderMailBonosPreview(r, semana); })
+    .withFailureHandler(function(e) {
+      document.getElementById('mbContent').innerHTML = '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+    })
+    .getMailPreviewSemana(semana);
+}
+
+function mbCambiarFiltro(filtro) {
+  _mailFiltro = filtro;
+  if (_mailPreview) renderMailBonosPreview(_mailPreview, _mailPreview.semana);
+}
+
+function renderMailBonosPreview(r, semana) {
+  var el = document.getElementById('mbContent');
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    return;
+  }
+  _mailPreview = r;
+  var trabs = r.trabajadores || [];
+  var sinEmail = r.sinEmail || [];
+
+  var box = document.getElementById('modalMailBonosBox');
+  // Reemplazar título con info dinámica
+  box.querySelector('.modal-subtitle').textContent = 'Semana ' + semana + ' — ' + r.totalEmails + ' destinatarios · Total $' + fmtMoney(r.totalGlobal);
+
+  if (trabs.length === 0 && sinEmail.length === 0) {
+    el.innerHTML = '<div class="modal-msg-err" style="background:#23233a;border-color:#3a3a5a;color:#b0b0c0;">📭 No hay trabajadores con bonos para esta semana.</div>';
+    return;
+  }
+
+  // Aplicar filtro: 'todos' | 'ganaron-todo' | 'algun-perdido' | 'pendientes' | 'enviados'
+  function pasaFiltro(t) {
+    if (_mailFiltro === 'ganaron-todo')   return t.noGanados === 0 && t.ganados > 0;
+    if (_mailFiltro === 'algun-perdido')  return t.noGanados > 0;
+    if (_mailFiltro === 'pendientes')     return !t.yaEnviado;
+    if (_mailFiltro === 'enviados')       return !!t.yaEnviado;
+    return true; // todos
+  }
+  var trabsFiltrados    = trabs.filter(pasaFiltro);
+  var sinEmailFiltrados = sinEmail.filter(pasaFiltro);
+
+  // Conteos para los tabs de filtro (siempre del set completo)
+  var totalAll = trabs.length + sinEmail.length;
+  var ganaronTodo  = [].concat(trabs, sinEmail).filter(function(t) { return t.noGanados === 0 && t.ganados > 0; }).length;
+  var algunPerdido = [].concat(trabs, sinEmail).filter(function(t) { return t.noGanados > 0; }).length;
+  var pendientes   = trabs.filter(function(t) { return !t.yaEnviado; }).length;
+  var yaEnviadosN  = trabs.filter(function(t) { return  t.yaEnviado; }).length;
+
+  // Agrupar trabajadores por cargo (cargo principal del primer evento)
+  var grupos = {};
+  function pushGrupo(t, sinEmail) {
+    var cargo = (t.eventos && t.eventos[0] && t.eventos[0].cargo) || '(sin cargo)';
+    if (!grupos[cargo]) grupos[cargo] = { cargo: cargo, trabs: [], total: 0 };
+    grupos[cargo].trabs.push(Object.assign({ _sinEmail: !!sinEmail }, t));
+    grupos[cargo].total += t.totalMonto;
+  }
+  trabsFiltrados.forEach(function(t) { pushGrupo(t, false); });
+  sinEmailFiltrados.forEach(function(t) { pushGrupo(t, true); });
+
+  // Orden canónico de cargos
+  var ordenCargos = [
+    'Super metre','Metre','Jefe de Bar','Jefe Cocina','Copero Jefe','Copero',
+    'Barmans','Barman','Garzones','Garzón','Garzon Decoración','Jefa de Decoración',
+    'Jefa de Floristas','Florista','Asignación Encargados Novios'
+  ];
+  var cargosKeys = Object.keys(grupos).sort(function(a, b) {
+    var ia = ordenCargos.indexOf(a); if (ia < 0) ia = 999;
+    var ib = ordenCargos.indexOf(b); if (ib < 0) ib = 999;
+    if (ia !== ib) return ia - ib;
+    return a.localeCompare(b);
+  });
+
+  var html = '';
+
+  // Tabs de filtro
+  html += '<div class="mb-filtros">';
+  html += '<button class="mb-filtro-tab' + (_mailFiltro === 'todos' ? ' active' : '') + '" onclick="mbCambiarFiltro(\'todos\')">Todos <span class="mb-filtro-count">' + totalAll + '</span></button>';
+  html += '<button class="mb-filtro-tab' + (_mailFiltro === 'pendientes' ? ' active' : '') + '" onclick="mbCambiarFiltro(\'pendientes\')">📨 Pendientes <span class="mb-filtro-count">' + pendientes + '</span></button>';
+  html += '<button class="mb-filtro-tab' + (_mailFiltro === 'enviados' ? ' active' : '') + '" onclick="mbCambiarFiltro(\'enviados\')">✉ Ya enviados <span class="mb-filtro-count">' + yaEnviadosN + '</span></button>';
+  html += '<span class="mb-filtros-sep"></span>';
+  html += '<button class="mb-filtro-tab' + (_mailFiltro === 'ganaron-todo' ? ' active' : '') + '" onclick="mbCambiarFiltro(\'ganaron-todo\')">✓ Ganaron todo <span class="mb-filtro-count">' + ganaronTodo + '</span></button>';
+  html += '<button class="mb-filtro-tab' + (_mailFiltro === 'algun-perdido' ? ' active' : '') + '" onclick="mbCambiarFiltro(\'algun-perdido\')">✗ Algún perdido <span class="mb-filtro-count">' + algunPerdido + '</span></button>';
+  html += '</div>';
+
+  html += '<div class="mb-section-header" style="padding:0 4px 8px;">';
+  html += '<div class="modal-section-title" style="margin:0;">' + cargosKeys.length + ' cargo(s) · ' + trabsFiltrados.length + ' destinatario(s)' + (sinEmailFiltrados.length ? ' · ' + sinEmailFiltrados.length + ' sin email' : '') + '</div>';
+  html += '<span class="mb-toggle-all" onclick="mbToggleAll(true)">Marcar todos</span> · <span class="mb-toggle-all" onclick="mbToggleAll(false)">Ninguno</span>';
+  html += '</div>';
+
+  if (cargosKeys.length === 0) {
+    html += '<div class="modal-msg-err" style="background:#23233a;border-color:#3a3a5a;color:#b0b0c0;">Sin trabajadores para el filtro seleccionado.</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  // Mapeo de tipoBono → icono visual
+  function iconTipo(tipo) {
+    var t = String(tipo || '').toLowerCase();
+    if (t.indexOf('fotos') !== -1)        return '📸';
+    if (t.indexOf('supervisora') !== -1)  return '⭐';
+    if (t.indexOf('vajilla') !== -1)      return '🍽';
+    if (t.indexOf('control') !== -1)      return '📦'; // Control Gestión
+    return '🎯';
+  }
+
+  cargosKeys.forEach(function(cargo) {
+    var g = grupos[cargo];
+    var nSinEmail = g.trabs.filter(function(t) { return  t._sinEmail; }).length;
+
+    html += '<div class="mb-cargo-grupo">';
+    html += '<div class="mb-cargo-header">';
+    html += '<div class="mb-cargo-title">👥 ' + esc(cargo) + '</div>';
+    html += '<div class="mb-cargo-meta">' + g.trabs.length + ' persona(s)';
+    if (nSinEmail > 0) html += ' <span style="color:#ffb0b0;">(' + nSinEmail + ' sin email)</span>';
+    html += ' · <b style="color:#7fd48a;">$' + fmtMoney(g.total) + '</b></div>';
+    html += '</div>';
+
+    var ordenTipo = ['Fotos', 'Supervisora', 'Control Gestión', 'Vajilla'];
+
+    // Lista de trabajadores: header del trabajador + línea por evento con sus chips
+    g.trabs.forEach(function(t) {
+      var rowCls = t._sinEmail ? 'mb-trab-card no-email' : 'mb-trab-card';
+      if (t.yaEnviado) rowCls += ' enviado';
+      html += '<div class="' + rowCls + '">';
+
+      // Cabecera del trabajador. Default checkbox: desmarcado si ya enviado.
+      html += '<label class="mb-trab-head">';
+      if (!t._sinEmail) {
+        var checkedAttr = t.yaEnviado ? '' : ' checked';
+        html += '<input type="checkbox" class="mb-check" data-trab="' + escAttr(t.nombreNorm) + '"' + checkedAttr + '>';
+      } else {
+        html += '<span class="mb-no-email-icon" title="Sin email — no recibirá mail">⚠</span>';
+      }
+      html += '<div class="mb-trab-info">';
+      html += '<div class="mb-trab-nombre">' + esc(t.nombre);
+      if (t.yaEnviado) {
+        html += ' <span class="mb-enviado-badge" title="Mail enviado el ' + esc(t.yaEnviado.fecha) + (t.yaEnviado.autor ? ' por ' + esc(t.yaEnviado.autor) : '') + '">✉ enviado ' + esc(t.yaEnviado.fecha) + '</span>';
+      }
+      html += '</div>';
+      html += '<div class="mb-trab-email"' + (t._sinEmail ? ' style="color:#ffb0b0;"' : '') + '>' + esc(t.email || 'Sin email en Maestro Inscripcion') + '</div>';
+      html += '</div>';
+      html += '<div class="mb-trab-stats">' + t.ganados + '✓' + (t.noGanados ? ' · ' + t.noGanados + '✗' : '') + '</div>';
+      html += '<div class="mb-trab-monto">$' + fmtMoney(t.totalMonto) + '</div>';
+      html += '</label>';
+
+      // Una línea por cada evento del trabajador
+      (t.eventos || []).forEach(function(ev) {
+        var bonosOrdenados = (ev.bonos || []).slice().sort(function(a, b) {
+          var ia = ordenTipo.indexOf(a.tipoBono); if (ia < 0) ia = 99;
+          var ib = ordenTipo.indexOf(b.tipoBono); if (ib < 0) ib = 99;
+          return ia - ib;
+        });
+        html += '<div class="mb-trab-evento">';
+        html += '<div class="mb-evento-meta">';
+        html += '<span class="mb-evento-nombre">' + esc(ev.lugar || ev.codigo) + '</span>';
+        html += '<span class="mb-evento-fecha"> · ' + esc(ev.fecha || '') + '</span>';
+        html += '<span class="mb-evento-cargo"> · ' + esc(ev.cargo) + '</span>';
+        html += '</div>';
+        html += '<div class="mb-trab-bonos">';
+        bonosOrdenados.forEach(function(b) {
+          var ic = iconTipo(b.tipoBono);
+          var cls = b.cumplido ? 'gano' : 'no-gano';
+          var mark = b.cumplido ? '✓' : '✗';
+          var tip = b.nombreBono + (b.cumplido ? ' · ganó $' + fmtMoney(b.monto) : ' · NO ganó');
+          html += '<span class="mb-bono-mini ' + cls + '" title="' + escAttr(tip) + '">' + ic + mark + '</span>';
+        });
+        html += '</div>';
+        html += '<div class="mb-evento-subtotal">$' + fmtMoney(ev.subtotal) + '</div>';
+        html += '</div>';
+      });
+
+      html += '</div>'; // mb-trab-card
+    });
+
+    html += '</div>'; // mb-cargo-grupo
+  });
+
+  if (sinEmail.length > 0) {
+    html += '<div style="font-size:11px;color:#ffb0b0;margin-top:8px;padding:8px 12px;background:#2a1a1a;border-left:3px solid #7a2a2a;border-radius:4px;">';
+    html += '⚠ ' + sinEmail.length + ' trabajador(es) sin email en Maestro Inscripcion no recibirán mail. Agrega su correo en col F para incluirlos.';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+
+  // Reemplazar acciones del modal
+  var actions = box.querySelector('.modal-actions');
+  if (actions) {
+    actions.innerHTML =
+      '<button class="modal-btn secondary" onclick="cerrarModalMailBonos()">Cancelar</button>' +
+      '<button class="modal-btn primary" id="mbBtnEnviar" onclick="confirmarEnviarMailsBonos()">📧 Enviar a ' + trabs.length + '</button>';
+  }
+}
+
+function mbToggleAll(state) {
+  document.querySelectorAll('.mb-check').forEach(function(c) { c.checked = !!state; });
+}
+
+function confirmarEnviarMailsBonos() {
+  if (!_mailPreview) return;
+  var seleccionados = [];
+  document.querySelectorAll('.mb-check:checked').forEach(function(c) {
+    seleccionados.push(c.dataset.trab);
+  });
+  if (seleccionados.length === 0) { showToast('Selecciona al menos un destinatario', 'err'); return; }
+
+  // Mostrar modal de confirmación con detalle
+  var setSel = {};
+  seleccionados.forEach(function(n) { setSel[n] = true; });
+  var trabsSel = (_mailPreview.trabajadores || []).filter(function(t) { return setSel[t.nombreNorm]; });
+  var totalMonto = trabsSel.reduce(function(s, t) { return s + t.totalMonto; }, 0);
+  var reenvios = trabsSel.filter(function(t) { return t.yaEnviado; }).length;
+  var nuevos   = trabsSel.length - reenvios;
+
+  var box = document.getElementById('modalConfirmEnvioBox');
+  var html = '';
+  html += '<div class="modal-title">📧 Confirmar envío de mails</div>';
+  html += '<div class="modal-subtitle">Estás por enviar el resumen de bonos. Revisa antes de confirmar.</div>';
+
+  html += '<div class="modal-section">';
+  html += '<div class="confirm-summary">';
+  html += '<div class="confirm-stat"><div class="confirm-stat-num">' + trabsSel.length + '</div><div class="confirm-stat-lbl">Total destinatarios</div></div>';
+  html += '<div class="confirm-stat"><div class="confirm-stat-num" style="color:#7fa8d4;">' + nuevos + '</div><div class="confirm-stat-lbl">Nuevos envíos</div></div>';
+  if (reenvios > 0) {
+    html += '<div class="confirm-stat"><div class="confirm-stat-num" style="color:#ffc88a;">' + reenvios + '</div><div class="confirm-stat-lbl">Reenvíos ⚠</div></div>';
+  }
+  html += '<div class="confirm-stat"><div class="confirm-stat-num" style="color:#7fd48a;">$' + fmtMoney(totalMonto) + '</div><div class="confirm-stat-lbl">Monto total</div></div>';
+  html += '</div>';
+  html += '<div style="font-size:11px;color:#8888aa;margin-top:6px;">Remitente: <b>' + esc('Bonos Tinto Banquetería <bonos@tintobanqueteria.cl>') + '</b></div>';
+  html += '</div>';
+
+  if (reenvios > 0) {
+    html += '<div class="modal-section modal-mismatch">';
+    html += '<div class="modal-section-title">⚠ ' + reenvios + ' reenvío(s) — el trabajador ya recibió el mail de esta semana</div>';
+    trabsSel.filter(function(t) { return t.yaEnviado; }).forEach(function(t) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(t.nombre) + '<span class="modal-row-cargo"> · ' + esc(t.email) + '</span></span><span style="color:#ffc88a;font-size:11px;">enviado ' + esc(t.yaEnviado.fecha) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="modal-section">';
+  html += '<div class="modal-section-title">Lista de destinatarios (' + trabsSel.length + ')</div>';
+  html += '<div class="confirm-trabs-list">';
+  trabsSel.forEach(function(t) {
+    html += '<div class="modal-row">';
+    html += '<span class="modal-row-name">' + esc(t.nombre) + '<span class="modal-row-cargo"> · ' + esc(t.email) + '</span></span>';
+    html += '<span class="modal-row-monto">$' + fmtMoney(t.totalMonto) + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div class="modal-actions">';
+  html += '<button class="modal-btn secondary" onclick="cerrarConfirmEnvio()">Cancelar</button>';
+  html += '<button class="modal-btn primary" id="confirmBtnEnviar" onclick="ejecutarEnvioMailsBonos()">Confirmar envío de ' + trabsSel.length + ' mail(s)</button>';
+  html += '</div>';
+
+  box.innerHTML = html;
+  document.getElementById('modalConfirmEnvioBackdrop').classList.add('visible');
+}
+
+function cerrarConfirmEnvio() {
+  document.getElementById('modalConfirmEnvioBackdrop').classList.remove('visible');
+}
+
+function ejecutarEnvioMailsBonos() {
+  var seleccionados = [];
+  document.querySelectorAll('#modalMailBonosBox .mb-check:checked').forEach(function(c) {
+    seleccionados.push(c.dataset.trab);
+  });
+  if (seleccionados.length === 0) { showToast('Sin destinatarios', 'err'); return; }
+
+  var btn = document.getElementById('confirmBtnEnviar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando ' + seleccionados.length + '...';
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      cerrarConfirmEnvio();
+      renderMailBonosResultado(r);
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Confirmar envío de ' + seleccionados.length + ' mail(s)';
+      showToast('Error: ' + e.message, 'err');
+    })
+    .enviarMailsBonos(_mailPreview.semana, seleccionados);
+}
+
+function renderMailBonosResultado(r) {
+  var el = document.getElementById('mbContent');
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    return;
+  }
+  var html = '';
+  if (r.totalEnviados > 0) {
+    html += '<div class="modal-msg-ok">✅ ' + r.totalEnviados + ' mail(s) enviado(s) correctamente.</div>';
+    if (r.enviados && r.enviados.length) {
+      html += '<div class="modal-section"><div class="modal-section-title">Enviados</div>';
+      r.enviados.forEach(function(e) {
+        html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-cargo"> · ' + esc(e.email) + '</span></span><span class="modal-row-monto">$' + fmtMoney(e.monto) + '</span></div>';
+      });
+      html += '</div>';
+    }
+  }
+  if (r.totalErrores > 0) {
+    html += '<div class="modal-section modal-mismatch"><div class="modal-section-title">❌ Errores (' + r.totalErrores + ')</div>';
+    r.errores.forEach(function(e) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-cargo"> · ' + esc(e.email) + '</span></span><span style="color:#ff8080;font-size:11px;">' + esc(e.error) + '</span></div>';
+    });
+    html += '</div>';
+  }
+  el.innerHTML = html;
+
+  var box = document.getElementById('modalMailBonosBox');
+  var actions = box.querySelector('.modal-actions');
+  if (actions) {
+    actions.innerHTML = '<button class="modal-btn secondary" onclick="cerrarModalMailBonos()">Cerrar</button>';
+  }
+  showToast('Mails enviados: ' + r.totalEnviados + ' · errores: ' + r.totalErrores, r.totalErrores > 0 ? 'err' : 'ok');
+}
+
+function cerrarModalMailBonos() {
+  document.getElementById('modalMailBonosBackdrop').classList.remove('visible');
+  _mailPreview = null;
+}
+
+// ── MAIL PRUEBA (temporal) ──────────────────────────────────────────────
+function enviarMailPrueba() {
+  var destinatario = prompt('Mail destinatario para prueba:', 'barrosvial@gmail.com');
+  if (!destinatario) return;
+  var btn = document.getElementById('btnMailTest');
+  var oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.textContent = oldText;
+      if (r && r.ok) {
+        showToast('✅ Mail enviado a ' + r.destinatario + ' desde ' + r.remitente, 'ok');
+      } else {
+        showToast('❌ Error: ' + ((r && r.msg) || 'desconocido'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.textContent = oldText;
+      showToast('❌ Error: ' + e.message, 'err');
+    })
+    .enviarMailPruebaBonos(destinatario);
+}
+
+function abrirModalPagos() {
+  var semana = document.getElementById('selSemana').value;
+  if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
+  var data = APP.semanaData;
+  if (!data || !data.ok) { showToast('Carga una semana primero', 'err'); return; }
+  var eventosSet = {};
+  var grupos = data.grupos || {};
+  Object.keys(grupos).forEach(function(cargo) {
+    (grupos[cargo] || []).forEach(function(ev) {
+      if (ev.codigo) eventosSet[ev.codigo] = { codigo: ev.codigo, centro: ev.centro, fecha: ev.fecha };
+    });
+  });
+  var eventos = Object.keys(eventosSet).map(function(k) { return eventosSet[k]; });
+  if (!eventos.length) { showToast('No hay eventos en esta semana', 'err'); return; }
+
+  var html = '';
+  html += '<div class="modal-title">📤 Enviar bonos a Planilla de Pagos</div>';
+  html += '<div class="modal-subtitle">Semana ' + esc(semana) + ' — Seleccioná un evento, o "Todos" para revisar y enviar la semana completa.</div>';
+  html += '<div class="modal-evento-selector">';
+  html += '<select id="modalSelEvento" onchange="previewEventoBonos()">';
+  html += '<option value="">— Seleccionar evento —</option>';
+  html += '<option value="__ALL__">🌐 Todos los eventos aprobados (' + eventos.length + ')</option>';
+  eventos.forEach(function(ev) {
+    html += '<option value="' + esc(ev.codigo) + '">' + esc(ev.codigo) + ' · ' + esc(ev.centro || '') + ' · ' + esc(ev.fecha || '') + '</option>';
+  });
+  html += '</select></div>';
+  html += '<div id="modalPreviewContent"></div>';
+  html += '<div class="modal-actions">';
+  html += '<button class="modal-btn secondary" onclick="cerrarModal()">Cerrar</button>';
+  html += '<button class="modal-btn primary" id="modalBtnEscribir" disabled onclick="confirmarEscrituraBonos()">Escribir bonos</button>';
+  html += '</div>';
+  document.getElementById('modalBonosBox').innerHTML = html;
+  document.getElementById('modalBonosBackdrop').classList.add('visible');
+  _modalCodigoActual = null;
+  _modalEventosAll = eventos.map(function(ev) { return ev.codigo; });
+}
+
+function previewEventoBonos() {
+  var codigo = document.getElementById('modalSelEvento').value;
+  var contentEl = document.getElementById('modalPreviewContent');
+  var btnEsc = document.getElementById('modalBtnEscribir');
+  btnEsc.disabled = true;
+  _modalCodigoActual = null;
+  if (!codigo) { contentEl.innerHTML = ''; return; }
+  contentEl.innerHTML = '<div style="text-align:center;padding:30px;color:#8888aa;">⏳ Cargando preview...</div>';
+
+  if (codigo === '__ALL__') {
+    google.script.run
+      .withSuccessHandler(function(r) { renderPreviewMultiBonos(r); })
+      .withFailureHandler(function(e) {
+        contentEl.innerHTML = '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+      })
+      .previewBonosTodosLosEventos(_modalEventosAll || []);
+  } else {
+    google.script.run
+      .withSuccessHandler(function(r) { renderPreviewBonos(r, codigo); })
+      .withFailureHandler(function(e) {
+        contentEl.innerHTML = '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+      })
+      .previewBonosParaPlanillaMaestra(codigo);
+  }
+}
+
+// Renderiza los bonos de UN evento, agrupados por cargoBase → tipoBono → trabajadores.
+// El encabezado del tipo de bono muestra: [TIPO] Nombre · N personas · $TOTAL
+// Cada trabajador muestra su monto individual. El monto unitario "definición"
+// se omite (estaba duplicado junto a cada trabajador).
+function _renderBonosAgrupados(bonos) {
+  var grupos = agruparPreview(bonos);
+  var html = '';
+  grupos.forEach(function(g) {
+    html += '<div class="preview-cargo-grupo">';
+    html += '<div class="preview-cargo-header">' + esc(g.cargoBase) + '</div>';
+    g.tipos.forEach(function(t) {
+      var n = t.trabajadores.length;
+      var totalTipo = 0;
+      t.trabajadores.forEach(function(tr) { totalTipo += Number(tr.monto) || 0; });
+      var personasTxt = n + (n === 1 ? ' persona' : ' personas');
+      html += '<div class="preview-tipo-row">';
+      html += '<div class="preview-tipo-name">';
+      html += '<span class="preview-tipo-tag">' + esc(t.tipoBono) + '</span> ';
+      html += esc(t.nombreBono);
+      html += '<span class="preview-tipo-meta"> · <b>' + personasTxt + '</b></span>';
+      html += '<span class="preview-tipo-monto">$' + fmtMoney(totalTipo) + '</span>';
+      html += '</div>';
+      t.trabajadores.forEach(function(tr) {
+        html += '<div class="preview-trab-row">';
+        html += '<span class="preview-trab-name">↳ ' + esc(tr.trabajador) + '<span class="preview-trab-cargo"> · ' + esc(tr.cargo) + '</span></span>';
+        html += '<span class="preview-trab-estado">' + esc(tr.estado) + '</span>';
+        html += '<span class="preview-trab-monto">$' + fmtMoney(tr.monto) + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function renderPreviewBonos(r, codigo) {
+  var contentEl = document.getElementById('modalPreviewContent');
+  var btnEsc = document.getElementById('modalBtnEscribir');
+  if (!r || !r.ok) {
+    contentEl.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc((r && r.msg) || 'Error desconocido') + '</div>';
+    btnEsc.disabled = true;
+    return;
+  }
+  var html = '';
+  html += '<div class="modal-section">';
+  html += '<div class="modal-section-title">Evento</div>';
+  html += '<div style="font-size:12px;color:#b0b0c0;">' + esc(r.evento.lugar) + ' · ' + esc(r.evento.fecha) + ' · ' + esc(r.evento.linea) + '</div>';
+  if (r.yaEscritos > 0) {
+    html += '<div style="font-size:11px;color:#ffc88a;margin-top:6px;">⚠️ Ya hay ' + r.yaEscritos + ' bono(s) escrito(s) previamente para este evento. Se reemplazarán.</div>';
+  }
+  html += '</div>';
+
+  if (r.mismatches && r.mismatches.length) {
+    html += '<div class="modal-section modal-mismatch">';
+    html += '<div class="modal-section-title">❌ Mismatches (' + r.mismatches.length + ') — no existe en Planilla Maestra</div>';
+    r.mismatches.forEach(function(m) {
+      html += '<div class="modal-row">';
+      html += '<span class="modal-row-name">' + esc(m.trabajadorBono) + '<span class="modal-row-cargo"> · ' + esc(m.cargo) + '</span></span>';
+      html += '<span class="modal-row-monto">$' + fmtMoney(m.monto) + '</span>';
+      html += '</div>';
+    });
+    html += '<div style="margin-top:8px;font-size:11px;color:#ffb0b0;">Resolver en Planilla Maestra (agregar/corregir nombre del trabajador) y reintentar. <b>Hasta entonces, no se escribirá ningún bono.</b></div>';
+    html += '</div>';
+  }
+
+  if (r.bonos && r.bonos.length) {
+    html += '<div class="modal-section">';
+    html += '<div class="modal-section-title">✓ Bonos a escribir (' + r.bonos.length + ')</div>';
+    html += _renderBonosAgrupados(r.bonos);
+    html += '<div class="modal-total">Total: $' + fmtMoney(r.totalMonto) + '</div>';
+    html += '</div>';
+  } else {
+    html += '<div class="modal-msg-err">No hay bonos ganados listos para escribir.</div>';
+  }
+
+  contentEl.innerHTML = html;
+  btnEsc.disabled = !(r.bonos && r.bonos.length && (!r.mismatches || !r.mismatches.length));
+  btnEsc.textContent = 'Escribir bonos';
+  _modalCodigoActual = codigo;
+}
+
+// Render multi-evento: una tarjeta por evento, cada uno con su preview agrupado.
+function renderPreviewMultiBonos(r) {
+  var contentEl = document.getElementById('modalPreviewContent');
+  var btnEsc = document.getElementById('modalBtnEscribir');
+  if (!r || !r.ok) {
+    contentEl.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc((r && r.msg) || 'Error desconocido') + '</div>';
+    btnEsc.disabled = true;
+    return;
+  }
+  var html = '';
+  var totalBonos = 0, totalMismatches = 0, eventosOk = 0, eventosFail = 0;
+  (r.eventos || []).forEach(function(ev) {
+    var p = ev.preview || {};
+    html += '<div class="modal-section">';
+    html += '<div class="modal-section-title">🏛️ ' + esc(ev.codigo) + (p.ok && p.evento ? ' · ' + esc(p.evento.fecha) : '') + '</div>';
+    if (!p.ok) {
+      html += '<div class="modal-msg-err" style="margin:0;">⚠️ ' + esc(p.msg || 'No se pudo previsualizar') + '</div>';
+      eventosFail++;
+    } else {
+      if (p.yaEscritos > 0) {
+        html += '<div style="font-size:11px;color:#ffc88a;margin-bottom:6px;">⚠️ ' + p.yaEscritos + ' bono(s) previos serán reemplazados.</div>';
+      }
+      if (p.mismatches && p.mismatches.length) {
+        html += '<div class="modal-mismatch" style="padding:8px;border-radius:6px;margin-bottom:6px;">';
+        html += '<div style="font-weight:700;color:#ff8080;font-size:12px;">❌ ' + p.mismatches.length + ' mismatches</div>';
+        p.mismatches.forEach(function(m) {
+          html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + ' · ' + esc(m.cargo) + '</span><span class="modal-row-monto">$' + fmtMoney(m.monto) + '</span></div>';
+        });
+        html += '</div>';
+        totalMismatches += p.mismatches.length;
+        eventosFail++;
+      } else {
+        eventosOk++;
+      }
+      if (p.bonos && p.bonos.length) {
+        html += _renderBonosAgrupados(p.bonos);
+        html += '<div class="modal-total" style="margin-top:4px;">Subtotal evento: $' + fmtMoney(p.totalMonto) + '</div>';
+        totalBonos += p.bonos.length;
+      } else {
+        html += '<div style="color:#8888aa;font-size:12px;">Sin bonos.</div>';
+      }
+    }
+    html += '</div>';
+  });
+
+  html = '<div class="modal-section" style="background:#1e2e1e;border-color:#2a7a2a;">' +
+         '<div class="modal-section-title">📊 Resumen semana</div>' +
+         '<div style="font-size:12px;color:#b0b0c0;">' +
+         eventosOk + ' evento(s) OK · ' + eventosFail + ' con problemas · ' + totalBonos + ' filas a escribir · ' + totalMismatches + ' mismatch(es)' +
+         '</div>' +
+         '<div class="modal-total" style="margin-top:6px;">Total global: $' + fmtMoney(r.totalGlobal || 0) + '</div>' +
+         '</div>' + html;
+  contentEl.innerHTML = html;
+  var habilitar = totalBonos > 0 && totalMismatches === 0;
+  btnEsc.disabled = !habilitar;
+  btnEsc.textContent = habilitar
+    ? 'Escribir bonos de todos los eventos ($' + fmtMoney(r.totalGlobal || 0) + ')'
+    : 'Resolvé los mismatches antes de escribir';
+  _modalCodigoActual = '__ALL__';
+}
+
+function confirmarEscrituraBonos() {
+  if (!_modalCodigoActual) return;
+  var btnEsc = document.getElementById('modalBtnEscribir');
+  btnEsc.disabled = true;
+  var textoPrevio = btnEsc.textContent;
+  btnEsc.textContent = 'Escribiendo...';
+  var contentEl = document.getElementById('modalPreviewContent');
+  var runner;
+  if (_modalCodigoActual === '__ALL__') {
+    runner = google.script.run
+      .withSuccessHandler(function(r) {
+        if (r && r.ok) {
+          contentEl.innerHTML = '<div class="modal-msg-ok">✅ ' + esc(r.msg) + '</div>';
+          showToast('Bonos escritos en Planilla de Pagos', 'ok');
+          btnEsc.textContent = 'Listo';
+        } else {
+          var msg = (r && r.msg) || 'Hubo errores en algunos eventos. Revisá el detalle.';
+          var html = '<div class="modal-msg-err">⚠️ ' + esc(msg) + '</div>';
+          if (r && r.fallos) {
+            r.fallos.forEach(function(f) {
+              html += '<div class="modal-section modal-mismatch"><div class="modal-section-title">❌ ' + esc(f.codigo) + '</div><div style="font-size:12px;color:#ffb0b0;">' + esc(f.msg) + '</div></div>';
+            });
+          }
+          if (r && r.escritos && r.escritos.length) {
+            html += '<div class="modal-section"><div class="modal-section-title">✓ OK (' + r.escritos.length + ')</div>';
+            r.escritos.forEach(function(e) {
+              html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.codigo) + '</span><span class="modal-row-monto">' + e.escritos + ' filas · $' + fmtMoney(e.totalMonto) + '</span></div>';
+            });
+            html += '</div>';
+          }
+          contentEl.innerHTML = html;
+          btnEsc.disabled = false;
+          btnEsc.textContent = textoPrevio;
+        }
+      })
+      .withFailureHandler(function(e) {
+        btnEsc.textContent = textoPrevio;
+        btnEsc.disabled = false;
+        contentEl.innerHTML = '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+      })
+      .escribirBonosMultipleEventos(_modalEventosAll || []);
+  } else {
+    runner = google.script.run
+      .withSuccessHandler(function(r) {
+        if (r && r.ok) {
+          contentEl.innerHTML = '<div class="modal-msg-ok">✅ ' + esc(r.msg) + '</div>';
+          showToast('Bonos escritos en Planilla de Pagos', 'ok');
+          btnEsc.textContent = 'Listo';
+        } else {
+          var msg = (r && r.msg) || 'Error desconocido';
+          contentEl.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc(msg) + '</div>';
+          btnEsc.disabled = false;
+          btnEsc.textContent = textoPrevio;
+        }
+      })
+      .withFailureHandler(function(e) {
+        btnEsc.textContent = textoPrevio;
+        btnEsc.disabled = false;
+        contentEl.innerHTML = '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+      })
+      .escribirBonosEnPlanillaMaestra(_modalCodigoActual);
+  }
+}
+
+function cerrarModal() {
+  document.getElementById('modalBonosBackdrop').classList.remove('visible');
+  _modalCodigoActual = null;
+}
+
+function fmtMoney(n) {
+  return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// ── MODAL FOTOS ─────────────────────────────────────────────────────────
+function abrirModalFotos(codigo, cargo) {
+  var box = document.getElementById('modalFotosBox');
+  box.innerHTML =
+    '<div class="modal-title">📷 Fotos del evento</div>' +
+    '<div class="modal-subtitle">' + esc(codigo) + ' · ' + esc(cargo) + '</div>' +
+    '<div id="modalFotosContent"><div style="text-align:center;padding:30px;color:#8888aa;">⏳ Cargando fotos...</div></div>' +
+    '<div class="modal-actions"><button class="modal-btn secondary" onclick="cerrarModalFotos()">Cerrar</button></div>';
+  document.getElementById('modalFotosBackdrop').classList.add('visible');
+
+  google.script.run
+    .withSuccessHandler(function(r) { renderFotosEnModal(r, codigo, cargo); })
+    .withFailureHandler(function(e) {
+      document.getElementById('modalFotosContent').innerHTML =
+        '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+    })
+    .getFotosDeEvento(codigo, cargo);
+}
+
+function renderFotosEnModal(r, codigo, cargo) {
+  var el = document.getElementById('modalFotosContent');
+  if (!el) return;
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc((r && r.msg) || 'Error al cargar fotos') + '</div>';
+    return;
+  }
+  var fotos = r.fotos || [];
+  if (!fotos.length) {
+    el.innerHTML = '<div class="modal-msg-err" style="background:#23233a;border-color:#3a3a5a;color:#b0b0c0;">📭 Sin fotos subidas aún para este cargo en este evento.</div>';
+    return;
+  }
+  var html = '<div class="fotos-grid">';
+  fotos.forEach(function(f) {
+    var thumb = f.fileId ? ('https://drive.google.com/thumbnail?id=' + f.fileId + '&sz=w320') : '';
+    html += '<div class="foto-card">';
+    if (thumb) {
+      html += '<a href="' + esc(f.url) + '" target="_blank" rel="noopener"><img class="foto-thumb" src="' + esc(thumb) + '" alt="' + esc(f.instruccion) + '" loading="lazy" onerror="this.style.display=\'none\'"></a>';
+    }
+    html += '<div class="foto-caption">' + esc(f.instruccion || '—') + '</div>';
+    html += '<a class="foto-link" href="' + esc(f.url) + '" target="_blank" rel="noopener">Abrir en Drive →</a>';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div style="margin-top:10px;font-size:11px;color:#8888aa;">' + fotos.length + ' foto(s) válida(s).</div>';
+  el.innerHTML = html;
+}
+
+function cerrarModalFotos() {
+  document.getElementById('modalFotosBackdrop').classList.remove('visible');
+}
+
+// ── MODAL OVERRIDE (editar si ganó o no un bono) ────────────────────────
+var _overrideCtx = null;
+
+function abrirModalOverride(codigo, nombreBono, cumplidoActual, hasOverride) {
+  _overrideCtx = {
+    codigo: codigo, nombreBono: nombreBono,
+    cumplidoActual: !!cumplidoActual, hasOverride: !!hasOverride
+  };
+  var estadoActual = cumplidoActual ? '✓ Ganó' : '✗ No ganó';
+  var box = document.getElementById('modalOverrideBox');
+  var html = '';
+  html += '<div class="modal-title">✎ Editar bono</div>';
+  html += '<div class="modal-subtitle">Sobrescribe manualmente si el bono se ganó o no. Se propaga a Base, Resumen y Finanzas. Al pagar, se repartirá entre todos los trabajadores con cargos aplicables en Planilla Maestra.</div>';
+  html += '<div class="modal-section">';
+  html += '<div class="modal-row"><span class="modal-row-name">Bono</span><span class="modal-row-cargo">' + esc(nombreBono) + '</span></div>';
+  html += '<div class="modal-row"><span class="modal-row-name">Evento</span><span class="modal-row-cargo">' + esc(codigo) + '</span></div>';
+  html += '<div class="modal-row"><span class="modal-row-name">Estado actual</span><span class="modal-row-estado">' + estadoActual + (hasOverride ? ' (override)' : '') + '</span></div>';
+  html += '</div>';
+  html += '<div class="modal-section">';
+  html += '<div class="modal-section-title">Nuevo estado</div>';
+  html += '<div class="override-radio-group">';
+  html += '<label class="override-radio"><input type="radio" name="ovState" value="true"' + (cumplidoActual ? ' checked' : '') + '><span class="override-radio-lbl si">✓ Se ganó el bono</span></label>';
+  html += '<label class="override-radio"><input type="radio" name="ovState" value="false"' + (!cumplidoActual ? ' checked' : '') + '><span class="override-radio-lbl no">✗ No se ganó el bono</span></label>';
+  html += '</div>';
+  html += '<label style="display:block;margin-top:10px;font-size:12px;color:#b0b0c0;">Razón (opcional):</label>';
+  html += '<textarea id="ovRazon" placeholder="Ej: supervisor avisó por WhatsApp que sí cumplió el criterio" style="width:100%;min-height:60px;margin-top:4px;padding:6px;background:#0f0f1e;border:1px solid #2a2a4e;border-radius:6px;color:#e0e0f0;font-family:inherit;font-size:12px;box-sizing:border-box;"></textarea>';
+  html += '</div>';
+  html += '<div class="modal-actions">';
+  html += '<button class="modal-btn secondary" onclick="cerrarModalOverride()">Cancelar</button>';
+  if (hasOverride) {
+    html += '<button class="modal-btn secondary" style="background:#4d1e1e;color:#ffb0b0;" onclick="eliminarOverride()">Quitar override</button>';
+  }
+  html += '<button class="modal-btn primary" id="ovBtnSave" onclick="guardarOverride()">Guardar</button>';
+  html += '</div>';
+  box.innerHTML = html;
+  document.getElementById('modalOverrideBackdrop').classList.add('visible');
+}
+
+function cerrarModalOverride() {
+  document.getElementById('modalOverrideBackdrop').classList.remove('visible');
+  _overrideCtx = null;
+}
+
+function guardarOverride() {
+  if (!_overrideCtx) return;
+  var radios = document.getElementsByName('ovState');
+  var override = null;
+  for (var i = 0; i < radios.length; i++) {
+    if (radios[i].checked) { override = (radios[i].value === 'true'); break; }
+  }
+  if (override === null) { showToast('Selecciona Ganó o No ganó', 'err'); return; }
+  var razon = document.getElementById('ovRazon').value || '';
+  var btn = document.getElementById('ovBtnSave');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  var ctx = _overrideCtx;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) {
+        showToast('Override guardado. Recargando semana...', 'ok');
+        cerrarModalOverride();
+        cargarSemana();
+      } else {
+        btn.disabled = false; btn.textContent = 'Guardar';
+        showToast('Error: ' + ((r && r.msg) || 'desconocido'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false; btn.textContent = 'Guardar';
+      showToast('Error: ' + e.message, 'err');
+    })
+    .setOverrideBono(ctx.codigo, ctx.nombreBono, override, razon);
+}
+
+function eliminarOverride() {
+  if (!_overrideCtx) return;
+  if (!confirm('¿Quitar el override y volver al cálculo natural de las fuentes?')) return;
+  var ctx = _overrideCtx;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) {
+        showToast('Override eliminado. Recargando...', 'ok');
+        cerrarModalOverride();
+        cargarSemana();
+      } else {
+        showToast('Error: ' + ((r && r.msg) || 'desconocido'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) { showToast('Error: ' + e.message, 'err'); })
+    .deleteOverrideBono(ctx.codigo, ctx.nombreBono);
+}
+
+// ── MODAL TRABAJADORES (ver quiénes reciben el bono) ────────────────────
+function abrirModalTrabajadores(codigo, nombreBono) {
+  var box = document.getElementById('modalTrabsBox');
+  box.innerHTML =
+    '<div class="modal-title">👤 Trabajadores del bono</div>' +
+    '<div class="modal-subtitle">' + esc(nombreBono) + ' · ' + esc(codigo) + '</div>' +
+    '<div id="modalTrabsContent"><div style="text-align:center;padding:30px;color:#8888aa;">⏳ Cargando...</div></div>' +
+    '<div class="modal-actions"><button class="modal-btn secondary" onclick="cerrarModalTrabs()">Cerrar</button></div>';
+  document.getElementById('modalTrabsBackdrop').classList.add('visible');
+
+  google.script.run
+    .withSuccessHandler(function(r) { renderTrabsEnModal(r); })
+    .withFailureHandler(function(e) {
+      document.getElementById('modalTrabsContent').innerHTML =
+        '<div class="modal-msg-err">Error: ' + esc(e.message) + '</div>';
+    })
+    .getTrabajadoresDelBono(codigo, nombreBono);
+}
+
+function renderTrabsEnModal(r) {
+  var el = document.getElementById('modalTrabsContent');
+  if (!el) return;
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="modal-msg-err">⚠️ ' + esc((r && r.msg) || 'Error al cargar trabajadores') + '</div>';
+    return;
+  }
+  var trabs = r.trabajadores || [];
+  var cargosAplicables = r.cargosAplicables || [];
+  var monto = r.monto || 0;
+
+  var html = '';
+  html += '<div class="modal-section">';
+  html += '<div class="modal-section-title">Cargos que reciben el bono</div>';
+  html += '<div style="font-size:12px;color:#b0b0c0;">' + esc(cargosAplicables.join(' · ')) + '</div>';
+  html += '<div style="font-size:11px;color:#8888aa;margin-top:4px;">Monto por trabajador: $' + fmtMoney(monto) + '</div>';
+  html += '</div>';
+
+  if (!trabs.length) {
+    html += '<div class="modal-msg-err" style="background:#23233a;border-color:#3a3a5a;color:#b0b0c0;">📭 Ningún trabajador en Planilla Maestra (fuente=Evento) coincide con estos cargos. ¿Está el evento aprobado y cargado?</div>';
+  } else {
+    html += '<div class="modal-section">';
+    html += '<div class="modal-section-title">Recibirán el bono (' + trabs.length + ')</div>';
+    trabs.forEach(function(t) {
+      html += '<div class="modal-row">';
+      html += '<span class="modal-row-name">' + esc(t.nombre) + '<span class="modal-row-cargo"> · ' + esc(t.cargo) + '</span></span>';
+      html += '<span class="modal-row-monto">$' + fmtMoney(monto) + '</span>';
+      html += '</div>';
+    });
+    html += '<div class="modal-total">Total: $' + fmtMoney(monto * trabs.length) + '</div>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function cerrarModalTrabs() {
+  document.getElementById('modalTrabsBackdrop').classList.remove('visible');
+}
 </script>
+
+<!-- Modal: Enviar bonos a Planilla de Pagos (paso 4-5) -->
+<div class="modal-backdrop" id="modalBonosBackdrop" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal-box" id="modalBonosBox"></div>
+</div>
+
+<!-- Modal: Ver fotos del evento (on-demand desde Sheet Fotos) -->
+<div class="modal-backdrop" id="modalFotosBackdrop" onclick="if(event.target===this)cerrarModalFotos()">
+  <div class="modal-box" id="modalFotosBox"></div>
+</div>
+
+<!-- Modal: Override manual de bono ganó/no ganó -->
+<div class="modal-backdrop" id="modalOverrideBackdrop" onclick="if(event.target===this)cerrarModalOverride()">
+  <div class="modal-box" id="modalOverrideBox"></div>
+</div>
+
+<!-- Modal: Trabajadores que reciben un bono (lookup Planilla Maestra por cargos aplicables) -->
+<div class="modal-backdrop" id="modalTrabsBackdrop" onclick="if(event.target===this)cerrarModalTrabs()">
+  <div class="modal-box" id="modalTrabsBox"></div>
+</div>
+
+<!-- Modal: Mandar mail bonos a trabajadores -->
+<div class="modal-backdrop" id="modalMailBonosBackdrop" onclick="if(event.target===this)cerrarModalMailBonos()">
+  <div class="modal-box" id="modalMailBonosBox" style="max-width:680px;"></div>
+</div>
+
+<!-- Modal: Confirmación de envío de mails (sub-modal con z-index mayor) -->
+<div class="modal-backdrop" id="modalConfirmEnvioBackdrop" onclick="if(event.target===this)cerrarConfirmEnvio()" style="z-index:9999;">
+  <div class="modal-box" id="modalConfirmEnvioBox" style="max-width:560px;"></div>
+</div>
+
 </body>
 </html>
