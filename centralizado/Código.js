@@ -161,11 +161,142 @@ function onOpen() {
     .addToUi();
 }
 
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('WebApp')
-    .setTitle('Sistema Bonos -- Tinto')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+// ==================================================================
+// HTTP ENDPOINTS (Web App)
+// ------------------------------------------------------------------
+// Routing:
+//   GET sin ?action=  → WebApp legacy (mantiene compatibilidad con
+//                        usuarios que acceden por la URL actual)
+//   GET con ?action=X → JSON: ejecuta la query y devuelve resultado
+//   POST con body JSON {action: X, ...} → JSON: ejecuta la mutación
+//
+// El WebApp legacy (WebApp.html) sigue funcional. El frontend nuevo
+// en Cloudflare Pages usa solamente las rutas con ?action= y POST.
+// ==================================================================
+
+function _jsonOk(data) {
+  var payload = (data && typeof data === 'object') ? data : { data: data };
+  if (payload.ok === undefined) payload.ok = true;
+  return ContentService.createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _jsonErr(msg, extra) {
+  var payload = Object.assign({ ok: false, msg: String(msg || 'error') }, extra || {});
+  return ContentService.createTextOutput(JSON.stringify(payload))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || '';
+
+  // Sin action → WebApp legacy (compat con la URL pública actual)
+  if (!action) {
+    return HtmlService.createHtmlOutputFromFile('WebApp')
+      .setTitle('Sistema Bonos -- Tinto')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  try {
+    var p = e.parameter || {};
+    switch (action) {
+      // -- Lectura básica del dashboard --
+      case 'getWebAppData':            return _jsonOk(getWebAppData());
+      case 'getDatosSemana':           return _jsonOk(getDatosSemana(p.semana));
+      case 'getDetalleCriteriosSemana': return _jsonOk(getDetalleCriteriosSemana(p.semana));
+      case 'getDatosCargo':            return _jsonOk(getDatosCargo(p.cargo));
+      case 'getDatosPersona':          return _jsonOk(getDatosPersona(p.persona));
+      case 'getEventosCRMPorSemana':   return _jsonOk(getEventosCRMPorSemana(p.semana));
+      case 'getDatosSemanaConCRM':     return _jsonOk(getDatosSemanaConCRM(p.semana));
+
+      // -- Maestros y tarifas --
+      case 'getMaestroBonos':          return _jsonOk(getMaestroBonos());
+      case 'getMaestroCriterios':      return _jsonOk(getMaestroCriterios());
+      case 'getTarifas2026':           return _jsonOk(getTarifas2026());
+
+      // -- Modales (trabajadores, fotos, override) --
+      case 'getTrabajadoresDelBono':   return _jsonOk(getTrabajadoresDelBono(p.codigo, p.nombreBono));
+      case 'getFotosDeEvento':         return _jsonOk(getFotosDeEvento(p.codigo, p.cargo));
+      case 'getOverrideBono':          return _jsonOk(getOverrideBono(p.codigo, p.nombreBono));
+
+      // -- Paso 4-5 (preview, no escribe) --
+      case 'previewBonosParaPlanillaMaestra':
+        return _jsonOk(previewBonosParaPlanillaMaestra(p.codigo));
+      case 'previewBonosTodosLosEventos':
+        return _jsonOk(previewBonosTodosLosEventos(_parseList(p.codigos)));
+
+      // -- Mail bonos (preview) --
+      case 'getMailPreviewSemana':     return _jsonOk(getMailPreviewSemana(p.semana));
+
+      default:
+        return _jsonErr('Acción GET desconocida: ' + action);
+    }
+  } catch (err) {
+    Logger.log('doGet error: ' + err);
+    return _jsonErr(err.toString());
+  }
+}
+
+function doPost(e) {
+  try {
+    var raw  = (e && e.postData && e.postData.contents) || '{}';
+    var body = JSON.parse(raw);
+    var action = body.action || '';
+    if (!action) return _jsonErr('Falta action en body POST');
+
+    // El frontend (CF Pages tras Cloudflare Access) inyecta el email del
+    // usuario autenticado para trazabilidad. Lo guardamos como propiedad
+    // temporal para que las funciones que registran "Autor" lo usen.
+    if (body.userEmail) {
+      try { PropertiesService.getScriptProperties().setProperty('_currentActor', String(body.userEmail).trim()); } catch(_){}
+    }
+
+    switch (action) {
+      // -- Sync orquestación --
+      case 'sincronizar':              return _jsonOk(sincronizarDesdeWebApp());
+
+      // -- Overrides de bono --
+      case 'setOverrideBono':
+        return _jsonOk(setOverrideBono(body.codigo, body.nombreBono, body.override, body.razon));
+      case 'deleteOverrideBono':
+        return _jsonOk(deleteOverrideBono(body.codigo, body.nombreBono));
+
+      // -- Paso 4-5 (escritura a Planilla Maestra) --
+      case 'escribirBonosEnPlanillaMaestra':
+        return _jsonOk(escribirBonosEnPlanillaMaestra(body.codigo));
+      case 'escribirBonosMultipleEventos':
+        return _jsonOk(escribirBonosMultipleEventos(body.codigos || []));
+
+      // -- Mail bonos (envío) --
+      case 'enviarMailsBonos':
+        return _jsonOk(enviarMailsBonos(body.semana, body.lista || []));
+      case 'enviarMailPruebaBonos':
+        return _jsonOk(enviarMailPruebaBonos(body.destinatario));
+
+      // -- Edición de Maestros y Tarifas --
+      case 'saveMaestroBonos':         return _jsonOk(saveMaestroBonos(body.items || []));
+      case 'saveMaestroCriterios':     return _jsonOk(saveMaestroCriterios(body.items || []));
+      case 'saveTarifas2026':          return _jsonOk(saveTarifas2026(body.cambios || []));
+
+      default:
+        return _jsonErr('Acción POST desconocida: ' + action);
+    }
+  } catch (err) {
+    Logger.log('doPost error: ' + err);
+    return _jsonErr(err.toString());
+  }
+}
+
+// Helper: parsea un parámetro de query que puede venir como JSON (?codigos=["a","b"])
+// o como CSV (?codigos=a,b). Retorna array de strings limpios.
+function _parseList(raw) {
+  if (!raw) return [];
+  var s = String(raw).trim();
+  if (s.charAt(0) === '[') {
+    try { return JSON.parse(s); } catch(e) { /* fallthrough */ }
+  }
+  return s.split(',').map(function(x) { return x.trim(); }).filter(function(x) { return x; });
 }
 
 function abrirWebapp() {
