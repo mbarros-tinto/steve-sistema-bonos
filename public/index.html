@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Bonos · Tinto Banquetería</title>
+  <link rel="icon" type="image/png" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png">
+  <link rel="apple-touch-icon" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png">
+  <meta name="theme-color" content="#1a1014">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="page">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <img class="logo" src="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png" alt="Tinto">
+      <h1>Sistema de <span class="accent">Bonos</span></h1>
+    </div>
+    <div class="topbar-user" id="topbarUser">—</div>
+  </div>
+
+  <div class="container">
+
+    <!-- TABS NAV -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana', this)">📅 Semana</button>
+      <button class="tab-btn" data-tab="cargo" onclick="switchTab('cargo', this)">👥 Cargo</button>
+      <button class="tab-btn" data-tab="historial" onclick="switchTab('historial', this)">🔍 Historial</button>
+      <button class="tab-btn" data-tab="criterios" onclick="switchTab('criterios', this)">📋 Criterios</button>
+      <button class="tab-btn" data-tab="tarifas" onclick="switchTab('tarifas', this)">💰 Tarifas</button>
+    </div>
+
+    <!-- TAB: SEMANA -->
+    <div class="tab-panel active" id="panel-semana">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Bonos por <span class="accent">semana</span></div>
+          <div class="controls" style="margin: 0;">
+            <select id="selSemana" onchange="cargarSemana()">
+              <option value="">— Seleccionar semana —</option>
+            </select>
+            <button class="btn btn-secondary" onclick="sincronizar()" title="Sincronizar Fotos + CG + Vajilla + Supervisoras">🔄 Sync</button>
+          </div>
+        </div>
+        <div id="resSemana">
+          <div class="empty">
+            <div class="empty-icon">📅</div>
+            <p>Selecciona una semana para ver los bonos consolidados</p>
+            <p class="sub">Cada cargo muestra los bonos ganados / no ganados con detalle de criterios</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CARGO -->
+    <div class="tab-panel" id="panel-cargo">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👥 Historial por <span class="accent">cargo</span></div>
+          <div class="controls" style="margin: 0;">
+            <select id="selCargo" onchange="cargarCargo()">
+              <option value="">— Seleccionar cargo —</option>
+            </select>
+          </div>
+        </div>
+        <div id="resCargo">
+          <div class="empty">
+            <div class="empty-icon">👥</div>
+            <p>Selecciona un cargo para ver su historial de bonos</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HISTORIAL -->
+    <div class="tab-panel" id="panel-historial">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔍 Historial por <span class="accent">trabajador</span></div>
+          <div class="controls" style="margin: 0;">
+            <input type="text" id="inpPersona" placeholder="Buscar trabajador…" oninput="filtrarPersonas()">
+          </div>
+        </div>
+        <div id="resHistorial">
+          <div class="empty">
+            <div class="empty-icon">🔍</div>
+            <p>Busca a un trabajador para ver sus bonos</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CRITERIOS -->
+    <div class="tab-panel" id="panel-criterios">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Maestro de <span class="accent">criterios</span></div>
+        </div>
+        <div id="resCriterios">
+          <div class="spinner-wrap"><div class="spinner"></div>Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: TARIFAS -->
+    <div class="tab-panel" id="panel-tarifas">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">💰 Tarifas y <span class="accent">bonos</span> 2026</div>
+        </div>
+        <div id="resTarifas">
+          <div class="spinner-wrap"><div class="spinner"></div>Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: Trabajadores que reciben un bono -->
+<div class="modal-backdrop" id="modalTrabsBackdrop" onclick="if(event.target===this)cerrarModal('modalTrabsBackdrop')">
+  <div class="modal-box" id="modalTrabsBox"></div>
+</div>
+
+<!-- MODAL: Fotos del evento -->
+<div class="modal-backdrop" id="modalFotosBackdrop" onclick="if(event.target===this)cerrarModal('modalFotosBackdrop')">
+  <div class="modal-box" id="modalFotosBox"></div>
+</div>
+
+<!-- MODAL: Override (editar ganó/no ganó) -->
+<div class="modal-backdrop" id="modalOverrideBackdrop" onclick="if(event.target===this)cerrarModal('modalOverrideBackdrop')">
+  <div class="modal-box" id="modalOverrideBox"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
