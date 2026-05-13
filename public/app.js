@@ -240,9 +240,19 @@ function renderSemana(datos, detalle) {
 }
 
 function renderEventoCard(ev, cargo, detalle) {
+  // ev.codigo por convención del CRM es "Centro DD/MM/YYYY" (col P del CRM
+  // CONSOLIDADO). Extraemos el lugar sacando la fecha del final, así
+  // garantizamos que el lugar siempre se vea aunque ev.centro contenga otra
+  // cosa (ej: nombre de novios) en Base_Criterios.
+  var lugar     = String(ev.codigo || '').replace(/\s+\d{1,2}\/\d{1,2}\/\d{4}\s*$/, '').trim();
+  var nombreTop = ev.centro || lugar || ev.codigo || '';
+  var mostrarLugar = lugar && lugar !== nombreTop;
+
   var html = '<div class="event-card">';
   html += '<div class="event-card-head">';
-  html += '<span class="event-name">🏛️ ' + esc(ev.centro || ev.codigo) + '</span>';
+  html += '<span class="event-name">🏛️ ' + esc(nombreTop);
+  if (mostrarLugar) html += ' <span class="event-lugar">· 📍 ' + esc(lugar) + '</span>';
+  html += '</span>';
   html += '<span class="event-date">' + esc(ev.fecha || '') + '</span>';
   html += '</div>';
   if (ev.trabajador) html += '<div class="event-trab">👤 ' + esc(ev.trabajador) + '</div>';
