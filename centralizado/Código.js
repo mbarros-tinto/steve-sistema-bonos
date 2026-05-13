@@ -317,6 +317,8 @@ function soloSyncSupervisoras() { var n = syncSupervisoras(); SpreadsheetApp.get
 
 var MAIL_FROM_ALIAS = 'bonos@tintobanqueteria.cl';
 var MAIL_FROM_NAME  = 'Bonos Tinto Banquetería';
+// Copia interna a operaciones para visibilidad/auditoría de los mails de bonos.
+var MAIL_CC_BONOS   = 'catalina@tintobanqueteria.cl';
 
 // ── Tracking de mails enviados ─────────────────────────────────────────
 var HOJA_MAILS_ENVIADOS = 'Mails_Enviados';
@@ -800,6 +802,7 @@ function enviarMailsBonos(semana, listaNombres) {
         GmailApp.sendEmail(t.email, asunto, txt, {
           from:     MAIL_FROM_ALIAS,
           name:     MAIL_FROM_NAME,
+          cc:       MAIL_CC_BONOS,
           htmlBody: html
         });
         _registrarMailEnviado(t, semana, autor);
