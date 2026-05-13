@@ -173,9 +173,9 @@ function abrirWebapp() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Sistema Bonos');
 }
 
-function soloSyncFotos()        { var n = syncFotos();        SpreadsheetApp.getUi().alert('Fotos: '        + n + ' nuevos registros.'); }
-function soloSyncCG()           { var n = syncCG();           SpreadsheetApp.getUi().alert('CG: '           + n + ' nuevos registros.'); }
-function soloSyncSupervisoras() { var n = syncSupervisoras(); SpreadsheetApp.getUi().alert('Supervisoras: ' + n + ' nuevos registros.'); }
+function soloSyncFotos()        { var n = syncFotos();        SpreadsheetApp.getUi().alert('Fotos: '        + n + ' registros sincronizados (incluye actualizaciones).'); }
+function soloSyncCG()           { var n = syncCG();           SpreadsheetApp.getUi().alert('CG: '           + n + ' registros sincronizados (incluye actualizaciones).'); }
+function soloSyncSupervisoras() { var n = syncSupervisoras(); SpreadsheetApp.getUi().alert('Supervisoras: ' + n + ' registros sincronizados (incluye actualizaciones).'); }
 
 // ==================================================================
 // MAIL — BONOS
@@ -745,18 +745,19 @@ function sincronizarTodo() {
   try {
     SpreadsheetApp.getUi().alert(
       'Sincronizacion completa.\n\n' +
-      'Fotos nuevos:        ' + r.fotos       + '\n' +
-      'CG nuevos:           ' + r.cg          + '\n' +
-      'Vajilla nuevos:      ' + r.vajilla     + '\n' +
-      'Supervisoras nuevos: ' + r.supervisoras + '\n' +
-      'Base_Criterios:      ' + r.base        + ' filas\n' +
-      'Resumen_Finanzas:    ' + r.finanzas    + ' filas'
+      'Fotos sincronizados:        ' + r.fotos       + '\n' +
+      'CG sincronizados:           ' + r.cg          + '\n' +
+      'Vajilla sincronizados:      ' + r.vajilla     + '\n' +
+      'Supervisoras sincronizados: ' + r.supervisoras + '\n' +
+      'Base_Criterios:             ' + r.base        + ' filas\n' +
+      'Resumen_Finanzas:           ' + r.finanzas    + ' filas\n\n' +
+      '(Incluye actualizaciones por re-evaluación)'
     );
   } catch(e) {}
   return r;
 }
 
-function soloSyncVajilla() { var n = syncVajilla(); SpreadsheetApp.getUi().alert('Vajilla: ' + n + ' nuevos registros.'); }
+function soloSyncVajilla() { var n = syncVajilla(); SpreadsheetApp.getUi().alert('Vajilla: ' + n + ' registros sincronizados (incluye actualizaciones).'); }
 
 function reconstruirTodo() {
   var n1 = _reconstruirBase();
@@ -780,90 +781,118 @@ function syncDatosFaltantes() {
 function syncFotos() {
   var ss      = SpreadsheetApp.openById(ID_SHEET_CENTRALIZADO);
   var hFuente = _getOrCreate(ss, HOJAS.FUENTE_FOTOS);
-  var yaSync  = _buildKeySet(hFuente, 0, 6);
+  var keyRow  = _buildKeyRowMap(hFuente, 0, 6); // key (codigo|||cargo) → fila 1-based
 
   var ssFotos = SpreadsheetApp.openById(ID_SHEET_FOTOS);
   var hBono   = ssFotos.getSheetByName('Bono Fotos');
   if (!hBono || hBono.getLastRow() < 4) return 0;
 
   var datos  = hBono.getRange(4, 1, hBono.getLastRow() - 3, 20).getValues();
-  var nuevas = [];
+  var nuevas       = [];
+  var actualizadas = []; // [{fila, data}]
+  var vistosEnSync = {}; // dedup dentro de este mismo run
 
   for (var i = 0; i < datos.length; i++) {
     var r        = datos[i];
     var codigo   = String(r[2]).trim();
     var cargo    = String(r[4]).trim();
-    var fechaRaw = r[1];                       // puede llegar como Date si Sheets lo parseó
-    var fecha    = _normFechaAStr(fechaRaw);   // -> "DD/MM/YYYY" siempre
-    var anio     = _extraerAnio(fechaRaw);     // -> año entero (ej: 2026)
+    var fechaRaw = r[1];
+    var fecha    = _normFechaAStr(fechaRaw);
+    var anio     = _extraerAnio(fechaRaw);
     if (!codigo || !cargo) continue;
     if (anio < ANIO_MIN) continue;
     var key = codigo + '|||' + cargo;
-    if (yaSync[key]) continue;
+    if (vistosEnSync[key]) continue;
+    vistosEnSync[key] = true;
 
-    nuevas.push([
+    var fila = [
       codigo,                    _normFechaAStr(r[0]),   anio,   fecha,  r[3],
       r[6],                cargo,
       r[7],r[8],r[9],r[10],r[11],r[12],r[13],r[14],
       r[15],r[16],r[17],   String(r[18]).trim(), r[19]
-    ]);
-    yaSync[key] = true;
+    ];
+
+    if (keyRow[key]) {
+      actualizadas.push({ fila: keyRow[key], data: fila });
+    } else {
+      nuevas.push(fila);
+    }
   }
 
+  // Header si la hoja está vacía y hay datos por escribir
+  if ((nuevas.length > 0 || actualizadas.length > 0) && hFuente.getLastRow() === 0) {
+    _writeHeader(hFuente, ['Código Evento','Semana','Año','Fecha Evento','Centro',
+      'Trabajador','Cargo','Resp 1','Resp 2','Resp 3','Resp 4','Resp 5','Resp 6','Resp 7','Resp 8',
+      'Total Preguntas','Respondidas','% Cumplimiento','Gana Bono Fotos','Timestamp']);
+  }
+
+  // Upsert: filas existentes se sobreescriben in-place
+  actualizadas.forEach(function(u) {
+    hFuente.getRange(u.fila, 1, 1, u.data.length).setValues([u.data]);
+  });
+
   if (nuevas.length > 0) {
-    if (hFuente.getLastRow() === 0) {
-      _writeHeader(hFuente, ['Código Evento','Semana','Año','Fecha Evento','Centro',
-        'Trabajador','Cargo','Resp 1','Resp 2','Resp 3','Resp 4','Resp 5','Resp 6','Resp 7','Resp 8',
-        'Total Preguntas','Respondidas','% Cumplimiento','Gana Bono Fotos','Timestamp']);
-    }
     hFuente.getRange(hFuente.getLastRow() + 1, 1, nuevas.length, 20).setValues(nuevas);
   }
-  return nuevas.length;
+  return nuevas.length + actualizadas.length;
 }
 
 // -- SYNC CG -------------------------------------------------------
 function syncCG() {
   var ss      = SpreadsheetApp.openById(ID_SHEET_CENTRALIZADO);
   var hFuente = _getOrCreate(ss, HOJAS.FUENTE_CG);
-  var yaSync  = _buildKeySet(hFuente, 0, 6);
+  var keyRow  = _buildKeyRowMap(hFuente, 0, 6); // key (codigo|||cargo) → fila 1-based
 
   var ssCG   = SpreadsheetApp.openById(ID_SHEET_CG);
   var hBono  = ssCG.getSheetByName('Bono CG');
   if (!hBono || hBono.getLastRow() < 4) return 0;
 
   var datos  = hBono.getRange(4, 1, hBono.getLastRow() - 3, 21).getValues();
-  var nuevas = [];
+  var nuevas       = [];
+  var actualizadas = []; // [{fila, data}]
+  var vistosEnSync = {};
 
   for (var i = 0; i < datos.length; i++) {
     var r        = datos[i];
     var codigo   = String(r[2]).trim();
     var cargo    = String(r[4]).trim();
-    var fechaRaw = r[1];                       // puede llegar como Date si Sheets lo parseó
-    var fecha    = _normFechaAStr(fechaRaw);   // -> "DD/MM/YYYY" siempre
-    var anio     = _extraerAnio(fechaRaw);     // -> año entero (ej: 2026)
+    var fechaRaw = r[1];
+    var fecha    = _normFechaAStr(fechaRaw);
+    var anio     = _extraerAnio(fechaRaw);
     if (!codigo || !cargo) continue;
     if (anio < ANIO_MIN) continue;
     var key = codigo + '|||' + cargo;
-    if (yaSync[key]) continue;
+    if (vistosEnSync[key]) continue;
+    vistosEnSync[key] = true;
 
-    nuevas.push([
+    var fila = [
       codigo, _normFechaAStr(r[0]), anio, fecha, r[3],
       String(r[5]).trim(), cargo,
       r[6],r[7],r[8],r[9],r[10],r[11],r[12],r[13],r[14],r[15],
       r[18], String(r[19]).trim(), r[20]
-    ]);
-    yaSync[key] = true;
+    ];
+
+    if (keyRow[key]) {
+      actualizadas.push({ fila: keyRow[key], data: fila });
+    } else {
+      nuevas.push(fila);
+    }
   }
 
+  if ((nuevas.length > 0 || actualizadas.length > 0) && hFuente.getLastRow() === 0) {
+    _writeHeader(hFuente, ['Código Evento','Semana','Año','Fecha Evento','Centro',
+      'Trabajador','Cargo','Crit 1','Crit 2','Crit 3','Crit 4','Crit 5',
+      'Crit 6','Crit 7','Crit 8','Crit 9','Crit 10','% Cumplimiento','Gana Bono CG','Timestamp']);
+  }
+
+  actualizadas.forEach(function(u) {
+    hFuente.getRange(u.fila, 1, 1, u.data.length).setValues([u.data]);
+  });
+
   if (nuevas.length > 0) {
-    if (hFuente.getLastRow() === 0) {
-      _writeHeader(hFuente, ['Código Evento','Semana','Año','Fecha Evento','Centro',
-        'Trabajador','Cargo','Crit 1','Crit 2','Crit 3','Crit 4','Crit 5',
-        'Crit 6','Crit 7','Crit 8','Crit 9','Crit 10','% Cumplimiento','Gana Bono CG','Timestamp']);
-    }
     hFuente.getRange(hFuente.getLastRow() + 1, 1, nuevas.length, 20).setValues(nuevas);
   }
-  return nuevas.length;
+  return nuevas.length + actualizadas.length;
 }
 
 // -- SYNC VAJILLA --------------------------------------------------
@@ -885,16 +914,21 @@ function syncVajilla() {
       'Cargo','Trabajador','Gana Bono','Timestamp']);
   }
 
-  // Clave existente: codigo|||cargo
-  var yaSync = {};
+  // key → fila 1-based (codigo en col C=2, cargo en col H=7)
+  var keyRow = {};
   if (hFuente.getLastRow() >= 2) {
-    hFuente.getRange(2, 1, hFuente.getLastRow() - 1, 8).getValues().forEach(function(r) {
-      if (r[2]) yaSync[String(r[2]).trim() + '|||' + String(r[7]).trim()] = true;
-    });
+    var existentes = hFuente.getRange(2, 1, hFuente.getLastRow() - 1, 8).getValues();
+    for (var j = 0; j < existentes.length; j++) {
+      var er = existentes[j];
+      if (er[2]) keyRow[String(er[2]).trim() + '|||' + String(er[7]).trim()] = j + 2;
+    }
   }
 
-  var datos  = hBono.getRange(2, 1, hBono.getLastRow() - 1, 11).getValues();
-  var nuevas = [];
+  var datos        = hBono.getRange(2, 1, hBono.getLastRow() - 1, 11).getValues();
+  var nuevas       = [];
+  var actualizadas = []; // [{fila, data}]
+  var vistosEnSync = {};
+
   for (var i = 0; i < datos.length; i++) {
     var r = datos[i];
     var codigo = String(r[2]).trim();
@@ -903,18 +937,30 @@ function syncVajilla() {
     var anio = _extraerAnio(r[1]);
     if (anio < ANIO_MIN) continue;
     var key = codigo + '|||' + cargo;
-    if (yaSync[key]) continue;
-    nuevas.push([
+    if (vistosEnSync[key]) continue;
+    vistosEnSync[key] = true;
+
+    var fila = [
       _normFechaAStr(r[0]), _normFechaAStr(r[1]), codigo, String(r[3] || ''),
       Number(r[4]) || 0, Number(r[5]) || 0, Number(r[6]) || 0,
       cargo, String(r[8] || ''), String(r[9] || '').trim(), r[10]
-    ]);
-    yaSync[key] = true;
+    ];
+
+    if (keyRow[key]) {
+      actualizadas.push({ fila: keyRow[key], data: fila });
+    } else {
+      nuevas.push(fila);
+    }
   }
+
+  actualizadas.forEach(function(u) {
+    hFuente.getRange(u.fila, 1, 1, u.data.length).setValues([u.data]);
+  });
+
   if (nuevas.length > 0) {
     hFuente.getRange(hFuente.getLastRow() + 1, 1, nuevas.length, 11).setValues(nuevas);
   }
-  return nuevas.length;
+  return nuevas.length + actualizadas.length;
 }
 
 // -- SYNC SUPERVISORAS ---------------------------------------------
@@ -934,27 +980,29 @@ function syncVajilla() {
 function syncSupervisoras() {
   var ss      = SpreadsheetApp.openById(ID_SHEET_CENTRALIZADO);
   var hFuente = _getOrCreate(ss, HOJAS.FUENTE_SUPERVISORAS);
-  var yaSync  = _buildKeySet(hFuente, 0, 6);  // key: Código + Trabajador
+  var keyRow  = _buildKeyRowMap(hFuente, 0, 6); // key (codigo|||trabajador) → fila 1-based
 
   var ssSup = SpreadsheetApp.openById(ID_SHEET_SUPERVISORAS);
   var hDash = ssSup.getSheetByName('Dashboard de Bonos');
   if (!hDash || hDash.getLastRow() < 2) return 0;
 
-  var datos  = hDash.getRange(2, 1, hDash.getLastRow() - 1, 11).getValues();
-  var nuevas = [];
+  var datos        = hDash.getRange(2, 1, hDash.getLastRow() - 1, 11).getValues();
+  var nuevas       = [];
+  var actualizadas = []; // [{fila, data}]
+  var vistosEnSync = {};
 
   for (var i = 0; i < datos.length; i++) {
     var r          = datos[i];
-    var timestamp  = r[0];                 // A: Timestamp Evaluación
-    var centro     = String(r[1]).trim();  // B: Centro de Evento
-    var novios     = String(r[2]).trim();  // C: Novios
-    var fechaEvt   = r[3];                 // D: Fecha Evento
-    var codigo     = String(r[4]).trim();  // E: Código Evento
-    var trabajador = String(r[5]).trim();  // F: Nombre Trabajador
-    var cargo      = String(r[6]).trim();  // G: Cargo
-    var ganoBono   = String(r[7]).trim();  // H: ?Ganó Bono?
-    var nota       = r[8];                 // I: Nota Promedio
-    var supervisor = String(r[9]).trim();  // J: Supervisor
+    var timestamp  = r[0];
+    var centro     = String(r[1]).trim();
+    var novios     = String(r[2]).trim();
+    var fechaEvt   = r[3];
+    var codigo     = String(r[4]).trim();
+    var trabajador = String(r[5]).trim();
+    var cargo      = String(r[6]).trim();
+    var ganoBono   = String(r[7]).trim();
+    var nota       = r[8];
+    var supervisor = String(r[9]).trim();
 
     if (!codigo || !trabajador) continue;
 
@@ -962,35 +1010,46 @@ function syncSupervisoras() {
     if (anio < ANIO_MIN) continue;
 
     var key = codigo + '|||' + trabajador;
-    if (yaSync[key]) continue;
+    if (vistosEnSync[key]) continue;
+    vistosEnSync[key] = true;
 
     var semana   = _getSemanaStr(fechaEvt);
     var fechaStr = _normFechaAStr(fechaEvt);
 
-    nuevas.push([
+    var fila = [
       codigo, semana, anio, fechaStr,
       centro, novios,
       trabajador, cargo,
       supervisor, timestamp,
       '', '', '', '', '', '', '', '',
       nota, ganoBono
-    ]);
-    yaSync[key] = true;
+    ];
+
+    if (keyRow[key]) {
+      actualizadas.push({ fila: keyRow[key], data: fila });
+    } else {
+      nuevas.push(fila);
+    }
   }
 
+  if ((nuevas.length > 0 || actualizadas.length > 0) && hFuente.getLastRow() === 0) {
+    _writeHeader(hFuente, [
+      'Código Evento','Semana','Año','Fecha Evento','Centro','Novios',
+      'Trabajador','Cargo','Supervisor','Timestamp',
+      'Crit:Liderazgo','Crit:Foco Cliente','Crit:Coordinacion',
+      'Crit:Manejo Crisis','Crit:Estandar Alarmas','Crit:Conteo Botellas',
+      'Crit:Material','Crit:Presente/Rol','Nota Promedio','Gana Bono Supervisora'
+    ]);
+  }
+
+  actualizadas.forEach(function(u) {
+    hFuente.getRange(u.fila, 1, 1, u.data.length).setValues([u.data]);
+  });
+
   if (nuevas.length > 0) {
-    if (hFuente.getLastRow() === 0) {
-      _writeHeader(hFuente, [
-        'Código Evento','Semana','Año','Fecha Evento','Centro','Novios',
-        'Trabajador','Cargo','Supervisor','Timestamp',
-        'Crit:Liderazgo','Crit:Foco Cliente','Crit:Coordinacion',
-        'Crit:Manejo Crisis','Crit:Estandar Alarmas','Crit:Conteo Botellas',
-        'Crit:Material','Crit:Presente/Rol','Nota Promedio','Gana Bono Supervisora'
-      ]);
-    }
     hFuente.getRange(hFuente.getLastRow() + 1, 1, nuevas.length, 20).setValues(nuevas);
   }
-  return nuevas.length;
+  return nuevas.length + actualizadas.length;
 }
 
 // -- RECONSTRUIR BASE_CRITERIOS ------------------------------------
@@ -2035,6 +2094,22 @@ function _buildKeySet(hoja, col1, col2) {
     if (k !== '|||') set[k] = true;
   }
   return set;
+}
+
+// Como _buildKeySet pero devuelve { key: filaSheet1Based } en lugar de
+// { key: true }. Usado por las funciones de sync para hacer UPSERT en lugar
+// de skip-on-duplicate. Sin esto, las re-evaluaciones quedan atrapadas en la
+// hoja origen (Bono Fotos / Bono CG / etc.) sin propagarse al Centralizado.
+function _buildKeyRowMap(hoja, col1, col2) {
+  var map = {};
+  if (!hoja || hoja.getLastRow() < 2) return map;
+  var datos = hoja.getDataRange().getValues();
+  var start = (datos.length > 0 && String(datos[0][col1]).toLowerCase().indexOf('código') !== -1) ? 1 : 0;
+  for (var i = start; i < datos.length; i++) {
+    var k = String(datos[i][col1]).trim() + '|||' + String(datos[i][col2]).trim();
+    if (k !== '|||') map[k] = i + 1; // fila 1-based
+  }
+  return map;
 }
 
 function _writeHeader(hoja, headers) {
