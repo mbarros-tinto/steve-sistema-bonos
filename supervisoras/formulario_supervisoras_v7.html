@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluación Supervisoras · Tinto Banquetería</title>
+<link rel="icon" type="image/png" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png">
+<link rel="apple-touch-icon" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png">
+<meta name="theme-color" content="#1a1014">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776365257/Javiera_y_Felipe-468_jxrjef.jpg">
+<style>
+  :root {
+    --gold: #c9a96e;
+    --gold-soft: #e4cfa3;
+    --ink: #1a1014;
+    --ink-soft: #2d2d2d;
+    --bordo: #6b1f2a;
+    --line: rgba(255,255,255,.18);
+    --line-soft: rgba(255,255,255,.08);
+    --err: #ff6b6b;
+    --ok: #8fd19e;
+    --info: #8ab8ff;
+    --warn: #e8b16e;
+    --radius: 14px;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    background:
+      linear-gradient(rgba(15,10,10,.55), rgba(15,10,10,.78)),
+      url('https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776365257/Javiera_y_Felipe-468_jxrjef.jpg') center/cover no-repeat fixed;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background: radial-gradient(ellipse at top, transparent 0%, rgba(0,0,0,.5) 100%);
+    pointer-events: none; z-index: 0;
+  }
+  .page {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    padding: 28px 16px 60px;
+  }
+  .topbar {
+    display: flex; justify-content: center; align-items: center;
+    margin-bottom: 22px;
+  }
+  .topbar img { height: 64px; filter: drop-shadow(0 2px 8px rgba(0,0,0,.4)); }
+
+  .container {
+    width: 100%; max-width: 780px;
+    margin: 0 auto;
+    background: rgba(22,16,18,.72);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset;
+  }
+  header.card-header {
+    padding: 30px 32px 22px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(201,169,110,.08), transparent);
+  }
+  header.card-header h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: 30px; line-height: 1.15;
+    margin: 0 0 8px;
+    letter-spacing: .5px;
+  }
+  header.card-header h1 .accent { color: var(--gold); font-style: italic; }
+  header.card-header p {
+    margin: 0;
+    font-size: 13.5px; opacity: .8;
+    letter-spacing: .3px;
+  }
+  .orn-divider {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; margin: 14px auto 0;
+    max-width: 260px;
+  }
+  .orn-divider::before, .orn-divider::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-soft), transparent);
+    opacity: .6;
+  }
+  .orn-divider span {
+    font-size: 10px; letter-spacing: 3px;
+    color: var(--gold); text-transform: uppercase;
+  }
+
+  .card-section { padding: 26px 32px; }
+  .card-section + .card-section { border-top: 1px solid var(--line-soft); }
+  .section-title {
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: 22px;
+    color: #fff;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(201,169,110,.3);
+  }
+  .section-title .sec-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 10px var(--gold);
+    flex-shrink: 0;
+  }
+
+  .field { margin-bottom: 18px; }
+  label {
+    display: block;
+    font-weight: 600; font-size: 12.5px;
+    color: rgba(255,255,255,.78);
+    margin-bottom: 6px;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+  }
+  label .req { color: var(--gold); margin-left: 2px; }
+  .hint {
+    font-size: 11.5px;
+    color: rgba(255,255,255,.55);
+    font-style: italic;
+    margin-top: 4px;
+  }
+  .q-sub {
+    font-size: 12.5px;
+    color: rgba(255,255,255,.6);
+    margin: -2px 0 8px;
+    font-style: italic;
+    line-height: 1.45;
+  }
+
+  input[type=text], input[type=date], select, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color .18s, background .18s, box-shadow .18s;
+  }
+  input::placeholder, textarea::placeholder { color: rgba(255,255,255,.38); }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    background: rgba(255,255,255,.09);
+    box-shadow: 0 0 0 3px rgba(201,169,110,.15);
+  }
+  input[type="date"] { color-scheme: dark; }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23c9a96e'%3E%3Cpath d='M5.5 7.5l4.5 5 4.5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 38px;
+    cursor: pointer;
+  }
+  select:disabled { background-color: rgba(255,255,255,.03); color: rgba(255,255,255,.4); cursor: not-allowed; }
+  select option { background: #1a1014; color: #fff; }
+
+  /* ── Autocomplete ── */
+  .ac-wrap { position: relative; }
+  .ac-list {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: var(--ink);
+    border: 1px solid rgba(255,255,255,.14);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    max-height: 240px; overflow-y: auto;
+    z-index: 200; display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .ac-item {
+    padding: 11px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    color: #fff;
+    transition: background .15s, color .15s;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: rgba(201,169,110,.12); color: var(--gold-soft); }
+  .ac-item mark { background: transparent; color: var(--gold); font-weight: 700; }
+  .ac-none {
+    padding: 11px 14px;
+    font-size: 13px; color: rgba(255,255,255,.4);
+    font-style: italic;
+  }
+
+  /* ── Tags ── */
+  .tags-wrap {
+    min-height: 48px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px;
+    padding: 7px 10px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    align-items: flex-start; cursor: text;
+    transition: border-color .18s, background .18s, box-shadow .18s;
+  }
+  .tags-wrap:focus-within {
+    border-color: var(--gold);
+    background: rgba(255,255,255,.09);
+    box-shadow: 0 0 0 3px rgba(201,169,110,.15);
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(180deg, rgba(201,169,110,.25), rgba(184,149,95,.18));
+    border: 1px solid rgba(201,169,110,.45);
+    color: var(--gold-soft);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .tag-x {
+    cursor: pointer;
+    border: none; background: none;
+    color: var(--gold-soft);
+    font-size: 14px; line-height: 1;
+    opacity: .75; transition: opacity .15s;
+    padding: 0;
+  }
+  .tag-x:hover { opacity: 1; }
+  .tags-input {
+    border: none; outline: none;
+    background: transparent;
+    color: #fff;
+    font-family: inherit; font-size: 14px;
+    min-width: 140px; flex: 1; padding: 4px 2px;
+  }
+  .tags-input::placeholder { color: rgba(255,255,255,.38); }
+
+  /* ── Rating 0-7 ── */
+  .q-block { margin-bottom: 22px; }
+  .q-block + .q-block { padding-top: 18px; border-top: 1px solid var(--line-soft); }
+  .q-title {
+    font-weight: 600; font-size: 14px;
+    color: #fff; margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .q-title .req { color: var(--gold); margin-left: 3px; }
+  .rating-group {
+    display: flex; align-items: center;
+    gap: 6px; flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .rating-group .sc-lbl {
+    font-size: 11px; color: rgba(255,255,255,.5);
+    white-space: nowrap;
+  }
+  .rating-btn {
+    width: 38px; height: 38px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 8px;
+    background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.8);
+    font-family: inherit;
+    font-weight: 700; font-size: 14px;
+    cursor: pointer;
+    transition: all .13s;
+  }
+  .rating-btn:hover {
+    border-color: var(--gold);
+    background: rgba(201,169,110,.1);
+    color: var(--gold-soft);
+  }
+  .rating-btn.sel {
+    background: linear-gradient(180deg, var(--gold), #b8955f);
+    color: var(--ink);
+    border-color: var(--gold);
+    box-shadow: 0 4px 12px -4px rgba(201,169,110,.5);
+    transform: scale(1.05);
+  }
+
+  /* ── Yes / No ── */
+  .yesno-group { display: flex; gap: 10px; margin-top: 4px; }
+  .yesno-btn {
+    flex: 1; min-width: 90px;
+    padding: 10px 22px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 10px;
+    background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.85);
+    font-family: inherit;
+    font-weight: 700; font-size: 13px;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: all .13s;
+  }
+  .yesno-btn:hover { border-color: var(--gold); }
+  .yesno-btn.sy {
+    background: rgba(143,209,158,.18);
+    color: var(--ok);
+    border-color: rgba(143,209,158,.5);
+  }
+  .yesno-btn.sn {
+    background: rgba(255,107,107,.18);
+    color: var(--err);
+    border-color: rgba(255,107,107,.5);
+  }
+  /* ── Toggles secundarios ── */
+  .toggle-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px;
+    color: var(--gold-soft);
+    background: rgba(201,169,110,.08);
+    border: 1px solid rgba(201,169,110,.25);
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 8px;
+    transition: all .15s;
+  }
+  .toggle-btn:hover {
+    background: rgba(201,169,110,.18);
+    border-color: var(--gold);
+    color: #fff;
+  }
+  .coment-collapsible { display: none; margin-top: 12px; }
+  .coment-collapsible.open { display: block; }
+  .cojefe-box {
+    display: none;
+    margin-top: 12px;
+    padding: 14px;
+    background: rgba(0,0,0,.25);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+  }
+  .cojefe-box p {
+    font-size: 12px; color: rgba(255,255,255,.6);
+    margin-bottom: 10px; font-style: italic;
+    line-height: 1.4;
+  }
+  .cojefe-box select, .cojefe-box input { margin-bottom: 6px; }
+  .cojefe-box select:last-child, .cojefe-box input:last-child { margin-bottom: 0; }
+  .otros-input { margin-top: 8px; }
+
+  /* ── Loading state ── */
+  .loading-pulse {
+    text-align: center;
+    padding: 32px 20px;
+    color: rgba(255,255,255,.55);
+    font-size: 13px;
+  }
+  .loading-pulse::after { content: " ⏳"; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: .4 } 50% { opacity: 1 } }
+
+  /* ── Alerta box informativa (alerta trabajadores) ── */
+  .alerta-info {
+    background: rgba(232,177,110,.10);
+    border: 1px solid rgba(232,177,110,.35);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 12.5px;
+    color: #f3dcb4;
+    margin-bottom: 18px;
+    line-height: 1.6;
+  }
+  .alerta-info strong { color: var(--warn); }
+
+  /* ── Errores ── */
+  .err-hint {
+    color: var(--err);
+    font-size: 12px;
+    margin-top: 6px;
+    display: none;
+  }
+  .field.has-error input,
+  .field.has-error select,
+  .field.has-error textarea,
+  .field.has-error .tags-wrap {
+    border-color: var(--err) !important;
+    box-shadow: 0 0 0 3px rgba(255,107,107,.14);
+  }
+  .field.has-error .err-hint { display: block; }
+  .q-block.has-error .rating-group,
+  .q-block.has-error .yesno-group {
+    outline: 2px solid rgba(255,107,107,.55);
+    border-radius: 10px;
+    padding: 6px;
+  }
+  .q-block.has-error .err-hint { display: block; }
+
+  /* ── Submit ── */
+  .submit-wrap { padding: 26px 32px 30px; text-align: center; border-top: 1px solid var(--line-soft); }
+  .btn-submit {
+    width: 100%; max-width: 360px;
+    background: linear-gradient(180deg, var(--gold), #b8955f);
+    color: var(--ink);
+    border: 0;
+    padding: 14px 26px;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 1.4px; text-transform: uppercase;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px -6px rgba(201,169,110,.4);
+    transition: transform .12s, box-shadow .18s, opacity .18s;
+    font-family: inherit;
+  }
+  .btn-submit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px -6px rgba(201,169,110,.55);
+  }
+  .btn-submit:active:not(:disabled) { transform: translateY(0); }
+  .btn-submit:disabled { opacity: .55; cursor: not-allowed; }
+
+  /* ── Modal de éxito ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: rgba(22,16,18,.92);
+    backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 36px 32px;
+    text-align: center;
+    max-width: 420px; width: 100%;
+    box-shadow: 0 24px 60px -12px rgba(0,0,0,.7);
+  }
+  .modal-icon {
+    font-size: 44px;
+    margin-bottom: 14px;
+    color: var(--ok);
+  }
+  .modal-box h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: 24px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .modal-box p {
+    font-size: 14px;
+    color: rgba(255,255,255,.7);
+    line-height: 1.5;
+  }
+
+  /* ── Banner restauración ── */
+  #restore-banner {
+    display: none;
+    background: rgba(232,177,110,.14);
+    border-bottom: 1px solid rgba(232,177,110,.4);
+    padding: 12px 22px;
+    font-size: 13px;
+    color: #f3dcb4;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: sticky; top: 0;
+    z-index: 100;
+  }
+  #restore-banner.visible { display: flex; }
+  #restore-banner strong { flex: 1; min-width: 200px; }
+  .restore-btn {
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: none;
+    font-family: inherit;
+    font-weight: 700; font-size: 12px;
+    cursor: pointer;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    transition: all .15s;
+  }
+  .restore-btn-yes {
+    background: linear-gradient(180deg, var(--gold), #b8955f);
+    color: var(--ink);
+  }
+  .restore-btn-yes:hover { transform: translateY(-1px); }
+  .restore-btn-no {
+    background: transparent;
+    color: rgba(255,255,255,.7);
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .restore-btn-no:hover { background: rgba(255,255,255,.05); color: #fff; }
+
+  /* ── Indicador autoguardado ── */
+  #autosave-indicator {
+    position: fixed; bottom: 18px; right: 18px;
+    font-size: 12px;
+    background: rgba(143,209,158,.18);
+    border: 1px solid rgba(143,209,158,.4);
+    color: var(--ok);
+    padding: 7px 14px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity .4s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  #autosave-indicator.show { opacity: 1; }
+
+  /* ── Badge dinámico ── */
+  .dyn-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    background: rgba(143,209,158,.18);
+    color: var(--ok);
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: .8px;
+    font-weight: 700;
+    margin-left: 10px;
+    text-transform: uppercase;
+    vertical-align: middle;
+    border: 1px solid rgba(143,209,158,.4);
+  }
+
+  @media (max-width: 600px) {
+    .card-section { padding: 22px 20px; }
+    header.card-header { padding: 26px 22px 18px; }
+    header.card-header h1 { font-size: 24px; }
+    .submit-wrap { padding: 22px 20px 26px; }
+    .rating-btn { width: 34px; height: 34px; font-size: 13px; }
+    .yesno-btn { font-size: 12px; padding: 9px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="restore-banner">
+  <strong>📋 Hay una evaluación guardada automáticamente. ¿Quieres recuperarla?</strong>
+  <button class="restore-btn restore-btn-yes" onclick="doRestore()">↩ Recuperar</button>
+  <button class="restore-btn restore-btn-no" onclick="dismissRestore()">✕ Descartar</button>
+</div>
+<div id="autosave-indicator">✓ Guardado automáticamente</div>
+
+<div class="page">
+  <div class="topbar">
+    <img src="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png" alt="Tinto">
+  </div>
+
+  <div class="container">
+    <header class="card-header">
+      <h1>Evaluación <span class="accent">Supervisoras</span></h1>
+      <p>Formulario interno · Completar al finalizar cada evento</p>
+      <div class="orn-divider"><span>Tinto Banquetería</span></div>
+    </header>
+
+    <!-- ─── DATOS DEL EVENTO ──────────────────────────────────────── -->
+    <section class="card-section">
+      <div class="section-title"><span class="sec-dot"></span>Identificación del evento</div>
+      <div class="field" id="field_supervisor">
+        <label>Supervisor que evalúa<span class="req">*</span></label>
+        <input type="text" id="supervisor" placeholder="Nombre completo">
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <div class="field" id="field_fecha">
+        <label>Fecha del evento<span class="req">*</span></label>
+        <input type="date" id="fecha" onchange="onFechaChange()">
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <div class="field" id="field_evento">
+        <label>Centro y novios / evento<span class="req">*</span></label>
+        <select id="evento_sel" onchange="onEventoChange()" disabled>
+          <option value="">— Selecciona primero la fecha —</option>
+        </select>
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <input type="hidden" id="centro">
+      <input type="hidden" id="novios">
+    </section>
+
+    <!-- ─── CARGOS DINÁMICOS ──────────────────────────────────────── -->
+    <section class="card-section">
+      <div class="section-title">
+        <span class="sec-dot"></span>Evaluaciones por cargo<span class="dyn-badge">Maestro</span>
+      </div>
+      <div id="dynamic-cargos">
+        <div class="loading-pulse">Cargando preguntas desde Maestro de Bonos</div>
+      </div>
+    </section>
+
+    <!-- ─── DESTACADOS ───────────────────────────────────────────── -->
+    <section class="card-section">
+      <div class="section-title"><span class="sec-dot"></span>Trabajadores destacados</div>
+      <p class="hint" style="margin-bottom:14px;">
+        Trabajador organizado, siempre disponible, respeta horarios, colaborativo con otras áreas y respetuoso al cumplir las instrucciones.
+      </p>
+      <div class="field" id="field_destac_1">
+        <label>Destacado 1<span class="req">*</span></label>
+        <div class="ac-wrap">
+          <input type="text" id="destac_1_input" placeholder="Escribe el nombre…" autocomplete="off"
+                 oninput="acFilter('destac_1')" onkeydown="acKey(event,'destac_1')"
+                 onfocus="acShowAll('destac_1')" onblur="acBlur('destac_1')">
+          <div class="ac-list" id="destac_1_list"></div>
+        </div>
+        <input type="hidden" id="destac_1">
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <div class="field">
+        <label>Destacado 2</label>
+        <div class="ac-wrap">
+          <input type="text" id="destac_2_input" placeholder="Escribe el nombre…" autocomplete="off"
+                 oninput="acFilter('destac_2')" onkeydown="acKey(event,'destac_2')"
+                 onfocus="acShowAll('destac_2')" onblur="acBlur('destac_2')">
+          <div class="ac-list" id="destac_2_list"></div>
+        </div>
+        <input type="hidden" id="destac_2">
+      </div>
+      <div class="field">
+        <label>Destacado 3</label>
+        <div class="ac-wrap">
+          <input type="text" id="destac_3_input" placeholder="Escribe el nombre…" autocomplete="off"
+                 oninput="acFilter('destac_3')" onkeydown="acKey(event,'destac_3')"
+                 onfocus="acShowAll('destac_3')" onblur="acBlur('destac_3')">
+          <div class="ac-list" id="destac_3_list"></div>
+        </div>
+        <input type="hidden" id="destac_3">
+      </div>
+      <div class="field">
+        <button type="button" class="toggle-btn" onclick="toggleComent('destac_coment_wrap', this)">💬 Opcional: dejar comentario</button>
+        <div class="coment-collapsible" id="destac_coment_wrap">
+          <textarea id="destac_comentario" placeholder="Comenta algo relevante sobre los trabajadores destacados de este evento, si lo tienes."></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── ALERTA ───────────────────────────────────────────────── -->
+    <section class="card-section">
+      <div class="section-title"><span class="sec-dot"></span>⚠ Alerta de trabajadores</div>
+      <div class="alerta-info">
+        Indica los trabajadores que <strong>no estuvieron a la altura</strong> del evento, ya sea por
+        <strong>vestimenta, presentación, servicio, actitud</strong> u otras razones.<br><br>
+        <em>Esta información <strong>no implica ponerlos en lista negra.</strong></em>
+        Se le dará feedback directo al <strong>super metre</strong> sobre los trabajadores que fallaron.
+      </div>
+      <div class="field">
+        <label>Trabajadores con alerta</label>
+        <div class="ac-wrap">
+          <div class="tags-wrap" id="alerta_tags_wrap" onclick="document.getElementById('alerta_ac_input').focus()">
+            <input type="text" class="tags-input" id="alerta_ac_input" placeholder="Busca y agrega trabajadores…"
+                   autocomplete="off"
+                   oninput="acFilter('alerta')" onkeydown="acKeyTags(event,'alerta')"
+                   onfocus="acShowAll('alerta')" onblur="acBlur('alerta')">
+          </div>
+          <div class="ac-list" id="alerta_list"></div>
+        </div>
+        <div class="hint">Selecciona nombres del listado. Puedes agregar varios.</div>
+        <input type="hidden" id="alerta_trabajadores">
+      </div>
+      <div class="field">
+        <button type="button" class="toggle-btn" onclick="toggleComent('alerta_coment_wrap', this)">💬 Opcional: dejar comentario</button>
+        <div class="coment-collapsible" id="alerta_coment_wrap">
+          <textarea id="alerta_comentario" placeholder="Opcional: contexto adicional."></textarea>
+        </div>
+      </div>
+    </section>
+
+    <div class="submit-wrap">
+      <button class="btn-submit" id="submitBtn" onclick="submitForm()">Enviar evaluación</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-icon">✓</div>
+    <h2>¡Evaluación enviada!</h2>
+    <p>Los datos han sido registrados correctamente.</p>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ════════════════════════════════════════════════════════════════
+let _formConfig    = null;
+let _byCentro      = {};
+let _cargoNames    = {};
+let _trabajadores  = [];
+let _alertaTags    = [];
+let _multiTags     = {};
+const _acActive    = {};
+
+function cargoKeyForAux(cargo) {
+  var map = {
+    'Super metre':       'superMetre',
+    'Metre':             'metre',
+    'Jefe Cocina':       'jefeCocina',
+    'Jefe de Bar':       'jefeBar',
+    'Jefa de Floristas': 'jefaFloristas'
+  };
+  return map[cargo] || null;
+}
+
+function slug(s) {
+  return String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  asCheckOnLoad();
+
+  if (typeof google !== 'undefined' && google.script) {
+    google.script.run
+      .withSuccessHandler(cfg => {
+        _formConfig = cfg && cfg.ok ? cfg : null;
+        renderDynamicCargos();
+        attachAutoSaveListeners();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('dynamic-cargos').innerHTML =
+          '<p class="hint" style="color:var(--err)">No se pudo cargar Maestro_Bonos: ' + esc(err.message) + '</p>';
+      })
+      .getFormConfig();
+
+    google.script.run
+      .withSuccessHandler(data => {
+        _byCentro   = data.byCentro   || {};
+        _cargoNames = data.cargoNames || {};
+        if (_formConfig) repoblarDropdownsNombreCargo();
+      })
+      .withFailureHandler(() => {})
+      .getCentrosAndNovios();
+
+    google.script.run
+      .withSuccessHandler(data => { _trabajadores = data.nombres || []; })
+      .withFailureHandler(() => { _trabajadores = []; })
+      .getTrabajadores();
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+//  RENDER DINÁMICO DE CARGOS
+// ════════════════════════════════════════════════════════════════
+function renderDynamicCargos() {
+  const root = document.getElementById('dynamic-cargos');
+  if (!_formConfig || !_formConfig.cargos || !_formConfig.cargos.length) {
+    root.innerHTML = '<p class="hint" style="color:rgba(255,255,255,.6)">No hay cargos con criterios en Maestro_Bonos (Sistema = Supervisoras).</p>';
+    return;
+  }
+  let html = '';
+  _formConfig.cargos.forEach((c, idx) => { html += renderCargoSection(c, idx); });
+  root.innerHTML = html;
+  _formConfig.cargos.forEach(c => {
+    const s = slug(c.cargo);
+    c.criterios.forEach((crit, i) => {
+      const wrap = document.getElementById('q_' + s + '_' + i);
+      if (!wrap) return;
+      if (crit.tipo === 'nota')      buildRatingButtons(wrap);
+      else if (crit.tipo === 'bool') buildYesNoButtons(wrap);
+    });
+  });
+  repoblarDropdownsNombreCargo();
+}
+
+function renderCargoSection(c, idx) {
+  const s = slug(c.cargo);
+  let html = '<div class="cargo-block" data-cargo="' + esc(c.cargo) + '" style="margin-bottom:30px;padding-bottom:24px;' + (idx < (_formConfig.cargos.length - 1) ? 'border-bottom:1px solid var(--line-soft);' : '') + '">';
+  html += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:600;color:var(--gold);margin:0 0 16px;letter-spacing:.5px;">' + esc(c.cargo) + '</h3>';
+
+  if (c.multiTrabajador) {
+    html += '<div class="field" id="field_' + s + '_nombre">';
+    html += '<label>Nombre(s)<span class="req">*</span></label>';
+    html += '<div class="ac-wrap">';
+    html += '<div class="tags-wrap" id="' + s + '_tags_wrap" onclick="document.getElementById(\'' + s + '_ac_input\').focus()">';
+    html += '<input type="text" class="tags-input" id="' + s + '_ac_input" placeholder="Busca y agrega nombre(s)…" autocomplete="off"';
+    html += ' oninput="acFilter(\'' + s + '__multi\')" onkeydown="acKeyTags(event,\'' + s + '__multi\')"';
+    html += ' onfocus="acShowAll(\'' + s + '__multi\')" onblur="acBlur(\'' + s + '__multi\')">';
+    html += '</div>';
+    html += '<div class="ac-list" id="' + s + '__multi_list"></div>';
+    html += '</div>';
+    html += '<div class="hint">Puedes agregar más de un trabajador.</div>';
+    html += '<input type="hidden" id="' + s + '_nombre_hidden">';
+    html += '<div class="err-hint">Agrega al menos uno</div>';
+    html += '</div>';
+  } else {
+    const auxKey = cargoKeyForAux(c.cargo);
+    html += '<div class="field" id="field_' + s + '_nombre">';
+    html += '<label>Nombre<span class="req">*</span></label>';
+    if (auxKey) {
+      html += '<select id="' + s + '_nombre_sel" onchange="onCargoNombreSelChange(\'' + s + '\')">';
+      html += '<option value="">— Cargando… —</option>';
+      html += '</select>';
+      html += '<input type="text" id="' + s + '_nombre" class="otros-input" placeholder="Escribir nombre completo" style="display:none" oninput="this.closest(\'.field\').classList.remove(\'has-error\')">';
+      if (c.permiteCoJefe) {
+        html += '<button type="button" class="toggle-btn" id="cojefe_toggle_' + s + '" onclick="toggleCoJefe(\'' + s + '\')">＋ Agregar co-jefe</button>';
+        html += '<div class="cojefe-box" id="cojefe_box_' + s + '">';
+        html += '<p>Cuando hay dos jefes trabajando en conjunto. Ambos recibirán la misma evaluación.</p>';
+        html += '<select id="' + s + '_nombre2_sel" onchange="onCoJefeChange(\'' + s + '\')">';
+        html += '<option value="">— Selecciona el co-jefe —</option>';
+        html += '</select>';
+        html += '<input type="text" id="' + s + '_nombre2" placeholder="O escribe el nombre del co-jefe" style="display:none">';
+        html += '</div>';
+      }
+    } else {
+      html += '<input type="text" id="' + s + '_nombre" placeholder="Nombre completo" oninput="this.closest(\'.field\').classList.remove(\'has-error\')">';
+    }
+    html += '<div class="err-hint">Campo requerido</div>';
+    html += '</div>';
+  }
+
+  // Criterios
+  c.criterios.forEach((crit, i) => {
+    const qid = 'q_' + s + '_' + i;
+    html += '<div class="q-block" id="qb_' + qid + '">';
+    html += '<div class="q-title">' + esc(crit.label) + '<span class="req">*</span></div>';
+    if (crit.subtitulo) html += '<div class="q-sub">' + esc(crit.subtitulo) + '</div>';
+    if (crit.tipo === 'nota') {
+      html += '<div class="rating-group"><span class="sc-lbl">No obs.</span><div class="btns" id="' + qid + '" data-tipo="nota" style="display:flex;gap:6px;flex-wrap:wrap;"></div><span class="sc-lbl">Sobresale</span></div>';
+    } else {
+      html += '<div class="yesno-group" id="' + qid + '" data-tipo="bool"></div>';
+    }
+    html += '<div class="err-hint">Selecciona una respuesta</div>';
+    html += '</div>';
+  });
+
+  // Comentario
+  html += '<div class="field" style="margin-top:18px"><label>Comentario general</label>';
+  html += '<textarea id="' + s + '_comentario" placeholder="Comentario opcional…"></textarea></div>';
+  html += '</div>';
+  return html;
+}
+
+function buildRatingButtons(wrap) {
+  wrap.innerHTML = '';
+  for (let i = 0; i <= 7; i++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rating-btn';
+    btn.textContent = i;
+    btn.dataset.value = i;
+    btn.onclick = () => {
+      wrap.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
+      wrap.dataset.selected = i;
+      wrap.closest('.q-block')?.classList.remove('has-error');
+      scheduleAutoSave();
+    };
+    wrap.appendChild(btn);
+  }
+}
+
+function buildYesNoButtons(wrap) {
+  wrap.innerHTML = '';
+  ['Sí', 'No'].forEach(label => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'yesno-btn';
+    btn.textContent = label;
+    btn.onclick = () => {
+      wrap.querySelectorAll('.yesno-btn').forEach(b => b.classList.remove('sy', 'sn'));
+      btn.classList.add(label === 'Sí' ? 'sy' : 'sn');
+      wrap.dataset.selected = label;
+      wrap.closest('.q-block')?.classList.remove('has-error');
+      scheduleAutoSave();
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+function repoblarDropdownsNombreCargo() {
+  if (!_formConfig) return;
+  _formConfig.cargos.forEach(c => {
+    if (c.multiTrabajador) return;
+    const auxKey = cargoKeyForAux(c.cargo);
+    if (!auxKey) return;
+    const s = slug(c.cargo);
+    const names = _cargoNames[auxKey] || [];
+    const sel = document.getElementById(s + '_nombre_sel');
+    if (sel) {
+      sel.innerHTML = '<option value="">— Selecciona —</option>';
+      names.forEach(name => {
+        const o = document.createElement('option');
+        o.value = name; o.textContent = name; sel.appendChild(o);
+      });
+      const otros = document.createElement('option');
+      otros.value = '__otros__'; otros.textContent = 'Otros (escribir)';
+      sel.appendChild(otros);
+    }
+    if (c.permiteCoJefe) {
+      const sel2 = document.getElementById(s + '_nombre2_sel');
+      if (sel2) {
+        sel2.innerHTML = '<option value="">— Selecciona el co-jefe —</option>';
+        names.forEach(name => {
+          const o = document.createElement('option');
+          o.value = name; o.textContent = name; sel2.appendChild(o);
+        });
+        const otros2 = document.createElement('option');
+        otros2.value = '__otros__'; otros2.textContent = 'Otros (escribir)';
+        sel2.appendChild(otros2);
+      }
+    }
+  });
+}
+
+function onCargoNombreSelChange(s) {
+  const sel   = document.getElementById(s + '_nombre_sel');
+  const input = document.getElementById(s + '_nombre');
+  if (!sel || !input) return;
+  if (sel.value === '__otros__') {
+    input.style.display = 'block'; input.value = ''; input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = sel.value || '';
+  }
+  document.getElementById('field_' + s + '_nombre')?.classList.remove('has-error');
+  scheduleAutoSave();
+}
+
+function toggleCoJefe(s) {
+  const box = document.getElementById('cojefe_box_' + s);
+  const btn = document.getElementById('cojefe_toggle_' + s);
+  const open = box.style.display === 'block';
+  box.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '＋ Agregar co-jefe' : '✕ Quitar co-jefe';
+  if (open) {
+    document.getElementById(s + '_nombre2_sel').value = '';
+    document.getElementById(s + '_nombre2').value = '';
+    document.getElementById(s + '_nombre2').style.display = 'none';
+  }
+  scheduleAutoSave();
+}
+
+function onCoJefeChange(s) {
+  const sel   = document.getElementById(s + '_nombre2_sel');
+  const input = document.getElementById(s + '_nombre2');
+  if (sel.value === '__otros__') { input.style.display = 'block'; input.value = ''; input.focus(); }
+  else { input.style.display = 'none'; }
+  scheduleAutoSave();
+}
+
+function getCargoNombreFinal(c) {
+  const s = slug(c.cargo);
+  if (c.multiTrabajador) {
+    const tags = _multiTags[c.cargo] || [];
+    return tags.join(' / ');
+  }
+  const auxKey = cargoKeyForAux(c.cargo);
+  if (auxKey) {
+    const sel   = document.getElementById(s + '_nombre_sel');
+    const input = document.getElementById(s + '_nombre');
+    let nombre = '';
+    if (sel && sel.value && sel.value !== '__otros__') nombre = sel.value;
+    else if (input && input.value.trim()) nombre = input.value.trim();
+    if (c.permiteCoJefe) {
+      const box = document.getElementById('cojefe_box_' + s);
+      if (box && box.style.display === 'block') {
+        const sel2 = document.getElementById(s + '_nombre2_sel');
+        const inp2 = document.getElementById(s + '_nombre2');
+        let cj = '';
+        if (sel2 && sel2.value && sel2.value !== '__otros__') cj = sel2.value;
+        else if (inp2 && inp2.value.trim()) cj = inp2.value.trim();
+        if (nombre && cj) return nombre + ' / ' + cj;
+      }
+    }
+    return nombre;
+  }
+  const inp = document.getElementById(s + '_nombre');
+  return inp ? inp.value.trim() : '';
+}
+
+function getCargoCoJefes(c) {
+  if (!c.permiteCoJefe) return '';
+  const s = slug(c.cargo);
+  const box = document.getElementById('cojefe_box_' + s);
+  if (!box || box.style.display !== 'block') return '';
+  const sel2 = document.getElementById(s + '_nombre2_sel');
+  const inp2 = document.getElementById(s + '_nombre2');
+  if (sel2 && sel2.value && sel2.value !== '__otros__') return sel2.value;
+  if (inp2 && inp2.value.trim()) return inp2.value.trim();
+  return '';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  AUTOCOMPLETE GENÉRICO
+// ════════════════════════════════════════════════════════════════
+function acSource(id) { return _trabajadores; }
+function acInputEl(id) {
+  if (id === 'alerta')        return document.getElementById('alerta_ac_input');
+  if (id.endsWith('__multi')) return document.getElementById(id.replace('__multi','') + '_ac_input');
+  return document.getElementById(id + '_input');
+}
+function acListEl(id) { return document.getElementById(id + '_list'); }
+
+function acFilter(id) {
+  const input  = acInputEl(id);
+  const list   = acListEl(id);
+  if (!input || !list) return;
+  const q      = input.value.trim().toLowerCase();
+  const source = acSource(id);
+  _acActive[id] = -1;
+  if (id.startsWith('destac_')) {
+    const hidden = document.getElementById(id);
+    if (hidden && hidden.value && input.value !== hidden.value) hidden.value = '';
+    document.getElementById('field_' + id)?.classList.remove('has-error');
+  }
+  if (!q) { acShowAll(id); return; }
+  const matches = source.filter(n => n.toLowerCase().includes(q)).slice(0, 50);
+  renderAcList(id, matches, q, list);
+}
+
+function acShowAll(id) {
+  const list   = acListEl(id);
+  if (!list) return;
+  const source = acSource(id);
+  const input  = acInputEl(id);
+  const q      = input ? input.value.trim().toLowerCase() : '';
+  const matches = q ? source.filter(n => n.toLowerCase().includes(q)).slice(0, 50) : source.slice(0, 80);
+  renderAcList(id, matches, q, list);
+}
+
+function renderAcList(id, matches, q, list) {
+  list.innerHTML = '';
+  if (!matches.length) {
+    list.innerHTML = '<div class="ac-none">Sin resultados</div>';
+    list.style.display = 'block';
+    return;
+  }
+  matches.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'ac-item';
+    if (q) {
+      const idx = name.toLowerCase().indexOf(q);
+      div.innerHTML = esc(name.slice(0, idx)) + '<mark>' + esc(name.slice(idx, idx + q.length)) + '</mark>' + esc(name.slice(idx + q.length));
+    } else {
+      div.textContent = name;
+    }
+    div.addEventListener('mousedown', e => { e.preventDefault(); acSelect(id, name); });
+    list.appendChild(div);
+  });
+  list.style.display = 'block';
+}
+
+function acSelect(id, name) {
+  if (id === 'alerta') { addAlertaTag(name); document.getElementById('alerta_ac_input').value = ''; acListEl(id).style.display = 'none'; return; }
+  if (id.endsWith('__multi')) {
+    const cargoSlug = id.replace('__multi', '');
+    const cargoObj = _formConfig.cargos.find(c => slug(c.cargo) === cargoSlug);
+    if (cargoObj) addMultiTag(cargoObj.cargo, cargoSlug, name);
+    document.getElementById(cargoSlug + '_ac_input').value = '';
+    acListEl(id).style.display = 'none';
+    return;
+  }
+  const input  = acInputEl(id);
+  const hidden = document.getElementById(id);
+  if (input)  input.value  = name;
+  if (hidden) hidden.value = name;
+  acListEl(id).style.display = 'none';
+  _acActive[id] = -1;
+  document.getElementById('field_' + id)?.classList.remove('has-error');
+  scheduleAutoSave();
+}
+
+function acBlur(id) {
+  setTimeout(() => {
+    const list = acListEl(id);
+    if (list) list.style.display = 'none';
+    if (id === 'alerta') {
+      const v = document.getElementById('alerta_ac_input').value.trim();
+      if (v) { addAlertaTag(v); document.getElementById('alerta_ac_input').value = ''; }
+    } else if (id.endsWith('__multi')) {
+      const cargoSlug = id.replace('__multi', '');
+      const input = document.getElementById(cargoSlug + '_ac_input');
+      const cargoObj = _formConfig.cargos.find(c => slug(c.cargo) === cargoSlug);
+      if (input && cargoObj && input.value.trim()) {
+        addMultiTag(cargoObj.cargo, cargoSlug, input.value.trim());
+        input.value = '';
+      }
+    }
+  }, 180);
+}
+
+function acKey(e, id) {
+  const list = acListEl(id);
+  if (!list) return;
+  const items = list.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _acActive[id] = Math.min((_acActive[id] || -1) + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('active', i === _acActive[id]));
+    items[_acActive[id]]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _acActive[id] = Math.max((_acActive[id] || 0) - 1, 0);
+    items.forEach((it, i) => it.classList.toggle('active', i === _acActive[id]));
+    items[_acActive[id]]?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const idx = _acActive[id] ?? -1;
+    if (idx >= 0 && items[idx]) acSelect(id, items[idx].textContent);
+  } else if (e.key === 'Escape') {
+    list.style.display = 'none';
+  }
+}
+
+function acKeyTags(e, id) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const list  = acListEl(id);
+    const items = list ? list.querySelectorAll('.ac-item') : [];
+    const idx   = _acActive[id] ?? -1;
+    if (idx >= 0 && items[idx]) { acSelect(id, items[idx].textContent); }
+    else {
+      const input = acInputEl(id);
+      const v = input ? input.value.trim() : '';
+      if (v) {
+        if (id === 'alerta') { addAlertaTag(v); input.value = ''; if (list) list.style.display = 'none'; }
+        else if (id.endsWith('__multi')) {
+          const cargoSlug = id.replace('__multi', '');
+          const cargoObj = _formConfig.cargos.find(c => slug(c.cargo) === cargoSlug);
+          if (cargoObj) addMultiTag(cargoObj.cargo, cargoSlug, v);
+          if (input) input.value = '';
+          if (list) list.style.display = 'none';
+        }
+      }
+    }
+  } else {
+    acKey(e, id);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TAGS
+// ════════════════════════════════════════════════════════════════
+function addAlertaTag(name) {
+  if (!name || _alertaTags.includes(name)) return;
+  _alertaTags.push(name);
+  renderAlertaTags();
+  document.getElementById('alerta_trabajadores').value = _alertaTags.join('; ');
+  scheduleAutoSave();
+}
+function removeAlertaTag(name) {
+  _alertaTags = _alertaTags.filter(t => t !== name);
+  renderAlertaTags();
+  document.getElementById('alerta_trabajadores').value = _alertaTags.join('; ');
+  scheduleAutoSave();
+}
+function renderAlertaTags() {
+  const wrap = document.getElementById('alerta_tags_wrap');
+  const input = document.getElementById('alerta_ac_input');
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  _alertaTags.forEach(name => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = esc(name) + '<button class="tag-x" type="button" onclick="removeAlertaTag(\'' + name.replace(/'/g, "\\'") + '\')">✕</button>';
+    wrap.insertBefore(tag, input);
+  });
+}
+function addMultiTag(cargo, s, name) {
+  if (!name) return;
+  if (!_multiTags[cargo]) _multiTags[cargo] = [];
+  if (_multiTags[cargo].includes(name)) return;
+  _multiTags[cargo].push(name);
+  renderMultiTags(cargo, s);
+  document.getElementById('field_' + s + '_nombre')?.classList.remove('has-error');
+  scheduleAutoSave();
+}
+function removeMultiTag(cargo, s, name) {
+  _multiTags[cargo] = (_multiTags[cargo] || []).filter(t => t !== name);
+  renderMultiTags(cargo, s);
+  scheduleAutoSave();
+}
+function renderMultiTags(cargo, s) {
+  const wrap = document.getElementById(s + '_tags_wrap');
+  const input = document.getElementById(s + '_ac_input');
+  if (!wrap) return;
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  (_multiTags[cargo] || []).forEach(name => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = esc(name) + '<button class="tag-x" type="button" onclick="removeMultiTag(\'' + cargo.replace(/'/g, "\\'") + '\',\'' + s + '\',\'' + name.replace(/'/g, "\\'") + '\')">✕</button>';
+    wrap.insertBefore(tag, input);
+  });
+  document.getElementById(s + '_nombre_hidden').value = (_multiTags[cargo] || []).join(' / ');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  EVENTOS
+// ════════════════════════════════════════════════════════════════
+function onFechaChange() {
+  const fecha     = document.getElementById('fecha').value;
+  const eventoSel = document.getElementById('evento_sel');
+  document.getElementById('centro').value = '';
+  document.getElementById('novios').value = '';
+  document.getElementById('field_fecha').classList.remove('has-error');
+  if (!fecha) {
+    eventoSel.innerHTML = '<option value="">— Selecciona primero la fecha —</option>';
+    eventoSel.disabled = true;
+    return;
+  }
+  eventoSel.innerHTML = '<option value="">— Cargando eventos… —</option>';
+  eventoSel.disabled = true;
+  if (typeof google !== 'undefined' && google.script) {
+    google.script.run
+      .withSuccessHandler(data => {
+        eventoSel.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = data.eventos && data.eventos.length ? '— Selecciona un evento —' : '— Sin eventos para esa fecha —';
+        eventoSel.appendChild(placeholder);
+        (data.eventos || []).forEach((ev, i) => {
+          const o = document.createElement('option');
+          o.value = i; o.textContent = ev.label;
+          o.dataset.centro = ev.centro; o.dataset.novios = ev.novios;
+          eventoSel.appendChild(o);
+        });
+        eventoSel.disabled = !(data.eventos && data.eventos.length);
+      })
+      .withFailureHandler(() => {
+        eventoSel.innerHTML = '<option value="">— Error al cargar eventos —</option>';
+        eventoSel.disabled = true;
+      })
+      .getEventosPorFecha(fecha);
+  }
+}
+
+function onEventoChange() {
+  const sel = document.getElementById('evento_sel');
+  const opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+  document.getElementById('centro').value = (opt && opt.dataset.centro) ? opt.dataset.centro : '';
+  document.getElementById('novios').value = (opt && opt.dataset.novios) ? opt.dataset.novios : '';
+  document.getElementById('field_evento').classList.remove('has-error');
+}
+
+function toggleComent(wrapId, btn) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const isOpen = wrap.classList.toggle('open');
+  btn.textContent = isOpen ? '✕ Cerrar comentario' : '💬 Opcional: dejar comentario';
+  if (isOpen) wrap.querySelector('textarea')?.focus();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  VALIDACIÓN
+// ════════════════════════════════════════════════════════════════
+function validate() {
+  let ok = true;
+  const supervisorEl = document.getElementById('supervisor');
+  if (!supervisorEl.value.trim()) { supervisorEl.closest('.field').classList.add('has-error'); ok = false; }
+  else { supervisorEl.closest('.field').classList.remove('has-error'); }
+  if (!document.getElementById('fecha').value) { document.getElementById('field_fecha').classList.add('has-error'); ok = false; }
+  else { document.getElementById('field_fecha').classList.remove('has-error'); }
+  const eventoSel = document.getElementById('evento_sel');
+  if (!eventoSel.value || !document.getElementById('centro').value) { document.getElementById('field_evento').classList.add('has-error'); ok = false; }
+  else { document.getElementById('field_evento').classList.remove('has-error'); }
+  const d1H = document.getElementById('destac_1');
+  const d1I = document.getElementById('destac_1_input');
+  if (!d1H.value && d1I.value.trim()) d1H.value = d1I.value.trim();
+  if (!d1H.value) { document.getElementById('field_destac_1').classList.add('has-error'); ok = false; }
+  else { document.getElementById('field_destac_1').classList.remove('has-error'); }
+  ['destac_2', 'destac_3'].forEach(id => {
+    const h = document.getElementById(id);
+    const i = document.getElementById(id + '_input');
+    if (!h.value && i.value.trim()) h.value = i.value.trim();
+  });
+
+  if (_formConfig && _formConfig.cargos) {
+    _formConfig.cargos.forEach(c => {
+      const s = slug(c.cargo);
+      const nombre = getCargoNombreFinal(c);
+      if (!nombre) {
+        document.getElementById('field_' + s + '_nombre')?.classList.add('has-error');
+        ok = false;
+      } else {
+        document.getElementById('field_' + s + '_nombre')?.classList.remove('has-error');
+      }
+      c.criterios.forEach((crit, i) => {
+        const wrap = document.getElementById('q_' + s + '_' + i);
+        if (!wrap || wrap.dataset.selected === undefined) {
+          wrap?.closest('.q-block')?.classList.add('has-error');
+          ok = false;
+        }
+      });
+    });
+  }
+  return ok;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  AUTOSAVE
+// ════════════════════════════════════════════════════════════════
+const AS_KEY = 'tinto_eval_draft_v8';
+let _asTimer = null;
+let _asIndicatorTimer = null;
+
+function asCollect() {
+  const d = {
+    supervisor: document.getElementById('supervisor').value || '',
+    fecha:      document.getElementById('fecha').value || '',
+    centro:     document.getElementById('centro').value || '',
+    novios:     document.getElementById('novios').value || '',
+    evento_sel: document.getElementById('evento_sel').value || '',
+    destac_1:   document.getElementById('destac_1').value || '',
+    destac_2:   document.getElementById('destac_2').value || '',
+    destac_3:   document.getElementById('destac_3').value || '',
+    destac_1_input: document.getElementById('destac_1_input').value || '',
+    destac_2_input: document.getElementById('destac_2_input').value || '',
+    destac_3_input: document.getElementById('destac_3_input').value || '',
+    destac_comentario: document.getElementById('destac_comentario').value || '',
+    alerta_tags:    _alertaTags.slice(),
+    alerta_hidden:  document.getElementById('alerta_trabajadores').value || '',
+    alerta_comentario: document.getElementById('alerta_comentario').value || '',
+    cargos: {}
+  };
+  if (_formConfig && _formConfig.cargos) {
+    _formConfig.cargos.forEach(c => {
+      const s = slug(c.cargo);
+      const cargoData = {
+        nombre: c.multiTrabajador ? null : (document.getElementById(s + '_nombre')?.value || ''),
+        nombre_sel: c.multiTrabajador ? null : (document.getElementById(s + '_nombre_sel')?.value || ''),
+        multiTags:  c.multiTrabajador ? (_multiTags[c.cargo] || []).slice() : null,
+        criterios:  {},
+        comentario: document.getElementById(s + '_comentario')?.value || ''
+      };
+      if (c.permiteCoJefe) {
+        const box = document.getElementById('cojefe_box_' + s);
+        cargoData.cojefe_open = !!(box && box.style.display === 'block');
+        cargoData.cojefe_sel  = document.getElementById(s + '_nombre2_sel')?.value || '';
+        cargoData.cojefe_txt  = document.getElementById(s + '_nombre2')?.value || '';
+      }
+      c.criterios.forEach((crit, i) => {
+        const wrap = document.getElementById('q_' + s + '_' + i);
+        cargoData.criterios[crit.label] = wrap?.dataset.selected ?? '';
+      });
+      d.cargos[c.cargo] = cargoData;
+    });
+  }
+  d._saved_at = Date.now();
+  return d;
+}
+
+function autoSave() {
+  try {
+    const d = asCollect();
+    if (!d.supervisor && !d.fecha && !d.centro) return;
+    localStorage.setItem(AS_KEY, JSON.stringify(d));
+    const ind = document.getElementById('autosave-indicator');
+    if (ind) {
+      ind.classList.add('show');
+      clearTimeout(_asIndicatorTimer);
+      _asIndicatorTimer = setTimeout(() => ind.classList.remove('show'), 2000);
+    }
+  } catch(e) {}
+}
+function scheduleAutoSave() {
+  clearTimeout(_asTimer);
+  _asTimer = setTimeout(autoSave, 1200);
+}
+
+function doRestore() {
+  try {
+    const raw = localStorage.getItem(AS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    setVal('supervisor', d.supervisor);
+    setVal('destac_comentario', d.destac_comentario);
+    setVal('alerta_comentario', d.alerta_comentario);
+
+    if (d.fecha) {
+      document.getElementById('fecha').value = d.fecha;
+      onFechaChange();
+      setTimeout(() => {
+        const eventoSel = document.getElementById('evento_sel');
+        for (let i = 0; i < eventoSel.options.length; i++) {
+          const opt = eventoSel.options[i];
+          if (opt.dataset.centro === d.centro && opt.dataset.novios === d.novios) {
+            eventoSel.selectedIndex = i;
+            document.getElementById('centro').value = d.centro;
+            document.getElementById('novios').value = d.novios;
+            break;
+          }
+        }
+      }, 2000);
+    }
+    ['destac_1', 'destac_2', 'destac_3'].forEach(id => {
+      setVal(id, d[id]);
+      setVal(id + '_input', d[id + '_input']);
+    });
+    if (d.alerta_tags && d.alerta_tags.length) {
+      _alertaTags = [];
+      d.alerta_tags.forEach(n => addAlertaTag(n));
+    }
+    const restoreCargos = () => {
+      if (!_formConfig || !d.cargos) return;
+      _formConfig.cargos.forEach(c => {
+        const s = slug(c.cargo);
+        const cd = d.cargos[c.cargo];
+        if (!cd) return;
+        if (c.multiTrabajador) {
+          _multiTags[c.cargo] = [];
+          (cd.multiTags || []).forEach(n => addMultiTag(c.cargo, s, n));
+        } else {
+          if (cd.nombre_sel) {
+            const sel = document.getElementById(s + '_nombre_sel');
+            if (sel) { sel.value = cd.nombre_sel; onCargoNombreSelChange(s); }
+          }
+          if (cd.nombre) {
+            const inp = document.getElementById(s + '_nombre');
+            if (inp) inp.value = cd.nombre;
+          }
+          if (c.permiteCoJefe && cd.cojefe_open) {
+            const box = document.getElementById('cojefe_box_' + s);
+            const btn = document.getElementById('cojefe_toggle_' + s);
+            if (box) box.style.display = 'block';
+            if (btn) btn.textContent = '✕ Quitar co-jefe';
+            const sel2 = document.getElementById(s + '_nombre2_sel');
+            if (sel2 && cd.cojefe_sel) sel2.value = cd.cojefe_sel;
+            const inp2 = document.getElementById(s + '_nombre2');
+            if (inp2 && cd.cojefe_txt) inp2.value = cd.cojefe_txt;
+          }
+        }
+        c.criterios.forEach((crit, i) => {
+          const v = cd.criterios && cd.criterios[crit.label];
+          if (v === '' || v === null || v === undefined) return;
+          const wrap = document.getElementById('q_' + s + '_' + i);
+          if (!wrap) return;
+          if (crit.tipo === 'nota') {
+            wrap.querySelectorAll('.rating-btn').forEach(b => {
+              if (String(b.dataset.value) === String(v)) {
+                b.classList.add('sel'); wrap.dataset.selected = v;
+              } else { b.classList.remove('sel'); }
+            });
+          } else {
+            wrap.querySelectorAll('.yesno-btn').forEach(b => {
+              if (b.textContent === v) {
+                b.classList.add(v === 'Sí' ? 'sy' : 'sn');
+                wrap.dataset.selected = v;
+              } else { b.classList.remove('sy','sn'); }
+            });
+          }
+        });
+        setVal(s + '_comentario', cd.comentario);
+      });
+    };
+    if (_formConfig) restoreCargos(); else setTimeout(restoreCargos, 1500);
+    dismissRestore();
+  } catch(e) { console.error('doRestore error', e); dismissRestore(); }
+}
+
+function dismissRestore() {
+  document.getElementById('restore-banner')?.classList.remove('visible');
+  localStorage.removeItem(AS_KEY);
+}
+
+function asCheckOnLoad() {
+  try {
+    const raw = localStorage.getItem(AS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    const hasSomething = d.supervisor || d.fecha || d.centro;
+    if (!hasSomething) return;
+    const ago = Date.now() - (d._saved_at || 0);
+    if (ago < 86400000) document.getElementById('restore-banner')?.classList.add('visible');
+    else localStorage.removeItem(AS_KEY);
+  } catch(e) { localStorage.removeItem(AS_KEY); }
+}
+
+function attachAutoSaveListeners() {
+  document.querySelectorAll('input,textarea,select').forEach(el => {
+    el.addEventListener('input', scheduleAutoSave);
+    el.addEventListener('change', scheduleAutoSave);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SUBMIT
+// ════════════════════════════════════════════════════════════════
+function submitForm() {
+  if (!validate()) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    alert('Por favor completa todos los campos obligatorios (marcados con *).');
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const data = {
+    supervisor: document.getElementById('supervisor').value.trim(),
+    novios:     document.getElementById('novios').value.trim(),
+    centro:     document.getElementById('centro').value.trim(),
+    fecha:      document.getElementById('fecha').value,
+    destac_1:           document.getElementById('destac_1').value.trim(),
+    destac_2:           document.getElementById('destac_2').value.trim(),
+    destac_3:           document.getElementById('destac_3').value.trim(),
+    destac_comentario:  document.getElementById('destac_comentario').value.trim(),
+    alerta_trabajadores: document.getElementById('alerta_trabajadores').value.trim(),
+    alerta_comentario:   document.getElementById('alerta_comentario').value.trim(),
+    cargos: {}
+  };
+  if (_formConfig && _formConfig.cargos) {
+    _formConfig.cargos.forEach(c => {
+      const s = slug(c.cargo);
+      const cargoResp = {
+        nombre:    getCargoNombreFinal(c),
+        cojefes:   getCargoCoJefes(c),
+        comentario: document.getElementById(s + '_comentario')?.value.trim() || '',
+        criterios: {}
+      };
+      c.criterios.forEach((crit, i) => {
+        const wrap = document.getElementById('q_' + s + '_' + i);
+        cargoResp.criterios[crit.label] = wrap?.dataset.selected ?? '';
+      });
+      data.cargos[c.cargo] = cargoResp;
+    });
+  }
+  google.script.run
+    .withSuccessHandler(() => {
+      try { localStorage.removeItem(AS_KEY); } catch(e) {}
+      document.getElementById('modal').classList.add('active');
+      setTimeout(() => location.reload(), 3000);
+    })
+    .withFailureHandler(err => {
+      btn.disabled = false;
+      btn.textContent = 'Enviar evaluación';
+      alert('Error al enviar: ' + err.message);
+    })
+    .registrarEvaluacionSupervisora(data);
+}
+</script>
+</body>
+</html>

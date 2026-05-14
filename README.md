@@ -9,6 +9,7 @@ El sistema se apoya en **Centralizado** como fuente única de verdad y tres mód
 | **Centralizado** (prioridad) | `centralizado/` | Fuente única: `Maestro_Bonos`, consolidación de bonos por semana, dashboard interno |
 | Fotos 2.0 | `fotos/` | Captura de fotos de evento y su bono asociado |
 | CG (Control de Gestión) | `cg/` | Registro operativo del CG y su bono |
+| Supervisoras | `supervisoras/` | Evaluación post-evento por supervisoras (form dinámico desde Maestro_Bonos, schema temporal con HEADERs) |
 
 > La idea del panel unificado (`steve-panel`) es darle prioridad visible al **Centralizado**; los módulos son entradas secundarias que alimentan el Centralizado.
 
@@ -19,6 +20,7 @@ El sistema se apoya en **Centralizado** como fuente única de verdad y tres mód
 | Centralizado | `1f86EWcVJAaptEBoAzI8d6ZZ_lHw09XBYV9C5Kbe-g5k` | `1jmTk3-6u-Jhigv8S87EfVTzlVnRHU1FmRVxB4g9kN6rePWkeMUvIYYIc` |
 | Fotos 2.0 | `1fJFabJhtLfoX51R2ewSuZ89TGDGruLdBRA-CdQffiYU` | `123S3Z3HHctpELGwhMJwQSQV3ua2vNsigunZ8BhaJsJ6_mGYhwuKj5CkN` |
 | CG | `1ZVR0xSxfO3zFGVboByKFa4evVdqPtVtJZcvn3UuPBWc` | `1KvJCxAWrhIAjOkCiqXloDdZmxBVS_zipULp7wUmqKFu0qcuHQ21OBBZO` |
+| Supervisoras | `1JC49jh4kgImPf-mUW-r-PepPhLF0mIgcWp-FWS6l6Sg` | `1w1LOR_Umemdi_1u4CqbMi1XS5CHH1YkG7u9CjPrkFbaFuQVnVwqI1XTB` |
 
 Fuentes asociadas:
 - CRM General — `1TTzFI5sMgInI1Ew__3Rw7lE300cGWmlDFyDVfWVqGTg`
@@ -28,9 +30,10 @@ Fuentes asociadas:
 
 | Módulo | Versión | Deployment ID |
 |---|---|---|
-| Centralizado | v45 | `AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H` |
+| Centralizado | v49 | `AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H` |
 | Fotos 2.0 | v39 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
 | CG | v19 | `AKfycbyzQPkvD6HGelsOgO72ZI0N30G7BV6UN3I1Gyaq65135PfnWBytlhs4YHhzTjOQQa16` |
+| Supervisoras | v37 | `AKfycbyyWVcXYpFovJ2YiQayepM2yVzygJXM1-9Y27-3aF6HR91ECBKcNtoEQkvYgGpOGU64` |
 
 URL Web App = `https://script.google.com/macros/s/<deploymentId>/exec`
 
@@ -77,6 +80,17 @@ steve-sistema-bonos/
 │   ├── CG_Code.js
 │   ├── Index.html
 │   └── .clasp.json
+├── supervisoras/          # Apps Script Supervisoras (form + visualizador + API)
+│   ├── appsscript.json
+│   ├── Code.js
+│   ├── formulario_supervisoras_v7.html
+│   ├── visualizador_evento_v7.html
+│   └── .clasp.json
+├── public/                # CF Pages frontend `bonos.tintobanqueteria.cl`
+│   ├── index.html, app.js, config.js, styles.css
+│   └── encuestasupervisores/   # CF Pages frontend `encuestasupervisores.tintobanqueteria.cl`
+│       ├── index.html
+│       └── robots.txt
 ├── .gitignore
 ├── README.md
 └── CLAUDE.md

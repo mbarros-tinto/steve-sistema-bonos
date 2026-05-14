@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análisis de Eventos · Tinto Banquetería</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --dark:#2a2a2a; --mid:#3d3d3d; --light:#f5f5f5;
+  --green:#27ae60; --red:#e74c3c; --yellow:#f39c12;
+  --green-bg:#d4edda; --red-bg:#f8d7da; --yellow-bg:#fff3cd;
+  --accent:#5c7cfa; --border:#e0e0e0;
+  --orange:#d97706; --orange-bg:#fff7ed;
+}
+body{font-family:'Quicksand',sans-serif;background:#1a1a2e;color:#222;min-height:100vh}
+.header{background:var(--dark);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #444}
+.header h1{font-family:'Cinzel',serif;font-size:1.1rem;color:#e8e8e8;letter-spacing:2px;text-transform:uppercase}
+.header a{font-size:.78rem;color:#aaa;text-decoration:none;background:#3a3a3a;padding:6px 14px;border-radius:6px;transition:background .2s}
+.header a:hover{background:#555;color:#fff}
+.selector-bar{background:#fff;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.selector-group{display:flex;flex-direction:column;gap:4px}
+.selector-group label{font-weight:700;font-size:.78rem;color:#666;text-transform:uppercase;letter-spacing:.5px}
+.selector-bar select{padding:9px 14px;border:2px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.9rem;color:var(--dark);background:#fafafa;cursor:pointer;min-width:280px;transition:border-color .2s}
+.selector-bar select:focus{outline:none;border-color:var(--dark)}
+.selector-bar select:disabled{background:#f0f0f0;color:#aaa;cursor:not-allowed}
+.selector-bar input[type=date]{padding:9px 14px;border:2px solid var(--border);border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.9rem;color:var(--dark);background:#fafafa;cursor:pointer;transition:border-color .2s}
+.selector-bar input[type=date]:focus{outline:none;border-color:var(--dark)}
+.selector-sep{color:#ccc;font-size:1.2rem;padding-bottom:4px;align-self:center}
+.btn-refresh{padding:9px 18px;border:2px solid var(--dark);border-radius:8px;background:var(--dark);color:#fff;font-family:'Quicksand',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;white-space:nowrap;align-self:flex-end}
+.btn-refresh:hover{background:#444}
+.main{max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+.event-banner{background:#fff;border-radius:12px;padding:20px 26px;margin-bottom:28px;box-shadow:0 2px 12px rgba(0,0,0,.1);border-left:5px solid var(--dark);display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.event-banner h2{font-family:'Cinzel',serif;font-size:1.3rem;color:var(--dark);width:100%}
+.meta-item{font-size:.85rem;color:#555}
+.meta-item strong{color:var(--dark)}
+.summary-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.summary-pill{background:#fff;border-radius:30px;padding:8px 18px;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.summary-pill .dot{width:10px;height:10px;border-radius:50%}
+.dot-green{background:var(--green)}
+.dot-red{background:var(--red)}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.cargo-card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.09);cursor:pointer;transition:transform .2s,box-shadow .2s;border:2px solid transparent}
+.cargo-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.15);border-color:var(--dark)}
+.card-header{padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+.card-header h3{font-family:'Cinzel',serif;font-size:.82rem;letter-spacing:1.5px;text-transform:uppercase;color:#fff}
+.bono-badge{padding:4px 12px;border-radius:20px;font-weight:700;font-size:.75rem;white-space:nowrap}
+.bono-si{background:rgba(255,255,255,.25);color:#fff}
+.bono-no{background:rgba(0,0,0,.3);color:#fff}
+.bono-nd{background:rgba(255,255,255,.15);color:#eee}
+.card-body{padding:16px 18px}
+.card-nombre{font-weight:700;font-size:1rem;color:var(--dark);margin-bottom:12px}
+.score-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.score-label{font-size:.76rem;color:#666;width:120px;flex-shrink:0;text-align:right;line-height:1.2}
+.score-bar-wrap{flex:1;background:#f0f0f0;border-radius:6px;height:8px;overflow:hidden}
+.score-bar{height:100%;border-radius:6px;transition:width .6s ease}
+.score-val{font-size:.82rem;font-weight:700;color:var(--dark);width:26px;text-align:right;flex-shrink:0}
+.promedio-row{margin-top:10px;padding-top:10px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+.promedio-label{font-size:.8rem;color:#888}
+.promedio-val{font-size:1.2rem;font-weight:700}
+.yn-answer{display:flex;align-items:center;gap:10px;margin-top:4px}
+.yn-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
+.yn-yes{background:var(--green-bg);color:var(--green)}
+.yn-no{background:var(--red-bg);color:var(--red)}
+.yn-text{font-size:.9rem;color:#555}
+.card-comment{margin-top:12px;font-size:.78rem;color:#777;font-style:italic;line-height:1.4;
+  background:#fafafa;padding:8px 10px;border-radius:6px;border-left:3px solid #ddd;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-comment.empty{color:#bbb}
+
+/* ── Destacados box ── */
+.destacados-box{background:#fff;border-radius:12px;padding:20px 24px;margin-top:20px;box-shadow:0 2px 12px rgba(0,0,0,.09)}
+.destacados-box h3{font-family:'Cinzel',serif;font-size:.85rem;letter-spacing:2px;text-transform:uppercase;color:var(--dark);margin-bottom:14px}
+.destacado-item{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:.9rem;font-weight:600}
+.medal{font-size:1.1rem}
+
+/* ── Comentario extra en destacados / alerta ── */
+.seccion-comentario{margin-top:14px;padding:10px 14px;background:#f9f9f9;border-left:3px solid #ccc;border-radius:0 6px 6px 0;font-size:.87rem;color:#555;font-style:italic;white-space:pre-wrap;word-break:break-word}
+.seccion-comentario-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:4px;font-style:normal}
+
+/* ── Alerta box ── */
+.alerta-box{background:#fff;border-radius:12px;padding:20px 24px;margin-top:16px;box-shadow:0 2px 12px rgba(0,0,0,.09);border-left:4px solid var(--orange)}
+.alerta-box h3{font-family:'Cinzel',serif;font-size:.85rem;letter-spacing:2px;text-transform:uppercase;color:var(--orange);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.alerta-tags{display:flex;flex-wrap:wrap;gap:8px}
+.alerta-tag{display:inline-flex;align-items:center;gap:6px;background:var(--orange-bg);color:var(--orange);border:1.5px solid #fed7aa;border-radius:20px;padding:5px 14px;font-size:.85rem;font-weight:600}
+.alerta-tag-icon{font-size:.9rem}
+.alerta-empty{font-size:.88rem;color:#aaa;font-style:italic}
+
+.loading{text-align:center;padding:60px 20px;color:#888}
+.spinner{width:36px;height:36px;border:3px solid #ddd;border-top-color:var(--dark);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:60px 20px;color:#aaa;font-size:.95rem}
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:1000;padding:20px;overflow-y:auto}
+.modal-overlay.open{display:flex;align-items:flex-start;justify-content:center;padding-top:40px}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:600px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.4);animation:modalIn .25s ease}
+@keyframes modalIn{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:22px 26px 18px;display:flex;justify-content:space-between;align-items:flex-start}
+.modal-header .cargo-info h2{font-family:'Cinzel',serif;font-size:1rem;letter-spacing:1.5px;text-transform:uppercase;color:#fff}
+.modal-header .cargo-info p{font-size:1.1rem;font-weight:700;color:#fff;margin-top:4px;opacity:.9}
+.modal-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.modal-close:hover{background:rgba(255,255,255,.35)}
+.modal-bono-badge{margin-top:10px;padding:6px 16px;border-radius:20px;font-weight:700;font-size:.8rem;display:inline-block}
+.mbono-si{background:rgba(255,255,255,.25);color:#fff;border:1px solid rgba(255,255,255,.4)}
+.mbono-no{background:rgba(0,0,0,.25);color:#fff}
+.mbono-nd{background:rgba(255,255,255,.15);color:#eee}
+.modal-body{padding:22px 26px}
+
+/* ── Score editable en modal ── */
+.modal-scores{margin-bottom:20px}
+.modal-score-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.modal-score-label{font-size:.83rem;color:#555;width:140px;flex-shrink:0}
+.modal-bar-wrap{flex:1;background:#f0f0f0;border-radius:8px;height:12px;overflow:hidden}
+.modal-bar{height:100%;border-radius:8px;transition:width .4s ease}
+.modal-score-val{font-size:.95rem;font-weight:700;color:var(--dark);width:30px;text-align:right}
+/* Rating buttons dentro del modal */
+.modal-rating-group{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.modal-rating-btn{width:34px;height:34px;border:2px solid #ddd;border-radius:6px;background:#fff;
+  font-family:'Quicksand',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;
+  transition:all .12s;color:#555}
+.modal-rating-btn:hover{border-color:#2a2a2a;background:#f0f0f0}
+.modal-rating-btn.sel{background:#2a2a2a;color:#fff;border-color:#2a2a2a;transform:scale(1.06)}
+.score-section-label{font-size:.8rem;font-weight:700;color:var(--dark);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.score-section-label span{font-weight:400;color:#888;font-size:.74rem}
+
+.modal-promedio{background:#f8f8f8;border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-promedio-label{font-size:.85rem;color:#777;font-weight:600}
+.modal-promedio-val{font-size:1.4rem;font-weight:700}
+.modal-binarios{margin-bottom:16px}
+.modal-binary-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f0f0f0;gap:10px}
+.modal-binary-row:last-child{border-bottom:none}
+.modal-bin-label{font-size:.82rem;color:#555;flex:1;line-height:1.3}
+.modal-bin-val{font-weight:700;font-size:.85rem;white-space:nowrap;padding:3px 10px;border-radius:10px}
+.bin-si{background:var(--green-bg);color:var(--green)}
+.bin-no{background:var(--red-bg);color:var(--red)}
+.bin-nd{background:#f0f0f0;color:#aaa}
+.modal-bin-quien{font-size:.74rem;color:#999;font-style:italic;margin-top:2px}
+.comment-section{margin-top:4px}
+.comment-section label{display:block;font-weight:700;font-size:.85rem;color:var(--dark);margin-bottom:7px}
+.comment-textarea{width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:8px;font-family:'Quicksand',sans-serif;font-size:.88rem;line-height:1.5;resize:vertical;min-height:90px;transition:border-color .2s;color:#333}
+.comment-textarea:focus{outline:none;border-color:var(--dark)}
+.modal-footer{padding:16px 26px 24px;display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:10px 20px;border-radius:8px;font-family:'Quicksand',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer;border:2px solid;transition:all .2s;display:flex;align-items:center;gap:6px}
+.btn-save{background:var(--dark);color:#fff;border-color:var(--dark)}
+.btn-save:hover{background:#444}
+.btn-copy{background:#fff;color:var(--dark);border-color:var(--dark)}
+.btn-copy:hover{background:#f0f0f0}
+.btn-save:disabled{background:#aaa;border-color:#aaa;cursor:not-allowed}
+.save-status{font-size:.78rem;color:var(--green);font-weight:600;align-self:center}
+/* Card colors */
+.color-sm{background:linear-gradient(135deg,#1a3a5c,#2563a8)}
+.color-m{background:linear-gradient(135deg,#1a5c3a,#25a863)}
+.color-jc{background:linear-gradient(135deg,#5c1a1a,#a82525)}
+.color-jb{background:linear-gradient(135deg,#3a1a5c,#6325a8)}
+.color-jd{background:linear-gradient(135deg,#5c3a1a,#a86325)}
+.color-en{background:linear-gradient(135deg,#1a4a5c,#2598a8)}
+.color-jt{background:linear-gradient(135deg,#2e4a2e,#4a8a4a)}
+.color-jg{background:linear-gradient(135deg,#4a2e2e,#8a4a4a)}
+.color-cb{background:linear-gradient(135deg,#2e2e4a,#4a4a8a)}
+.color-cc{background:linear-gradient(135deg,#4a3a2e,#8a6a4a)}
+@media(max-width:600px){
+  .cards-grid{grid-template-columns:1fr}
+  .modal{margin:0 4px}
+  .modal-footer{flex-direction:column}
+  .btn{justify-content:center}
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Análisis de Eventos · Tinto Banquetería</h1>
+  <a href="?page=formulario">← Ir al Formulario</a>
+</div>
+<div class="selector-bar">
+  <div class="selector-group">
+    <label for="fechaInput">Fecha del Evento</label>
+    <input type="date" id="fechaInput" onchange="onFechaChange()">
+  </div>
+  <span class="selector-sep">›</span>
+  <div class="selector-group">
+    <label for="eventoSelect">Evento</label>
+    <select id="eventoSelect" onchange="onEventoChange()" disabled>
+      <option value="">— Selecciona primero una fecha —</option>
+    </select>
+  </div>
+  <button class="btn-refresh" onclick="recargarEventos()">↻ Actualizar</button>
+</div>
+<div class="main" id="mainContent">
+  <div class="loading"><div class="spinner"></div><p>Cargando eventos…</p></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modalBox">
+    <div class="modal-header" id="modalHeader">
+      <div class="cargo-info">
+        <h2 id="modalCargo">Cargo</h2>
+        <p id="modalNombre">Nombre</p>
+        <span class="modal-bono-badge" id="modalBono">—</span>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-save" id="btnGuardar" onclick="guardarTodo()">💾 Guardar cambios</button>
+      <button class="btn btn-copy" onclick="copiarEvaluacion()">📋 Copiar para enviar</button>
+      <span class="save-status" id="saveStatus"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────────────────────
+let _currentEvent = null;
+let _currentCargo = null;
+let _allEventos   = [];
+// Ediciones pendientes en el modal: { col1based: valor }
+let _pendingNotes = {};
+
+const COLOR_MAP = {
+  sm:'color-sm', m:'color-m', jc:'color-jc', jb:'color-jb',
+  jd:'color-jd', en:'color-en', jt:'color-jt', jg:'color-jg',
+  cb:'color-cb', cc:'color-cc'
+};
+
+// ──────────────────────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => { recargarEventos(); });
+
+function recargarEventos() {
+  const eventoSel = document.getElementById('eventoSelect');
+  eventoSel.innerHTML = '<option value="">— Cargando… —</option>';
+  eventoSel.disabled = true;
+  google.script.run
+    .withSuccessHandler(lista => {
+      _allEventos = lista || [];
+      eventoSel.innerHTML = '<option value="">— Selecciona primero una fecha —</option>';
+      eventoSel.disabled = true;
+      if (!_allEventos.length) {
+        document.getElementById('mainContent').innerHTML =
+          '<div class="empty-state">No hay eventos registrados aún.</div>';
+      }
+    })
+    .withFailureHandler(err => {
+      eventoSel.innerHTML = '<option value="">Error al cargar</option>';
+      console.error('recargarEventos error:', err);
+    })
+    .getEventosList();
+}
+
+function onFechaChange() {
+  const fechaVal  = document.getElementById('fechaInput').value;
+  const eventoSel = document.getElementById('eventoSelect');
+  const main      = document.getElementById('mainContent');
+  if (!fechaVal) {
+    eventoSel.innerHTML = '<option value="">— Selecciona primero una fecha —</option>';
+    eventoSel.disabled = true;
+    main.innerHTML = '<div class="empty-state">👆 Selecciona una fecha para ver los eventos</div>';
+    return;
+  }
+  const matching = _allEventos.filter(ev => ev.fechaISO === fechaVal);
+  if (!matching.length) {
+    eventoSel.innerHTML = '<option value="">— Sin eventos en esta fecha —</option>';
+    eventoSel.disabled = true;
+    main.innerHTML = '<div class="empty-state">No hay eventos registrados para esta fecha.</div>';
+    return;
+  }
+  eventoSel.disabled = false;
+  eventoSel.innerHTML = matching.length === 1
+    ? ''
+    : `<option value="">— ${matching.length} evento(s) · selecciona uno —</option>`;
+  matching.forEach(ev => {
+    const o = document.createElement('option');
+    o.value = ev.novios;
+    o.textContent = ev.novios + (ev.centro ? '  ·  ' + ev.centro : '');
+    eventoSel.appendChild(o);
+  });
+  if (matching.length === 1) {
+    eventoSel.value = matching[0].novios;
+    cargarEvento(matching[0].novios);
+  } else {
+    main.innerHTML = '<div class="empty-state">👆 Selecciona el evento que quieres revisar</div>';
+  }
+}
+
+function onEventoChange() {
+  const noviosKey = document.getElementById('eventoSelect').value;
+  if (noviosKey) cargarEvento(noviosKey);
+}
+
+function cargarEvento(noviosKey) {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="loading"><div class="spinner"></div><p>Cargando evaluación…</p></div>';
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data) {
+        main.innerHTML = '<div class="empty-state">No se encontraron datos para este evento.</div>';
+        return;
+      }
+      _currentEvent = data;
+      renderDashboard(data);
+    })
+    .withFailureHandler(err => {
+      main.innerHTML = `<div class="empty-state">Error: ${esc(err.message || String(err))}</div>`;
+    })
+    .getEventData(noviosKey);
+}
+
+// ──────────────────────────────────────────────────────────────
+// RENDER DASHBOARD
+// ──────────────────────────────────────────────────────────────
+function renderDashboard(d) {
+  const main = document.getElementById('mainContent');
+  let html = '';
+  const fecha = d.fecha
+    ? (() => {
+        const [dd,mm,yyyy] = d.fecha.split('-');
+        return new Date(yyyy,mm-1,dd).toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
+      })()
+    : '—';
+  html += `
+    <div class="event-banner">
+      <h2>🎊 ${esc(d.novios)}</h2>
+      <div class="meta-item"><strong>Fecha:</strong> ${fecha}</div>
+      <div class="meta-item"><strong>Centro:</strong> ${esc(d.centro) || '—'}</div>
+      <div class="meta-item"><strong>Evaluado por:</strong> ${esc(d.supervisor) || '—'}</div>
+      <div class="meta-item"><strong>Nota mínima bono:</strong> ${d.notaMin}/7</div>
+    </div>`;
+  const total    = d.cargos.filter(c => c.nombre).length;
+  const conBono  = d.cargos.filter(c => c.bono === 'SÍ').length;
+  const sinBono  = d.cargos.filter(c => c.bono === 'NO').length;
+  html += `
+    <div class="summary-row">
+      <div class="summary-pill"><span class="dot dot-green"></span> ${total} cargos evaluados</div>
+      <div class="summary-pill"><span class="dot dot-green"></span> ${conBono} con bono</div>
+      ${sinBono ? `<div class="summary-pill"><span class="dot dot-red"></span> ${sinBono} sin bono</div>` : ''}
+    </div>`;
+  html += '<div class="cards-grid">';
+  d.cargos.forEach(cargo => {
+    if (!cargo.nombre) return;
+    html += renderCard(cargo, d.notaMin);
+  });
+  html += '</div>';
+
+  // ── Trabajadores Destacados ──
+  if (d.destacados && d.destacados.length) {
+    const medals = ['🥇','🥈','🥉'];
+    html += `<div class="destacados-box">
+      <h3>⭐ Trabajadores Destacados</h3>
+      ${d.destacados.map((n,i) => `<div class="destacado-item"><span class="medal">${medals[i]||'⭐'}</span>${esc(n)}</div>`).join('')}`;
+    if (d.destacComentario) {
+      html += `<div class="seccion-comentario"><div class="seccion-comentario-label">Comentario</div>${esc(d.destacComentario)}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // ── Alerta Trabajadores ──
+  // d.alerta es un string separado por "; " (o vacío)
+  const alertaNombres = d.alerta
+    ? d.alerta.split(';').map(s => s.trim()).filter(Boolean)
+    : [];
+  html += `<div class="alerta-box">
+    <h3>⚠️ Trabajadores en Alerta</h3>`;
+  if (alertaNombres.length) {
+    html += `<div class="alerta-tags">
+      ${alertaNombres.map(n => `<span class="alerta-tag"><span class="alerta-tag-icon">⚠️</span>${esc(n)}</span>`).join('')}
+    </div>`;
+  } else {
+    html += `<p class="alerta-empty">No se registraron trabajadores en alerta para este evento.</p>`;
+  }
+  if (d.alertaComentario) {
+    html += `<div class="seccion-comentario"><div class="seccion-comentario-label">Comentario</div>${esc(d.alertaComentario)}</div>`;
+  }
+  html += `</div>`;
+
+  main.innerHTML = html;
+}
+
+function renderCard(cargo, notaMin) {
+  const color     = COLOR_MAP[cargo.key] || 'color-sm';
+  const bonoClass = cargo.bono === 'SÍ' ? 'bono-si' : cargo.bono === 'NO' ? 'bono-no' : 'bono-nd';
+  const bonoText  = cargo.bono === 'SÍ' ? '✓ BONO' : cargo.bono === 'NO' ? '✗ SIN BONO' : '—';
+  let body = '';
+  if (cargo.tipo === 'numeric' || cargo.tipo === 'numeric+binary') {
+    body = cargo.scores.map(s => {
+      const pct = s.value !== '' ? Math.round((s.value/7)*100) : 0;
+      return `
+        <div class="score-row">
+          <span class="score-label">${s.label}</span>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%;background:${scoreColor(s.value)}"></div></div>
+          <span class="score-val">${s.value !== '' ? s.value : '—'}</span>
+        </div>`;
+    }).join('');
+    body += `<div class="promedio-row">
+      <span class="promedio-label">Promedio</span>
+      <span class="promedio-val" style="color:${scoreColor(cargo.promedio)}">${cargo.promedio !== null ? cargo.promedio : '—'}</span>
+    </div>`;
+  } else {
+    const yn = cargo.respuesta;
+    const ynClass = yn === 'Sí' ? 'yn-yes' : yn === 'No' ? 'yn-no' : '';
+    const ynText  = yn === 'Sí' ? '✓' : yn === 'No' ? '✗' : '—';
+    body = `<div class="yn-answer">
+      <div class="yn-circle ${ynClass}">${ynText}</div>
+      <span class="yn-text">${yn === 'Sí' ? 'Cumplió correctamente' : yn === 'No' ? 'No cumplió — '+(esc(cargo.quien)||'sin detalle') : 'Sin respuesta'}</span>
+    </div>`;
+  }
+  const comentPrev = cargo.comentario
+    ? `<div class="card-comment">${esc(cargo.comentario)}</div>`
+    : `<div class="card-comment empty">Sin comentario. Haz clic para editar.</div>`;
+  return `
+    <div class="cargo-card" onclick="abrirModal('${cargo.key}')">
+      <div class="card-header ${color}">
+        <h3>${cargo.label}</h3>
+        <span class="bono-badge ${bonoClass}">${bonoText}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-nombre">${esc(cargo.nombre)}</div>
+        ${body}${comentPrev}
+      </div>
+    </div>`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL
+// ──────────────────────────────────────────────────────────────
+function abrirModal(key) {
+  if (!_currentEvent) return;
+  const cargo = _currentEvent.cargos.find(c => c.key === key);
+  if (!cargo) return;
+  _currentCargo = cargo;
+  _pendingNotes = {};
+
+  const color     = COLOR_MAP[key] || 'color-sm';
+  const bonoClass = cargo.bono === 'SÍ' ? 'mbono-si' : cargo.bono === 'NO' ? 'mbono-no' : 'mbono-nd';
+  const bonoText  = cargo.bono === 'SÍ' ? '✓ Con Bono' : cargo.bono === 'NO' ? '✗ Sin Bono' : '— No evaluado';
+
+  document.getElementById('modalHeader').className = `modal-header ${color}`;
+  document.getElementById('modalCargo').textContent  = cargo.label;
+  document.getElementById('modalNombre').textContent = cargo.nombre;
+  const bonoEl = document.getElementById('modalBono');
+  bonoEl.textContent = bonoText;
+  bonoEl.className = `modal-bono-badge ${bonoClass}`;
+
+  let bodyHtml = '';
+
+  if (cargo.tipo === 'numeric' || cargo.tipo === 'numeric+binary') {
+    bodyHtml += '<div class="modal-scores">';
+    cargo.scores.forEach(s => {
+      const pct = s.value !== '' ? Math.round((s.value/7)*100) : 0;
+      // Rating buttons editables 0–7
+      let btns = '';
+      for (let i = 0; i <= 7; i++) {
+        const isSel = (s.value !== '' && s.value === i) ? ' sel' : '';
+        btns += `<button type="button" class="modal-rating-btn${isSel}" data-col="${s.col}" data-val="${i}"
+                   onclick="onModalRatingClick(this, ${s.col}, ${i}, '${key}')">${i}</button>`;
+      }
+      bodyHtml += `
+        <div class="modal-score-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div class="score-section-label">
+            ${s.label}
+            <span>0 = No observé · 7 = Sobresale</span>
+          </div>
+          <div class="modal-bar-wrap" id="bar_${s.col}" style="width:100%;height:10px;margin-bottom:2px">
+            <div class="modal-bar" id="barfill_${s.col}" style="width:${pct}%;background:${scoreColor(s.value)}"></div>
+          </div>
+          <div class="modal-rating-group">${btns}</div>
+        </div>`;
+    });
+    bodyHtml += '</div>';
+
+    // Promedio (se actualiza dinámicamente)
+    bodyHtml += `<div class="modal-promedio" id="modal_promedio_wrap">
+      <span class="modal-promedio-label">Promedio</span>
+      <span class="modal-promedio-val" id="modal_promedio_val" style="color:${scoreColor(cargo.promedio)}">
+        ${cargo.promedio !== null ? cargo.promedio+'/7' : '—'}
+      </span>
+    </div>`;
+  }
+
+  if (cargo.tipo === 'binary') {
+    const vc = cargo.respuesta === 'Sí' ? 'bin-si' : cargo.respuesta === 'No' ? 'bin-no' : 'bin-nd';
+    bodyHtml += `<div class="modal-binarios"><div class="modal-binary-row">
+      <div><span class="modal-bin-label">¿Cumplió correctamente?</span>
+      ${cargo.quien && cargo.respuesta === 'No' ? `<div class="modal-bin-quien">→ ${esc(cargo.quien)}</div>` : ''}</div>
+      <span class="modal-bin-val ${vc}">${cargo.respuesta || '—'}</span>
+    </div></div>`;
+  }
+
+  // Comentario editable
+  bodyHtml += `<div class="comment-section">
+    <label>💬 Comentario del Supervisor</label>
+    <textarea class="comment-textarea" id="commentEditor"
+      placeholder="Escribe aquí el comentario… Lo positivo, situación a mejorar con ejemplo concreto y consejo práctico.">${esc(cargo.comentario || '')}</textarea>
+  </div>`;
+
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('saveStatus').textContent = '';
+  document.getElementById('btnGuardar').disabled = false;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+// ──────────────────────────────────────────────────────────────
+// RATING CLICK EN MODAL
+// ──────────────────────────────────────────────────────────────
+function onModalRatingClick(btn, col, val, cargoKey) {
+  // Deselect hermanos de la misma columna
+  const group = btn.closest('.modal-rating-group');
+  group.querySelectorAll('.modal-rating-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+
+  // Actualizar barra
+  const pct = Math.round((val/7)*100);
+  const fill = document.getElementById('barfill_' + col);
+  if (fill) {
+    fill.style.width = pct + '%';
+    fill.style.background = scoreColor(val);
+  }
+
+  // Guardar en pending
+  _pendingNotes[col] = val;
+
+  // Actualizar valor local en _currentCargo.scores para recalcular promedio
+  if (_currentCargo && _currentCargo.scores) {
+    _currentCargo.scores.forEach(s => { if (s.col === col) s.value = val; });
+    recalcPromedioModal();
+  }
+}
+
+function recalcPromedioModal() {
+  if (!_currentCargo || !_currentCargo.scores) return;
+  const nums = _currentCargo.scores.map(s => s.value).filter(v => v !== '' && v !== null);
+  if (!nums.length) return;
+  const prom = Math.round(nums.reduce((a,b)=>a+b,0) / nums.length * 10) / 10;
+  _currentCargo.promedio = prom;
+  _currentCargo.bono = prom >= (_currentEvent ? _currentEvent.notaMin : 6) ? 'SÍ' : 'NO';
+  const el = document.getElementById('modal_promedio_val');
+  if (el) {
+    el.textContent = prom + '/7';
+    el.style.color = scoreColor(prom);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// GUARDAR TODO (notas + comentario)
+// ──────────────────────────────────────────────────────────────
+function guardarTodo() {
+  if (!_currentCargo || !_currentEvent) return;
+  const texto = document.getElementById('commentEditor').value.trim();
+  const btn    = document.getElementById('btnGuardar');
+  const status = document.getElementById('saveStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando…';
+  status.textContent = '';
+
+  // v36: cada cargo tiene su propia fila EVAL (rowIndex propio)
+  const rowIndex = _currentCargo.rowIndex || _currentEvent.rowIndex;
+  const saves    = [];
+
+  // 1. Comentario
+  saves.push(new Promise((res, rej) => {
+    google.script.run
+      .withSuccessHandler(r => r.success ? res() : rej(r.error))
+      .withFailureHandler(rej)
+      .saveComentario(rowIndex, _currentCargo.comentarioCol, texto);
+  }));
+
+  // 2. Notas individuales
+  Object.entries(_pendingNotes).forEach(([col, nota]) => {
+    saves.push(new Promise((res, rej) => {
+      google.script.run
+        .withSuccessHandler(r => r.success ? res() : rej(r.error))
+        .withFailureHandler(rej)
+        .saveNota(rowIndex, parseInt(col), nota);
+    }));
+  });
+
+  Promise.all(saves)
+    .then(() => {
+      // Actualizar estado local
+      _currentCargo.comentario = texto;
+      _pendingNotes = {};
+      btn.textContent = '💾 Guardar cambios';
+      btn.disabled = false;
+      status.textContent = '✓ Guardado';
+      setTimeout(() => { status.textContent = ''; }, 2500);
+      // Refrescar cards
+      renderDashboard(_currentEvent);
+      abrirModal(_currentCargo.key);
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar cambios';
+      status.textContent = '✗ Error al guardar';
+      console.error(err);
+    });
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  _currentCargo = null;
+  _pendingNotes = {};
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+// ──────────────────────────────────────────────────────────────
+// COPY TO CLIPBOARD
+// ──────────────────────────────────────────────────────────────
+function copiarEvaluacion() {
+  if (!_currentCargo || !_currentEvent) return;
+  const cargo = _currentCargo;
+  const ev    = _currentEvent;
+  const texto = document.getElementById('commentEditor')?.value.trim() || '';
+  const [dd,mm,yyyy] = (ev.fecha||'').split('-');
+  const fecha = ev.fecha
+    ? new Date(yyyy,mm-1,dd).toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})
+    : '—';
+  let msg = `📋 EVALUACIÓN DE DESEMPEÑO\n`;
+  msg += `${cargo.label.toUpperCase()}: ${cargo.nombre}\n`;
+  msg += `Evento: ${ev.novios} · ${fecha}\n`;
+  msg += `─────────────────────────\n`;
+  if (cargo.tipo === 'numeric' || cargo.tipo === 'numeric+binary') {
+    cargo.scores.forEach(s => {
+      msg += `• ${s.label}: ${s.value !== '' ? s.value+'/7' : '—'}\n`;
+    });
+    msg += `PROMEDIO: ${cargo.promedio !== null ? cargo.promedio+'/7' : '—'}\n`;
+  }
+  if (cargo.tipo === 'binary') {
+    msg += `• ¿Cumplió correctamente?: ${cargo.respuesta || '—'}`;
+    if (cargo.quien && cargo.respuesta === 'No') msg += ` (${cargo.quien})`;
+    msg += '\n';
+  }
+  msg += `─────────────────────────\n`;
+  msg += `RESULTADO: ${cargo.bono === 'SÍ' ? '✓ BONO' : cargo.bono === 'NO' ? '✗ SIN BONO' : '—'}\n`;
+  if (texto) {
+    msg += `─────────────────────────\nCOMENTARIO:\n${texto}\n`;
+  }
+  msg += `─────────────────────────\nTinto Banquetería`;
+  navigator.clipboard.writeText(msg).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    const orig = btn.textContent;
+    btn.textContent = '✓ ¡Copiado!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = msg; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = '✓ ¡Copiado!';
+    setTimeout(() => { btn.textContent = '📋 Copiar para enviar'; }, 2000);
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────────────────────
+function scoreColor(val) {
+  if (val === '' || val === null || val === undefined) return '#ccc';
+  if (val >= 6) return '#27ae60';
+  if (val >= 4) return '#f39c12';
+  return '#e74c3c';
+}
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>
+
