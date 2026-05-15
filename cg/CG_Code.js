@@ -9,11 +9,65 @@ const ANIO_MIN        = 2026;
 const TZ              = 'America/Santiago';
 const CRM_SHEET       = 'CRM CONSOLIDADO';
 
-// -- WebApp entry point ----------------------------------------------
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Control de Gestion -- Tinto Banqueteria')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+// ════════════════════════════════════════════════════════════════════
+//  HTTP ENDPOINTS (Web App)
+//  v23: action-based routing JSON. Sin action → mensaje de redirección
+//       al dashboard nuevo en bonos.tintobanqueteria.cl (?tab=cg).
+//  El frontend antiguo (Index.html) queda en el proyecto por backup,
+//  pero ya no se sirve por defecto.
+// ════════════════════════════════════════════════════════════════════
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || '';
+  if (action) return _routeApi(action, e.parameter, null);
+  // Sin action → redirige al dashboard unificado
+  return HtmlService.createHtmlOutput(
+    '<html><head><meta charset="UTF-8"><title>Control de Gestion · migrado</title>' +
+    '<style>body{font-family:Inter,sans-serif;background:#1a1014;color:#fff;text-align:center;' +
+    'padding:80px 20px;}h1{font-family:"Cormorant Garamond",serif;color:#c9a96e;font-size:2em;}' +
+    'a{color:#c9a96e;font-weight:600;}p{color:rgba(255,255,255,.7);margin:14px 0;}</style></head>' +
+    '<body><h1>Control de Gestion migrado</h1>' +
+    '<p>El formulario CG ahora vive como un tab en el dashboard unificado.</p>' +
+    '<p><a href="https://bonos.tintobanqueteria.cl/?tab=cg">→ Ir a bonos.tintobanqueteria.cl/?tab=cg</a></p>' +
+    '</body></html>'
+  ).setTitle('Control de Gestion (migrado)');
+}
+
+function doPost(e) {
+  var bodyRaw = (e && e.postData && e.postData.contents) ? e.postData.contents : '';
+  var body    = {};
+  try { body = bodyRaw ? JSON.parse(bodyRaw) : {}; } catch(err) {}
+  var params = (e && e.parameter) ? e.parameter : {};
+  var action = body.action || params.action || '';
+  return _routeApi(action, params, body);
+}
+
+function _routeApi(action, params, body) {
+  try {
+    var result;
+    switch (action) {
+      case 'weeksData':
+        result = getWeeksData();
+        break;
+      case 'datosForSemana':
+        result = getDatosForSemana(params.semana || (body && body.semana) || '');
+        break;
+      case 'saveEvaluation':
+        result = saveEvaluation((body && body.evaluaciones) || []);
+        break;
+      case 'saveVajillaEvaluation':
+        result = saveVajillaEvaluation((body && body.evaluaciones) || []);
+        break;
+      default:
+        result = { error: 'Acción desconocida: ' + action };
+    }
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function _formatLabel(date) {
@@ -54,15 +108,21 @@ function getWeeksData() {
 }
 
 function getDatosForSemana(semana) {
+  // Refactor: ya no enviamos trabajadoresPorEvento. El CG opera a nivel
+  // evento+cargo; el cruce a trabajador concreto se hace en Centralizado
+  // (paso 4-5 contra Planilla Maestra) usando los Cargos Aplicables del
+  // bono. Esto reduce 2 lecturas externas (Fuente_Supervisoras + Bono Fotos)
+  // por carga de semana.
+  const eventos = _getEventosDeSemana(semana);
+  const criteriosCG = _getCriteriosConfig('Control Gestión');
   return {
-    eventos:             _getEventosDeSemana(semana),
-    criteriosConfig:     _getCriteriosConfig('Control Gestión'),
+    eventos,
+    criteriosConfig:     criteriosCG,
     criteriosVajilla:    _getCriteriosConfig('Vajilla'),
     yaEvaluados:         _getYaEvaluados(semana),
     yaEvaluadosVajilla:  _getYaEvaluadosVajilla(semana),
-    nombresTrabajadores: getMaestroTrabajadores(),
     vajillaConfig:       _getVajillaConfig(),
-    trabajadoresPorEvento: _getTrabajadoresPorEvento(semana)
+    autoChequeos:        _getAutoChequeosCG(eventos, criteriosCG)
   };
 }
 
@@ -130,20 +190,6 @@ function _getCriteriosConfig(tipoBono) {
   return config;
 }
 
-function getMaestroTrabajadores() {
-  try {
-    const sheet = SpreadsheetApp.openById(ID_MAESTRO).getSheetByName('Inscripcion');
-    if (!sheet || sheet.getLastRow() < 2) return [];
-    return sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues()
-      .map(r => String(r[0]).trim())
-      .filter(n => n.length > 0)
-      .sort();
-  } catch(e) {
-    Logger.log('Error leyendo Maestro Trabajadores: ' + e.message);
-    return [];
-  }
-}
-
 function _getYaEvaluados(semana) {
   const sheet   = SpreadsheetApp.openById(ID_CG).getSheetByName('Bono CG');
   const lastRow = sheet.getLastRow();
@@ -153,7 +199,6 @@ function _getYaEvaluados(semana) {
     .map(row => ({
       codigoEvento:   String(row[2]).trim(),
       cargo:          String(row[4]).trim(),
-      trabajador:     String(row[5]).trim(),
       criterioValues: row.slice(6, 16).map(v => String(v).trim()),
       total:          Number(row[16]),
       cumplidos:      Number(row[17]),
@@ -185,9 +230,12 @@ function saveEvaluation(evaluaciones) {
       const cumplidos = activos.filter(c => c === 'SI').length;
       const pct       = total > 0 ? Math.round(cumplidos / total * 100) : 0;
       const gana      = (cumplidos === total && total > 0) ? 'SI' : 'NO';
+      // Trabajador eliminado: el CG ahora opera solo evento+cargo. El cruce
+      // a trabajador concreto se hace en Centralizado al enviar a Planilla
+      // Maestra (paso 4-5 con Cargos Aplicables del bono).
       const rowData   = [
         ev.semana, ev.fechaEvento, ev.codigoEvento, ev.centro,
-        normCargo, ev.trabajador || normCargo,
+        normCargo, '',
         ...crits, total, cumplidos, pct, gana, tsStr
       ];
       if (existingRowMap[key] !== undefined) {
@@ -275,46 +323,6 @@ function syncCG() {
 }
 
 // ==================================================================
-// AUTO-LLENADO TRABAJADORES
-// ==================================================================
-function _getTrabajadoresPorEvento(semana) {
-  const result = {};
-  try {
-    const ssSup = SpreadsheetApp.openById(ID_CENTRALIZADO).getSheetByName('Fuente_Supervisoras');
-    if (ssSup && ssSup.getLastRow() > 1) {
-      const supData = ssSup.getRange(2, 1, ssSup.getLastRow() - 1, 8).getValues();
-      supData.forEach(row => {
-        const rowSemana = _normCRMSemana(row[1]);
-        if (rowSemana !== semana) return;
-        const codigo = String(row[0]).trim();
-        const trabajador = String(row[6]).trim();
-        const cargo = String(row[7]).trim();
-        if (!codigo || !cargo || !trabajador) return;
-        if (!result[codigo]) result[codigo] = {};
-        result[codigo][cargo] = trabajador;
-      });
-    }
-    const ssFotos = SpreadsheetApp.openById('1fJFabJhtLfoX51R2ewSuZ89TGDGruLdBRA-CdQffiYU').getSheetByName('Bono Fotos');
-    if (ssFotos && ssFotos.getLastRow() > 3) {
-      const fotosData = ssFotos.getRange(4, 1, ssFotos.getLastRow() - 3, 7).getValues();
-      fotosData.forEach(row => {
-        const rowSemana = _normCRMSemana(row[0]);
-        if (rowSemana !== semana) return;
-        const codigo = String(row[2]).trim();
-        const cargo = String(row[5]).trim() || String(row[4]).trim();
-        const trabajador = String(row[6]).trim();
-        if (!codigo || !cargo || !trabajador) return;
-        if (!result[codigo]) result[codigo] = {};
-        if (!result[codigo][cargo]) result[codigo][cargo] = trabajador;
-      });
-    }
-  } catch(e) {
-    Logger.log('_getTrabajadoresPorEvento error: ' + e.message);
-  }
-  return result;
-}
-
-// ==================================================================
 // MODULO VAJILLA
 // ==================================================================
 const VAJILLA_COSTO_POR_INVITADO = 800;
@@ -339,7 +347,6 @@ function _getYaEvaluadosVajilla(semana) {
       mermaPermitida:  Number(row[5]) || 0,
       facturaMerma:    Number(row[6]) || 0,
       cargo:           String(row[7]).trim(),
-      trabajador:      String(row[8]).trim(),
       gana:            String(row[9]).trim()
     }));
 }
@@ -372,10 +379,12 @@ function saveVajillaEvaluation(evaluaciones) {
       const mermaPermitida = VAJILLA_COSTO_POR_INVITADO * (ev.invitadosComida || 0);
       const gana = (ev.facturaMerma <= mermaPermitida && ev.invitadosComida > 0) ? 'SI' : 'NO';
       const key  = ev.codigoEvento + '|||' + ev.cargo;
+      // Trabajador eliminado: el cruce a trabajador concreto se hace en
+      // Centralizado al enviar a Planilla Maestra (paso 4-5).
       const rowData = [
         ev.semana, ev.fechaEvento, ev.codigoEvento, ev.centro,
         ev.invitadosComida, mermaPermitida, ev.facturaMerma,
-        ev.cargo, ev.trabajador || ev.cargo, gana, tsStr
+        ev.cargo, '', gana, tsStr
       ];
       if (existingRowMap[key] !== undefined) {
         sheet.getRange(existingRowMap[key], 1, 1, 11).setValues([rowData]);
@@ -388,10 +397,319 @@ function saveVajillaEvaluation(evaluaciones) {
     if (newRows.length > 0) {
       sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 11).setValues(newRows);
     }
-    return { success: true, rowsAdded: newRows.length, rowsUpdated };
+
+    // Cascada: para cada evento donde Vajilla quedó NO, sobreescribir el
+    // criterio "vajilla" en evaluaciones existentes de Garzones/Barmans.
+    // Cubre el caso en que el usuario evaluó CG antes de cargar Vajilla
+    // (por defecto el frontend deja esos criterios en SI).
+    const eventosTocados = new Set(evaluaciones.map(e => e.codigoEvento));
+    let cascadaCount = 0;
+    eventosTocados.forEach(codigo => {
+      cascadaCount += _aplicarCascadaVajilla(codigo);
+    });
+
+    return { success: true, rowsAdded: newRows.length, rowsUpdated, cascadaUpdates: cascadaCount };
   } catch(e) {
     return { success: false, error: e.message };
   }
+}
+
+// Cascada Vajilla → Garzones/Barmans. Si el resultado de Vajilla del evento
+// es NO, busca en Bono CG las evaluaciones de cualquier cargo con un
+// criterio que mencione "vajilla" y fuerza ese criterio a NO. Recalcula
+// total/cumplidos/pct/gana de la fila y reescribe.
+//
+// No hace nada si Vajilla=SI (no degradamos NOs manuales que el usuario haya
+// puesto por otros motivos) ni si Vajilla=PENDIENTE.
+function _aplicarCascadaVajilla(codigoEvento) {
+  const ss = SpreadsheetApp.openById(ID_CG);
+  const vajSheet = ss.getSheetByName(HOJA_BONO_VAJILLA);
+  if (!vajSheet || vajSheet.getLastRow() < 2) return 0;
+  const vajRows = vajSheet.getRange(2, 1, vajSheet.getLastRow() - 1, 11).getValues()
+    .filter(r => String(r[2]).trim() === codigoEvento);
+  if (vajRows.length === 0) return 0;
+  const vajEstado = vajRows.every(r => String(r[9]).trim() === 'SI') ? 'SI' : 'NO';
+  if (vajEstado !== 'NO') return 0;
+
+  const config = _getCriteriosConfig('Control Gestión');
+  const cgSheet = ss.getSheetByName('Bono CG');
+  const lastRow = cgSheet.getLastRow();
+  if (lastRow < 4) return 0;
+  const data = cgSheet.getRange(4, 1, lastRow - 3, 21).getValues();
+  let updates = 0;
+  data.forEach((row, idx) => {
+    if (String(row[2]).trim() !== codigoEvento) return;
+    const cargo = String(row[4]).trim();
+    const cfg = config[cargo];
+    if (!cfg) return;
+    const idxVaj = cfg.criterios.findIndex(c => /vajilla/i.test(c));
+    if (idxVaj === -1) return;
+    // Bono CG: A..E meta, F trabajador, G..P criterios (10 cols), Q total,
+    // R cumplidos, S pct, T gana, U timestamp. row[6+i] = criterio i.
+    const colCrit = 6 + idxVaj;
+    if (String(row[colCrit]).trim() === 'NO') return;
+    row[colCrit] = 'NO';
+    const activos = row.slice(6, 16).map(v => String(v).trim()).filter(c => c && c !== '--');
+    const total     = activos.length;
+    const cumplidos = activos.filter(c => c === 'SI').length;
+    const pct       = total > 0 ? Math.round(cumplidos / total * 100) : 0;
+    const gana      = (cumplidos === total && total > 0) ? 'SI' : 'NO';
+    cgSheet.getRange(4 + idx, colCrit + 1).setValue('NO');
+    cgSheet.getRange(4 + idx, 17, 1, 4).setValues([[total, cumplidos, pct, gana]]);
+    updates++;
+  });
+  return updates;
+}
+
+// ==================================================================
+// AUTO-CHEQUEOS DESDE SHEET INVENTARIO CG
+// ==================================================================
+// Verifica automáticamente, al cargar la semana, criterios cuya respuesta
+// puede deducirse del sheet de Control de Gestión inventarios:
+//   - "Envío Conteo inicial/final Cocina"      → hoja Cocina
+//   - "Envío Conteo inicial/final Líquidos"    → hoja Liquidos
+//   - "No se pierde ningún mantel ni camino"   → hoja Manteles
+//   - "Se pierden menos de 20 servilletas"     → hoja Manteles
+//   - "Se pierden menos de 40 cubiertos"       → hoja Cubiertos
+// El frontend usa estos chequeos para auto-marcar y bloquear el criterio.
+// Los motivos vienen del backend para mostrar al evaluador qué pasó.
+
+const ID_INVENTARIO_CG = '1WC1cEeKrrrrvrI8zQJw22sFsECX10tjCzPn4xOKFR6U';
+
+// Cache por ejecución: evita releer la misma hoja para múltiples chequeos.
+const _cacheInvHojas = {};
+
+function _loadHojaInv(nombreHoja) {
+  if (_cacheInvHojas[nombreHoja] !== undefined) return _cacheInvHojas[nombreHoja];
+  try {
+    const sheet = SpreadsheetApp.openById(ID_INVENTARIO_CG).getSheetByName(nombreHoja);
+    if (!sheet) { _cacheInvHojas[nombreHoja] = null; return null; }
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow < 4 || lastCol < 2) { _cacheInvHojas[nombreHoja] = null; return null; }
+    const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+    _cacheInvHojas[nombreHoja] = { data, lastRow, lastCol };
+    return _cacheInvHojas[nombreHoja];
+  } catch(e) {
+    Logger.log('_loadHojaInv error en ' + nombreHoja + ': ' + e.message);
+    _cacheInvHojas[nombreHoja] = null;
+    return null;
+  }
+}
+
+// Normaliza texto para comparaciones loose (lowercase + sin tildes).
+function _normTxt(s) {
+  return String(s == null ? '' : s).trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Normaliza una fecha (string o Date) a formato yyyy-MM-dd para comparar.
+function _normFechaISO(s) {
+  if (s instanceof Date) return Utilities.formatDate(s, TZ, 'yyyy-MM-dd');
+  const str = String(s == null ? '' : s).trim();
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return m[3] + '-' + String(parseInt(m[2], 10)).padStart(2, '0') + '-' + String(parseInt(m[1], 10)).padStart(2, '0');
+  m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m) return m[1] + '-' + String(parseInt(m[2], 10)).padStart(2, '0') + '-' + String(parseInt(m[3], 10)).padStart(2, '0');
+  return str;
+}
+
+// Parsea row 3 de la hoja inv y retorna mapa { centro::fecha → {colInicio, colsSubform, evName} }
+// Salta entradas con label "Estoril" (es un conteo mensual aparte de inventario,
+// no un evento del flujo).
+function _parsearEventosHojaInv(nombreHoja) {
+  const hoja = _loadHojaInv(nombreHoja);
+  if (!hoja) return {};
+  const row3 = hoja.data[2] || [];
+  const result = {};
+  for (let c = 1; c < hoja.lastCol; c++) {
+    const evName = String(row3[c] == null ? '' : row3[c]).trim();
+    if (!evName) continue;
+    if (/^estoril/i.test(evName)) continue;
+    // Parseo "Centro fecha" — soporta dd/MM/yyyy y dd-MM-yyyy con o sin padding.
+    const m = evName.match(/^(.+?)\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})$/);
+    if (!m) continue;
+    const centro = m[1].trim();
+    const fechaISO = _normFechaISO(m[2]);
+    const colsSubform = {
+      // Nomenclatura A (Cocina, Liquidos, Decoracion):
+      'Enviado a eventos': c,
+      'Conteo inicial':    c + 1,
+      'Conteo final':      c + 2,
+      'Casa':              c + 3,
+      // Nomenclatura B (Manteles, Cubiertos):
+      'Casa Inicial':      c,
+      'Evento Inicial':    c + 1,
+      'Evento Final':      c + 2,
+      'Casa Final':        c + 3
+    };
+    const key = _normTxt(centro) + '::' + fechaISO;
+    result[key] = { centro, fechaISO, colInicio: c, colsSubform, evName };
+  }
+  return result;
+}
+
+function _findEventoEnHojaInv(nombreHoja, centroCRM, fechaCRM) {
+  const eventos = _parsearEventosHojaInv(nombreHoja);
+  const key = _normTxt(centroCRM) + '::' + _normFechaISO(fechaCRM);
+  return eventos[key] || null;
+}
+
+// Devuelve true si alguna celda de la columna `colIdx`, desde row 5 hasta el
+// final de la hoja, tiene valor no vacío. Indica que el formulario asociado
+// a esa columna fue enviado.
+function _hayDatosEnColInv(nombreHoja, colIdx) {
+  const hoja = _loadHojaInv(nombreHoja);
+  if (!hoja || colIdx == null || colIdx >= hoja.lastCol) return false;
+  for (let r = 4; r < hoja.lastRow; r++) {
+    const v = hoja.data[r] && hoja.data[r][colIdx];
+    if (v !== null && v !== undefined && String(v).trim() !== '') return true;
+  }
+  return false;
+}
+
+// Convención de retorno de chequeos:
+//   { ok: true,  motivo: '✓ ...' }   → criterio cumplido
+//   { ok: false, motivo: '✗ ...' }   → criterio no cumplido
+//   { ok: null,  motivo: '⚠ ...' }   → SIN DATOS para juzgar → frontend deja
+//                                      el criterio MANUAL con warning visible.
+//
+// El caso null es importante: si el sheet de inventario no tiene datos para
+// el evento (por ej. nadie llenó "Casa Final"), no podemos calcular merma sin
+// generar falsos negativos (el evaluador perdería el bono injustamente).
+
+function _chequearFormulario(ev, nombreHoja, subform) {
+  const eventoInv = _findEventoEnHojaInv(nombreHoja, ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en hoja ' + nombreHoja };
+  const colIdx = eventoInv.colsSubform[subform];
+  if (colIdx == null) return { ok: null, motivo: '⚠ Subform "' + subform + '" no encontrado' };
+  if (_hayDatosEnColInv(nombreHoja, colIdx)) {
+    return { ok: true, motivo: '✓ ' + subform + ' enviado (' + nombreHoja + ')' };
+  }
+  // Subform vacío. Distinguir "no enviaron este form" vs "evento sin datos
+  // procesados todavía". Si CUALQUIER otra col del bloque del evento tiene
+  // datos, asumimos que el evento está procesado y este form puntual falló.
+  const cBase = eventoInv.colInicio;
+  const otraColTieneDatos = [cBase, cBase + 1, cBase + 2, cBase + 3]
+    .some(c => c !== colIdx && _hayDatosEnColInv(nombreHoja, c));
+  if (otraColTieneDatos) {
+    return { ok: false, motivo: '✗ No se envió ' + subform + ' (' + nombreHoja + ')' };
+  }
+  return { ok: null, motivo: '⚠ Sin datos del evento en ' + nombreHoja };
+}
+
+// Chequeo merma manteles+caminos. Si falta Casa Inicial o Casa Final, no se
+// puede calcular sin riesgo de falso negativo (ej: Casa Final vacía y Casa
+// Inicial=30 daría "perdiste 30 manteles" cuando en realidad nadie contó).
+function _chequearMermaMantelCamino(ev) {
+  const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Manteles' };
+  const colIni = eventoInv.colsSubform['Casa Inicial'];
+  const colFin = eventoInv.colsSubform['Casa Final'];
+  const tieneIni = _hayDatosEnColInv('Manteles', colIni);
+  const tieneFin = _hayDatosEnColInv('Manteles', colFin);
+  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
+  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
+  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
+  const hoja = _loadHojaInv('Manteles');
+  const perdidos = [];
+  for (let r = 4; r < hoja.lastRow; r++) {
+    const item = String(hoja.data[r][0] || '').trim().toUpperCase();
+    if (!item) continue;
+    if (!/^MANTEL|^CAMINO/.test(item)) continue;
+    const ini = Number(hoja.data[r][colIni]) || 0;
+    const fin = Number(hoja.data[r][colFin]) || 0;
+    const diff = ini - fin;
+    if (diff > 0) perdidos.push(item + ' (-' + diff + ')');
+  }
+  return perdidos.length === 0
+    ? { ok: true,  motivo: '✓ No se perdieron manteles ni caminos' }
+    : { ok: false, motivo: '✗ Faltó: ' + perdidos.join(', ') };
+}
+
+function _chequearMermaServilletas(ev) {
+  const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Manteles' };
+  const colIni = eventoInv.colsSubform['Casa Inicial'];
+  const colFin = eventoInv.colsSubform['Casa Final'];
+  const tieneIni = _hayDatosEnColInv('Manteles', colIni);
+  const tieneFin = _hayDatosEnColInv('Manteles', colFin);
+  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
+  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
+  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
+  const hoja = _loadHojaInv('Manteles');
+  let totalPerdidas = 0;
+  for (let r = 4; r < hoja.lastRow; r++) {
+    const item = String(hoja.data[r][0] || '').trim().toUpperCase();
+    if (!item || !/^SERVILLETA/.test(item)) continue;
+    const ini = Number(hoja.data[r][colIni]) || 0;
+    const fin = Number(hoja.data[r][colFin]) || 0;
+    const diff = ini - fin;
+    if (diff > 0) totalPerdidas += diff;
+  }
+  return totalPerdidas < 20
+    ? { ok: true,  motivo: '✓ Se perdieron ' + totalPerdidas + ' servilletas (< 20)' }
+    : { ok: false, motivo: '✗ Se perdieron ' + totalPerdidas + ' servilletas (≥ 20)' };
+}
+
+function _chequearMermaCubiertos(ev) {
+  const eventoInv = _findEventoEnHojaInv('Cubiertos', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Cubiertos' };
+  const colIni = eventoInv.colsSubform['Casa Inicial'];
+  const colFin = eventoInv.colsSubform['Casa Final'];
+  const tieneIni = _hayDatosEnColInv('Cubiertos', colIni);
+  const tieneFin = _hayDatosEnColInv('Cubiertos', colFin);
+  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Cubiertos' };
+  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Cubiertos' };
+  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Cubiertos' };
+  const hoja = _loadHojaInv('Cubiertos');
+  let totalPerdidos = 0;
+  for (let r = 4; r < hoja.lastRow; r++) {
+    const item = String(hoja.data[r][0] || '').trim();
+    if (!item) continue;
+    const ini = Number(hoja.data[r][colIni]) || 0;
+    const fin = Number(hoja.data[r][colFin]) || 0;
+    const diff = ini - fin;
+    if (diff > 0) totalPerdidos += diff;
+  }
+  return totalPerdidos < 40
+    ? { ok: true,  motivo: '✓ Se perdieron ' + totalPerdidos + ' cubiertos (< 40)' }
+    : { ok: false, motivo: '✗ Se perdieron ' + totalPerdidos + ' cubiertos (≥ 40)' };
+}
+
+// Routing: dado un texto de criterio, devuelve el chequeo correspondiente o
+// null si el criterio es manual (no auto-chequeable). Vajilla NO entra acá:
+// el frontend la maneja localmente desde S.guardadosVajilla.
+function _resolverChequeoCriterio(crit, ev) {
+  if (/vajilla/i.test(crit)) return null;
+  if (/env[ií]o.*conteo.*inicial.*cocina/i.test(crit))   return _chequearFormulario(ev, 'Cocina',   'Conteo inicial');
+  if (/env[ií]o.*conteo.*final.*cocina/i.test(crit))     return _chequearFormulario(ev, 'Cocina',   'Conteo final');
+  if (/env[ií]o.*conteo.*inicial.*l[ií]quido/i.test(crit)) return _chequearFormulario(ev, 'Liquidos', 'Conteo inicial');
+  if (/env[ií]o.*conteo.*final.*l[ií]quido/i.test(crit))   return _chequearFormulario(ev, 'Liquidos', 'Conteo final');
+  if (/no se pierde ning[uú]n mantel/i.test(crit))       return _chequearMermaMantelCamino(ev);
+  if (/pierden menos de 20 servilletas/i.test(crit))     return _chequearMermaServilletas(ev);
+  if (/pierden menos de 40 cubiertos/i.test(crit))       return _chequearMermaCubiertos(ev);
+  return null;
+}
+
+// Resultado: { codigoEvento: { cargo: { idxCriterio: { ok, motivo } } } }
+// Solo incluye criterios para los que existe un chequeo automático.
+function _getAutoChequeosCG(eventos, criteriosCG) {
+  const result = {};
+  const cargos = Object.keys(criteriosCG);
+  eventos.forEach(ev => {
+    cargos.forEach(cargo => {
+      const cfg = criteriosCG[cargo];
+      cfg.criterios.forEach((crit, i) => {
+        const chequeo = _resolverChequeoCriterio(crit, ev);
+        if (!chequeo) return;
+        if (!result[ev.codigoEvento]) result[ev.codigoEvento] = {};
+        if (!result[ev.codigoEvento][cargo]) result[ev.codigoEvento][cargo] = {};
+        result[ev.codigoEvento][cargo][i] = chequeo;
+      });
+    });
+  });
+  return result;
 }
 
 function onOpen() {

@@ -7,6 +7,10 @@
 // Si action está presente, devuelve JSON. Si no, devuelve el HTML viejo.
 window.API_URL = 'https://script.google.com/macros/s/AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H/exec';
 
+// Apps Script CG (Control de Gestión) — endpoints JSON via doGet/doPost
+// (v23+). El frontend usa esta URL solo desde el tab "CG".
+window.CG_API_URL = 'https://script.google.com/macros/s/AKfycbyzQPkvD6HGelsOgO72ZI0N30G7BV6UN3I1Gyaq65135PfnWBytlhs4YHhzTjOQQa16/exec';
+
 // CURRENT_USER_EMAIL: lo llena app.js al iniciar leyendo
 // /cdn-cgi/access/get-identity (Cloudflare Access) cuando esté en producción.
 // Mientras tanto se mantiene vacío y el backend usa el deployer como autor.

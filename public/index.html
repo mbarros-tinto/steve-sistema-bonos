@@ -34,7 +34,8 @@
       <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana', this)">📅 Semana</button>
       <button class="tab-btn" data-tab="cargo" onclick="switchTab('cargo', this)">👥 Cargo</button>
       <button class="tab-btn" data-tab="historial" onclick="switchTab('historial', this)">🔍 Historial</button>
-      <button class="tab-btn" data-tab="criterios" onclick="switchTab('criterios', this)">📋 Criterios</button>
+      <button class="tab-btn" data-tab="cg" onclick="switchTab('cg', this)">📋 CG</button>
+      <button class="tab-btn" data-tab="criterios" onclick="switchTab('criterios', this)">⚙️ Criterios</button>
       <button class="tab-btn" data-tab="tarifas" onclick="switchTab('tarifas', this)">💰 Tarifas</button>
     </div>
 
@@ -95,6 +96,31 @@
             <div class="empty-icon">🔍</div>
             <p>Busca a un trabajador para ver sus bonos</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CG (Control de Gestión) -->
+    <div class="tab-panel" id="panel-cg">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Control de <span class="accent">Gestión</span></div>
+          <div class="controls" style="margin: 0;">
+            <select id="cgSelSemana" onchange="cgCargarSemana()">
+              <option value="">⏳ Cargando semanas…</option>
+            </select>
+          </div>
+        </div>
+        <div id="cgStatusBar" class="cg-status-bar"></div>
+        <div id="cgContainer">
+          <div class="empty">
+            <div class="empty-icon">📋</div>
+            <p>Selecciona una semana para empezar a evaluar Vajilla y Control de Gestión</p>
+          </div>
+        </div>
+        <div class="cg-save-bar" id="cgSaveBar" style="display:none;">
+          <div class="cg-save-info" id="cgSaveInfo">—</div>
+          <button class="btn btn-primary" id="cgBtnSave" disabled onclick="cgGuardarEvaluacion()">💾 Guardar evaluación</button>
         </div>
       </div>
     </div>
@@ -164,5 +190,6 @@
 
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="app-cg.js"></script>
 </body>
 </html>
