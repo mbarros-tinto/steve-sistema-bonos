@@ -88,21 +88,48 @@ window.addEventListener('DOMContentLoaded', init);
 
 function init() {
   cargarUsuarioCFAccess();
+
+  // Estado de carga inicial: selects con spinner mientras llega data
+  var selSem = document.getElementById('selSemana');
+  var selCar = document.getElementById('selCargo');
+  if (selSem) { selSem.disabled = true;  selSem.innerHTML = '<option value="">⏳ Cargando semanas…</option>'; }
+  if (selCar) { selCar.disabled = true;  selCar.innerHTML = '<option value="">⏳ Cargando cargos…</option>';  }
+
   apiGet('getWebAppData')
     .then(function(r) {
       if (!r || !r.ok) {
+        if (selSem) { selSem.disabled = false; selSem.innerHTML = '<option value="">⚠️ Error al cargar</option>'; }
+        if (selCar) { selCar.disabled = false; selCar.innerHTML = '<option value="">⚠️ Error al cargar</option>'; }
         document.getElementById('resSemana').innerHTML =
           '<div class="empty"><div class="empty-icon">⚠️</div><p>Error al cargar: ' + esc((r && r.msg) || 'sin respuesta') + '</p></div>';
         return;
       }
-      APP.semanas  = r.semanas  || [];
+      APP.semanas  = ordenarSemanasDesc(r.semanas || []);
       APP.cargos   = r.cargos   || [];
       APP.personas = r.personas || [];
+      if (selSem) { selSem.disabled = false; selSem.innerHTML = '<option value="">— Seleccionar semana —</option>'; }
+      if (selCar) { selCar.disabled = false; selCar.innerHTML = '<option value="">— Seleccionar cargo —</option>';  }
       poblarSelect('selSemana', APP.semanas);
-      poblarSelect('selCargo', APP.cargos);
+      poblarSelect('selCargo',  APP.cargos);
       showToast(APP.semanas.length + ' semanas · ' + APP.cargos.length + ' cargos · ' + APP.personas.length + ' personas', 'ok');
     })
-    .catch(function(e) { showToast('Error: ' + e.message, 'err'); });
+    .catch(function(e) {
+      if (selSem) { selSem.disabled = false; selSem.innerHTML = '<option value="">⚠️ Error</option>'; }
+      if (selCar) { selCar.disabled = false; selCar.innerHTML = '<option value="">⚠️ Error</option>'; }
+      showToast('Error: ' + e.message, 'err');
+    });
+}
+
+// Ordena semanas (strings DD/MM/YYYY) de más reciente a más antigua.
+function ordenarSemanasDesc(arr) {
+  return (arr || []).slice().sort(function(a, b) {
+    return _parseSemanaDate(b) - _parseSemanaDate(a);
+  });
+}
+function _parseSemanaDate(s) {
+  var m = String(s || '').trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (!m) return 0;
+  return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10)).getTime();
 }
 
 function cargarUsuarioCFAccess() {
@@ -183,7 +210,8 @@ function sincronizar(btnEl) {
 // ===== TAB SEMANA =====
 function cargarSemana() {
   var semana = document.getElementById('selSemana').value;
-  if (!semana) return;
+  if (!semana) { _setBotonesSemana(false); return; }
+  _setBotonesSemana(true); // habilitar al instante; renderSemana podrá deshabilitarlo si no hay datos
   APP.semanaActual = semana;
   spinner('resSemana', 'Cargando bonos de la semana…');
 
