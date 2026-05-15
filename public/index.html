@@ -48,8 +48,7 @@
               <option value="">— Seleccionar semana —</option>
             </select>
             <button class="btn btn-secondary" onclick="sincronizar(this)" title="Sincronizar Fotos + CG + Vajilla + Supervisoras">🔄 Sync</button>
-            <button class="btn btn-success" id="btnPagos" disabled onclick="abrirModalPagos()" title="Selecciona una semana para habilitar">📤 Pagos</button>
-            <button class="btn btn-mail" id="btnMailBonos" disabled onclick="abrirModalMailBonos()" title="Selecciona una semana para habilitar">📧 Mail bonos</button>
+            <button class="btn btn-success" id="btnProcesar" disabled onclick="abrirModalProcesar()" title="Selecciona una semana para habilitar">📤📧 Procesar bonos</button>
           </div>
         </div>
         <div id="resSemana">
@@ -145,12 +144,15 @@
   <div class="modal-box" id="modalOverrideBox"></div>
 </div>
 
-<!-- MODAL: Enviar bonos a Planilla de Pagos -->
+<!-- MODAL: Procesar bonos (unificado: pagos + mails) -->
+<div class="modal-backdrop" id="modalProcesarBackdrop" onclick="if(event.target===this)cerrarModal('modalProcesarBackdrop')">
+  <div class="modal-box" id="modalProcesarBox" style="max-width:880px;"></div>
+</div>
+
+<!-- LEGACY: modals viejos (mantenidos por compat, no se abren desde la UI) -->
 <div class="modal-backdrop" id="modalPagosBackdrop" onclick="if(event.target===this)cerrarModal('modalPagosBackdrop')">
   <div class="modal-box" id="modalPagosBox" style="max-width:720px;"></div>
 </div>
-
-<!-- MODAL: Mail bonos a trabajadores -->
 <div class="modal-backdrop" id="modalMailBackdrop" onclick="if(event.target===this)cerrarModal('modalMailBackdrop')">
   <div class="modal-box" id="modalMailBox" style="max-width:760px;"></div>
 </div>

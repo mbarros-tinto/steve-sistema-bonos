@@ -123,14 +123,12 @@ function cargarUsuarioCFAccess() {
 }
 
 function _setBotonesSemana(enabled) {
-  ['btnPagos', 'btnMailBonos'].forEach(function(id) {
-    var b = document.getElementById(id);
-    if (!b) return;
-    b.disabled = !enabled;
-    b.title = enabled
-      ? (id === 'btnPagos' ? 'Enviar bonos a Planilla de Pagos' : 'Mandar mail bonos a trabajadores')
-      : 'Selecciona una semana para habilitar';
-  });
+  var b = document.getElementById('btnProcesar');
+  if (!b) return;
+  b.disabled = !enabled;
+  b.title = enabled
+    ? 'Procesar bonos: escribir en Planilla de Pagos y enviar mail a trabajadores'
+    : 'Selecciona una semana para habilitar';
 }
 
 function poblarSelect(id, valores) {
@@ -836,7 +834,396 @@ function _onEscritoPagos(r, btn, prev, contentEl, multi) {
   }
 }
 
-// ===== MODAL MAIL BONOS =====
+// ════════════════════════════════════════════════════════════════════
+// MODAL UNIFICADO: Procesar bonos (Pagos + Mails en un solo flujo)
+// ════════════════════════════════════════════════════════════════════
+var _proc = {
+  preview:    null,      // respuesta de getResumenSemanaUnificado
+  filtro:     'todos',   // todos | ganaron-todo | algun-perdido | pendientes-mail | pendientes-pago
+  eventosSel: {},        // codigo → bool (escribir a Pagos)
+  mailsSel:   {}         // nombreNorm → bool (enviar mail)
+};
+
+function abrirModalProcesar() {
+  var semana = document.getElementById('selSemana').value;
+  if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
+  _proc.filtro = 'todos';
+  _proc.eventosSel = {};
+  _proc.mailsSel = {};
+
+  var box = document.getElementById('modalProcesarBox');
+  box.innerHTML =
+    '<div class="modal-title">📤📧 Procesar <span style="color:var(--gold);font-style:italic;">bonos</span></div>' +
+    '<div class="modal-sub">Semana ' + esc(semana) + ' — Cargando resumen…</div>' +
+    '<div id="procContent"><div class="spinner-wrap"><div class="spinner"></div>Consultando bonos + mails…</div></div>' +
+    '<div class="modal-actions"><button class="btn btn-secondary" onclick="cerrarModal(\'modalProcesarBackdrop\')">Cerrar</button></div>';
+  showModal('modalProcesarBackdrop');
+
+  apiGet('getResumenSemanaUnificado', { semana: semana })
+    .then(function(r) { _proc.preview = r; renderProcesarPreview(r, semana); })
+    .catch(function(e) {
+      document.getElementById('procContent').innerHTML = '<div class="empty">Error: ' + esc(e.message) + '</div>';
+    });
+}
+
+function procCambiarFiltro(f) {
+  _proc.filtro = f;
+  if (_proc.preview) renderProcesarPreview(_proc.preview, _proc.preview.semana);
+}
+
+function procToggleAllMails(state) {
+  document.querySelectorAll('.proc-mail-check').forEach(function(c) {
+    c.checked = !!state;
+    _proc.mailsSel[c.dataset.trab] = !!state;
+  });
+}
+
+function procToggleAllEventos(state) {
+  document.querySelectorAll('.proc-evento-check').forEach(function(c) {
+    if (!c.disabled) {
+      c.checked = !!state;
+      _proc.eventosSel[c.dataset.codigo] = !!state;
+    }
+  });
+  procActualizarResumenAccion();
+}
+
+function procOnMailToggle(checkbox) {
+  _proc.mailsSel[checkbox.dataset.trab] = !!checkbox.checked;
+  procActualizarResumenAccion();
+}
+
+function procOnEventoToggle(checkbox) {
+  _proc.eventosSel[checkbox.dataset.codigo] = !!checkbox.checked;
+  procActualizarResumenAccion();
+}
+
+function _iconCanal(canal) {
+  var t = String(canal || '').toLowerCase();
+  if (t.indexOf('fotos') !== -1)        return '📸';
+  if (t.indexOf('supervisora') !== -1)  return '⭐';
+  if (t.indexOf('vajilla') !== -1)      return '🍽';
+  if (t.indexOf('cg') !== -1)           return '📦';
+  return '🎯';
+}
+
+function renderProcesarPreview(r, semana) {
+  var el = document.getElementById('procContent');
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    return;
+  }
+  var trabs    = r.trabajadores || [];
+  var sinEmail = r.sinEmail || [];
+  var eventos  = r.eventos || [];
+
+  var box = document.getElementById('modalProcesarBox');
+  box.querySelector('.modal-sub').textContent =
+    'Semana ' + semana + ' — ' + (trabs.length + sinEmail.length) + ' trabajador(es) · ' +
+    eventos.length + ' evento(s) · Total ganado $' + fmtMoney(r.totalGlobal);
+
+  if (trabs.length === 0 && sinEmail.length === 0 && eventos.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No hay datos para esta semana</p></div>';
+    return;
+  }
+
+  // Inicializar selección (por default: todos los eventos sin escribir + todos los trabs no enviados con bonos ganados)
+  if (Object.keys(_proc.eventosSel).length === 0) {
+    eventos.forEach(function(ev) {
+      // Habilitable si tiene bonos listos y sin mismatches
+      var habilitable = ev.bonosListos > 0 && (!ev.mismatches || ev.mismatches.length === 0);
+      _proc.eventosSel[ev.codigo] = habilitable;
+    });
+  }
+  if (Object.keys(_proc.mailsSel).length === 0) {
+    trabs.forEach(function(t) {
+      // Por default: marcado si no se le ha enviado mail aún
+      _proc.mailsSel[t.nombreNorm] = !t.yaEnviadoMail;
+    });
+  }
+
+  // Filtros
+  function pasa(t) {
+    if (_proc.filtro === 'ganaron-todo')      return t.noGanados === 0 && t.ganados > 0;
+    if (_proc.filtro === 'algun-perdido')     return t.noGanados > 0;
+    if (_proc.filtro === 'pendientes-mail')   return !t.yaEnviadoMail;
+    return true;
+  }
+  var trabsFiltrados    = trabs.filter(pasa);
+  var sinEmailFiltrados = sinEmail.filter(pasa);
+
+  var totalAll     = trabs.length + sinEmail.length;
+  var ganaronTodo  = [].concat(trabs, sinEmail).filter(function(t) { return t.noGanados === 0 && t.ganados > 0; }).length;
+  var algunPerdido = [].concat(trabs, sinEmail).filter(function(t) { return t.noGanados > 0; }).length;
+  var pendMail     = trabs.filter(function(t) { return !t.yaEnviadoMail; }).length;
+
+  // Agrupar por cargo del primer evento
+  var grupos = {};
+  function pushGrupo(t, sin) {
+    var cargo = (t.eventos && t.eventos[0] && t.eventos[0].cargo) || '(sin cargo)';
+    if (!grupos[cargo]) grupos[cargo] = { cargo: cargo, trabs: [], total: 0 };
+    grupos[cargo].trabs.push(Object.assign({ _sinEmail: !!sin }, t));
+    grupos[cargo].total += t.totalMonto;
+  }
+  trabsFiltrados.forEach(function(t) { pushGrupo(t, false); });
+  sinEmailFiltrados.forEach(function(t) { pushGrupo(t, true); });
+
+  var ordenCargos = [
+    'Super metre', 'Metre', 'Jefe de Bar', 'Jefe Cocina', 'Copero Jefe', 'Copero',
+    'Barmans', 'Barman', 'Garzones', 'Garzón', 'Garzon Decoración',
+    'Jefa de Decoración', 'Jefa de Floristas', 'Florista', 'Asignación Encargados Novios'
+  ];
+  var cargosKeys = Object.keys(grupos).sort(function(a, b) {
+    var ia = ordenCargos.indexOf(a); if (ia < 0) ia = 999;
+    var ib = ordenCargos.indexOf(b); if (ib < 0) ib = 999;
+    if (ia !== ib) return ia - ib;
+    return a.localeCompare(b);
+  });
+
+  var html = '';
+
+  // ─── Sección 1: Eventos a escribir en Pagos ─────────────────────────
+  html += '<div class="proc-section proc-section-eventos">';
+  html += '<div class="proc-section-title">📤 Eventos a escribir en Planilla de Pagos</div>';
+  html += '<div class="proc-section-sub">Marca los eventos cuyos bonos quieres enviar a Pagos. Sólo se escriben los bonos ganados (idempotente: si ya hay bonos escritos, los reemplaza).</div>';
+  html += '<div class="proc-section-actions"><span class="mail-toggle" onclick="procToggleAllEventos(true)">Marcar todos</span> · <span class="mail-toggle" onclick="procToggleAllEventos(false)">Ninguno</span></div>';
+  eventos.forEach(function(ev) {
+    var habilitable = ev.bonosListos > 0 && (!ev.mismatches || ev.mismatches.length === 0);
+    var checked = _proc.eventosSel[ev.codigo] && habilitable;
+    var stClass = habilitable ? '' : ' disabled';
+    html += '<label class="proc-evento-row' + stClass + '">';
+    html += '<input type="checkbox" class="proc-evento-check" data-codigo="' + escAttr(ev.codigo) + '"' +
+            (checked ? ' checked' : '') + (habilitable ? '' : ' disabled') +
+            ' onchange="procOnEventoToggle(this)">';
+    html += '<div class="proc-evento-info">';
+    html += '<div class="proc-evento-name"><b>' + esc(ev.lugar || ev.codigo) + '</b> · ' + esc(ev.fecha) + '</div>';
+    html += '<div class="proc-evento-meta">';
+    if (habilitable) {
+      html += '<span class="ok">' + ev.bonosListos + ' bono(s) ganado(s) · $' + fmtMoney(ev.totalMonto) + '</span>';
+      if (ev.yaEscritos > 0) html += ' <span class="warn">· ⚠ ' + ev.yaEscritos + ' previos serán reemplazados</span>';
+    } else if (ev.mismatches && ev.mismatches.length) {
+      html += '<span class="err">❌ ' + ev.mismatches.length + ' mismatch(es) — resolver primero</span>';
+    } else {
+      html += '<span class="muted">Sin bonos ganados para escribir</span>';
+    }
+    html += '</div></div></label>';
+  });
+  html += '</div>';
+
+  // ─── Sección 2: Trabajadores y filtros ──────────────────────────────
+  html += '<div class="proc-section">';
+  html += '<div class="proc-section-title">📧 Mail a trabajadores</div>';
+  html += '<div class="proc-section-sub">Marca los trabajadores a notificar con el resumen de sus bonos. Si un bono no fue evaluado, aparece como "no ganado" con el motivo.</div>';
+
+  html += '<div class="mail-filtros">';
+  html += '<button class="mail-tab' + (_proc.filtro === 'todos' ? ' active' : '') + '" onclick="procCambiarFiltro(\'todos\')">Todos <span>' + totalAll + '</span></button>';
+  html += '<button class="mail-tab' + (_proc.filtro === 'pendientes-mail' ? ' active' : '') + '" onclick="procCambiarFiltro(\'pendientes-mail\')">📨 Pendientes mail <span>' + pendMail + '</span></button>';
+  html += '<button class="mail-tab' + (_proc.filtro === 'ganaron-todo' ? ' active' : '') + '" onclick="procCambiarFiltro(\'ganaron-todo\')">✓ Ganaron todo <span>' + ganaronTodo + '</span></button>';
+  html += '<button class="mail-tab' + (_proc.filtro === 'algun-perdido' ? ' active' : '') + '" onclick="procCambiarFiltro(\'algun-perdido\')">✗ Algún perdido <span>' + algunPerdido + '</span></button>';
+  html += '</div>';
+
+  html += '<div class="mail-section-head">';
+  html += '<div>' + cargosKeys.length + ' cargo(s) · ' + trabsFiltrados.length + ' destinatario(s)' + (sinEmailFiltrados.length ? ' · ' + sinEmailFiltrados.length + ' sin email' : '') + '</div>';
+  html += '<div><span class="mail-toggle" onclick="procToggleAllMails(true)">Marcar todos</span> · <span class="mail-toggle" onclick="procToggleAllMails(false)">Ninguno</span></div>';
+  html += '</div>';
+
+  if (cargosKeys.length === 0) {
+    html += '<div class="empty">Sin trabajadores para el filtro seleccionado.</div>';
+  } else {
+    var ordenTipo = ['Fotos', 'Supervisora', 'Control Gestión', 'Vajilla'];
+    cargosKeys.forEach(function(cargo) {
+      var g = grupos[cargo];
+      var nSinEmail = g.trabs.filter(function(t) { return t._sinEmail; }).length;
+      html += '<div class="mail-cargo">';
+      html += '<div class="mail-cargo-head">';
+      html += '<div class="mail-cargo-title">👥 ' + esc(cargo) + '</div>';
+      html += '<div class="mail-cargo-meta">' + g.trabs.length + ' persona(s)';
+      if (nSinEmail > 0) html += ' <span style="color:var(--err);">(' + nSinEmail + ' sin email)</span>';
+      html += ' · <b style="color:var(--ok);">$' + fmtMoney(g.total) + '</b></div>';
+      html += '</div>';
+
+      g.trabs.forEach(function(t) {
+        var rowCls = t._sinEmail ? 'mail-trab no-email' : 'mail-trab';
+        if (t.yaEnviadoMail) rowCls += ' enviado';
+        html += '<div class="' + rowCls + '">';
+
+        html += '<label class="mail-trab-head">';
+        if (!t._sinEmail) {
+          var chk = _proc.mailsSel[t.nombreNorm] ? ' checked' : '';
+          html += '<input type="checkbox" class="proc-mail-check" data-trab="' + escAttr(t.nombreNorm) + '"' + chk + ' onchange="procOnMailToggle(this)">';
+        } else {
+          html += '<span class="mail-warn-icon" title="Sin email">⚠</span>';
+        }
+        html += '<div class="mail-trab-info">';
+        html += '<div class="mail-trab-nombre">' + esc(t.nombre);
+        if (t.yaEnviadoMail) {
+          html += ' <span class="mail-enviado-badge" title="' + esc('Enviado el ' + (t.yaEnviadoMail.fecha || '') + (t.yaEnviadoMail.autor ? ' por ' + t.yaEnviadoMail.autor : '')) + '">✉ ' + esc(t.yaEnviadoMail.fecha || 'enviado') + '</span>';
+        }
+        html += '</div>';
+        html += '<div class="mail-trab-email"' + (t._sinEmail ? ' style="color:var(--err);"' : '') + '>' + esc(t.email || 'Sin email en Maestro Inscripcion') + '</div>';
+        html += '</div>';
+        html += '<div class="mail-trab-stats">' + t.ganados + '✓' + (t.noGanados ? ' · ' + t.noGanados + '✗' : '') + '</div>';
+        html += '<div class="mail-trab-monto">$' + fmtMoney(t.totalMonto) + '</div>';
+        html += '</label>';
+
+        (t.eventos || []).forEach(function(ev) {
+          var bonosOrd = (ev.bonos || []).slice().sort(function(a, b) {
+            var ia = ordenTipo.indexOf(a.tipoBono); if (ia < 0) ia = 99;
+            var ib = ordenTipo.indexOf(b.tipoBono); if (ib < 0) ib = 99;
+            return ia - ib;
+          });
+          html += '<div class="mail-evento">';
+          html += '<div class="mail-evento-meta"><b>' + esc(ev.lugar || ev.codigo) + '</b> · ' + esc(ev.fecha || '') + ' · ' + esc(ev.cargo) + '</div>';
+          html += '<div class="mail-bonos-mini">';
+          bonosOrd.forEach(function(b) {
+            var ic   = _iconCanal(b.canal);
+            var cls  = b.cumplido ? 'gano' : (b.evaluado ? 'no-gano' : 'no-eval');
+            var mark = b.cumplido ? '✓' : (b.evaluado ? '✗' : '—');
+            var tip  = b.nombreBono +
+                       (b.cumplido    ? ' · ganó $' + fmtMoney(b.monto)
+                       : b.evaluado   ? ' · NO ganó · ' + b.motivo
+                                       : ' · No evaluado · ' + b.motivo);
+            html += '<span class="mail-bono-mini ' + cls + '" title="' + escAttr(tip) + '">' + ic + mark + '</span>';
+          });
+          html += '</div>';
+          html += '<div class="mail-evento-monto">$' + fmtMoney(ev.subtotal) + '</div>';
+          html += '</div>';
+        });
+
+        html += '</div>'; // mail-trab
+      });
+
+      html += '</div>'; // mail-cargo
+    });
+  }
+
+  if (sinEmail.length > 0) {
+    html += '<div class="mail-warn-block">⚠ ' + sinEmail.length + ' trabajador(es) sin email en Maestro Inscripcion no recibirán mail. Agrega su correo en col F para incluirlos.</div>';
+  }
+
+  html += '</div>'; // proc-section
+
+  el.innerHTML = html;
+  procActualizarResumenAccion();
+}
+
+function procActualizarResumenAccion() {
+  var box = document.getElementById('modalProcesarBox');
+  var actions = box.querySelector('.modal-actions');
+  if (!actions) return;
+
+  var nEventos = Object.keys(_proc.eventosSel).filter(function(c) { return _proc.eventosSel[c]; }).length;
+  var nMails   = Object.keys(_proc.mailsSel).filter(function(n) { return _proc.mailsSel[n]; }).length;
+  var disabled = (nEventos === 0 && nMails === 0);
+
+  actions.innerHTML =
+    '<button class="btn btn-secondary" onclick="cerrarModal(\'modalProcesarBackdrop\')">Cancelar</button>' +
+    '<button class="btn btn-success" id="btnProcesarConfirm"' + (disabled ? ' disabled' : '') +
+    ' onclick="abrirConfirmProcesar()">📤📧 Confirmar: ' + nEventos + ' evento(s) · ' + nMails + ' mail(s)</button>';
+}
+
+function abrirConfirmProcesar() {
+  if (!_proc.preview) return;
+  var nEventos = Object.keys(_proc.eventosSel).filter(function(c) { return _proc.eventosSel[c]; }).length;
+  var nMails   = Object.keys(_proc.mailsSel).filter(function(n) { return _proc.mailsSel[n]; }).length;
+  if (nEventos === 0 && nMails === 0) { showToast('Selecciona al menos un evento o mail', 'err'); return; }
+
+  // Calcular totales
+  var totalMontoEventos = (_proc.preview.eventos || []).reduce(function(s, ev) {
+    return s + (_proc.eventosSel[ev.codigo] ? ev.totalMonto : 0);
+  }, 0);
+  var trabsMail = (_proc.preview.trabajadores || []).filter(function(t) { return _proc.mailsSel[t.nombreNorm]; });
+  var totalMontoMails = trabsMail.reduce(function(s, t) { return s + t.totalMonto; }, 0);
+  var reenvios = trabsMail.filter(function(t) { return t.yaEnviadoMail; }).length;
+
+  var html = '';
+  html += '<div class="modal-title">📤📧 Confirmar procesamiento</div>';
+  html += '<div class="modal-sub">Revisa antes de confirmar. Los pagos se escriben en Planilla Maestra y los mails salen desde bonos@tintobanqueteria.cl.</div>';
+
+  html += '<div class="modal-section"><div class="confirm-grid">';
+  html += '<div class="confirm-stat"><div class="confirm-num">' + nEventos + '</div><div class="confirm-lbl">Eventos a Pagos</div></div>';
+  html += '<div class="confirm-stat"><div class="confirm-num" style="color:var(--ok);">$' + fmtMoney(totalMontoEventos) + '</div><div class="confirm-lbl">Monto Pagos</div></div>';
+  html += '<div class="confirm-stat"><div class="confirm-num" style="color:#7fa8d4;">' + nMails + '</div><div class="confirm-lbl">Mails</div></div>';
+  if (reenvios > 0) html += '<div class="confirm-stat"><div class="confirm-num" style="color:var(--warn);">' + reenvios + '</div><div class="confirm-lbl">Reenvíos ⚠</div></div>';
+  html += '</div></div>';
+
+  html += '<div class="modal-actions">';
+  html += '<button class="btn btn-secondary" onclick="cerrarModal(\'modalConfirmBackdrop\')">Cancelar</button>';
+  html += '<button class="btn btn-success" id="btnEjecutarProc" onclick="ejecutarProcesarBonos()">Confirmar y procesar</button>';
+  html += '</div>';
+
+  document.getElementById('modalConfirmBox').innerHTML = html;
+  showModal('modalConfirmBackdrop');
+}
+
+function ejecutarProcesarBonos() {
+  var eventos = Object.keys(_proc.eventosSel).filter(function(c) { return _proc.eventosSel[c]; });
+  var mails   = Object.keys(_proc.mailsSel).filter(function(n) { return _proc.mailsSel[n]; });
+  if (eventos.length === 0 && mails.length === 0) { showToast('Sin selección', 'err'); return; }
+
+  var btn = document.getElementById('btnEjecutarProc');
+  btn.disabled = true;
+  btn.textContent = '⏳ Procesando ' + eventos.length + ' evento(s) y ' + mails.length + ' mail(s)…';
+
+  apiPost('procesarBonosYMails', { semana: _proc.preview.semana, payload: { eventos: eventos, trabsMail: mails } })
+    .then(function(r) {
+      cerrarModal('modalConfirmBackdrop');
+      _renderResultadoProcesar(r);
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Confirmar y procesar';
+      showToast('Error: ' + e.message, 'err');
+    });
+}
+
+function _renderResultadoProcesar(r) {
+  var el = document.getElementById('procContent');
+  if (!el) return;
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="empty">⚠️ ' + esc((r && r.msg) || 'Error') + '</div>';
+    return;
+  }
+  var html = '';
+  var p = r.pagos || {};
+  var m = r.mails || {};
+
+  if (p.eventosEscritos && p.eventosEscritos.length) {
+    html += '<div class="modal-section" style="background:rgba(46,125,90,0.18);border-color:rgba(46,125,90,0.4);">' +
+            '<div style="color:var(--ok);font-weight:700;">✅ ' + p.eventosEscritos.length + ' evento(s) escrito(s) en Pagos · ' + p.totalFilas + ' filas · $' + fmtMoney(p.totalMonto) + '</div></div>';
+  }
+  if (p.eventosFallidos && p.eventosFallidos.length) {
+    html += '<div class="modal-section mismatch"><div class="modal-section-title" style="color:var(--err);">❌ Eventos fallidos (' + p.eventosFallidos.length + ')</div>';
+    p.eventosFallidos.forEach(function(f) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(f.codigo) + '</span><span style="color:var(--err);font-size:0.78em;">' + esc(f.msg || '') + '</span></div>';
+    });
+    html += '</div>';
+  }
+  if (m.enviados && m.enviados.length) {
+    html += '<div class="modal-section" style="background:rgba(46,125,90,0.18);border-color:rgba(46,125,90,0.4);">' +
+            '<div style="color:var(--ok);font-weight:700;">✅ ' + m.totalEnviados + ' mail(s) enviado(s)</div></div>';
+    html += '<div class="modal-section"><div class="modal-section-title">Enviados</div>';
+    m.enviados.forEach(function(e) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-meta"> · ' + esc(e.email) + '</span></span><span class="modal-row-monto">$' + fmtMoney(e.monto) + '</span></div>';
+    });
+    html += '</div>';
+  }
+  if (m.errores && m.errores.length) {
+    html += '<div class="modal-section mismatch"><div class="modal-section-title" style="color:var(--err);">❌ Errores mail (' + m.totalErrores + ')</div>';
+    m.errores.forEach(function(e) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-meta"> · ' + esc(e.email) + '</span></span><span style="color:var(--err);font-size:0.78em;">' + esc(e.error || '') + '</span></div>';
+    });
+    html += '</div>';
+  }
+  el.innerHTML = html;
+
+  var box = document.getElementById('modalProcesarBox');
+  var actions = box.querySelector('.modal-actions');
+  if (actions) actions.innerHTML = '<button class="btn btn-secondary" onclick="cerrarModal(\'modalProcesarBackdrop\');cargarSemana();">Cerrar y recargar</button>';
+  showToast('Pagos: ' + (p.eventosEscritos || []).length + ' OK · Mails: ' + (m.totalEnviados || 0) + ' OK', (p.eventosFallidos && p.eventosFallidos.length) || (m.totalErrores) ? 'err' : 'ok');
+}
+
+// ===== MODAL MAIL BONOS (legacy, mantenido por compat — no se abre desde la UI) =====
 var _mail = { preview: null, filtro: 'todos' };
 
 function abrirModalMailBonos() {

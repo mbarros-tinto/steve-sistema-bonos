@@ -229,6 +229,9 @@ function doGet(e) {
       // -- Mail bonos (preview) --
       case 'getMailPreviewSemana':     return _jsonOk(getMailPreviewSemana(p.semana));
 
+      // -- Modal unificado v51+ --
+      case 'getResumenSemanaUnificado': return _jsonOk(getResumenSemanaUnificado(p.semana));
+
       default:
         return _jsonErr('Acción GET desconocida: ' + action);
     }
@@ -273,6 +276,10 @@ function doPost(e) {
         return _jsonOk(enviarMailsBonos(body.semana, body.lista || []));
       case 'enviarMailPruebaBonos':
         return _jsonOk(enviarMailPruebaBonos(body.destinatario));
+
+      // -- Modal unificado v51+ --
+      case 'procesarBonosYMails':
+        return _jsonOk(procesarBonosYMails(body.semana, body.payload || {}));
 
       // -- Edición de Maestros y Tarifas --
       case 'saveMaestroBonos':         return _jsonOk(saveMaestroBonos(body.items || []));
@@ -872,6 +879,362 @@ function enviarMailPruebaBonos(destinatario) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════
+//  MODAL UNIFICADO — Pagos + Mails en un solo flujo (v51+)
+//  Endpoint: getResumenSemanaUnificado(semana) → preview enriquecido
+//  Endpoint: procesarBonosYMails(semana, payload) → escribe pagos +
+//            envía mails en una sola transacción.
+//
+//  Diferencias vs getMailPreviewSemana:
+//   1. Lee directamente Base_Criterios (no Resumen_Finanzas, evita
+//      desactualización por falta de sync).
+//   2. Por cada trabajador aprobado, lista TODOS los bonos posibles
+//      según Maestro_Bonos para sus cargos, no solo los registrados.
+//      Si un bono no fue evaluado (ej. Copero sin fotos), aparece como
+//      "no ganado" con motivo "no se subieron fotos / no se evaluó".
+//   3. Marca cada bono con yaPagado (presente en Planilla Maestra
+//      fuente='Bonos') y cada trabajador con yaEnviadoMail.
+// ════════════════════════════════════════════════════════════════════
+function getResumenSemanaUnificado(semana) {
+  try {
+    var datosSemana = getDatosSemana(semana);
+    if (!datosSemana || !datosSemana.ok) return { ok: false, msg: 'No hay datos de la semana ' + semana };
+
+    // Códigos de evento de la semana
+    var codigosSet = {};
+    var grupos = datosSemana.grupos || {};
+    Object.keys(grupos).forEach(function(cargo) {
+      grupos[cargo].forEach(function(ev) { if (ev.codigo) codigosSet[ev.codigo] = true; });
+    });
+    var codigos = Object.keys(codigosSet);
+    if (codigos.length === 0) {
+      return { ok: true, semana: semana, trabajadores: [], sinEmail: [], eventos: [],
+               totalEmails: 0, totalGlobal: 0, totalEventos: 0 };
+    }
+
+    // Cargas globales
+    var detalle    = getDetalleCriteriosSemana(semana);
+    var bonosInfo  = _cargarBonosInfo();
+    var emails     = _leerEmailsMaestro();
+    var enviados   = _leerMailsEnviados(semana);
+    var pagados    = _leerBonosPagadosSemana(semana);
+
+    // Indexar Maestro_Bonos por cargo aplicable: para cada cargo posible,
+    // listar los bonos donde ese cargo está en cargosAplicables.
+    // map: cargoNorm → [{nombreBono, tipoBono, canal, monto, cargoBase, sistema}]
+    var bonosPorCargo = {};
+    Object.keys(bonosInfo.bonoInfo).forEach(function(nombreBono) {
+      var meta = bonosInfo.bonoInfo[nombreBono];
+      meta.cargosAplicables.forEach(function(cargoApp) {
+        var key = _normalizarCargo(cargoApp);
+        if (!bonosPorCargo[key]) bonosPorCargo[key] = [];
+        bonosPorCargo[key].push({
+          nombreBono: nombreBono,
+          tipoBono:   meta.tipoBono,
+          canal:      meta.canal,
+          sistema:    meta.sistema,
+          monto:      meta.monto,
+          cargoBase:  meta.cargoBase
+        });
+      });
+    });
+
+    // Datos por evento
+    var bonosBaseEvento = {};  // codigo → {nombreBono → {cumplido, motivo, fallados, cumplidos}}
+    var trabsPorEvento  = {};
+    var infoEvento      = {};
+    codigos.forEach(function(codigo) {
+      bonosBaseEvento[codigo] = _leerBonosBaseDeEvento(codigo);
+      trabsPorEvento[codigo]  = _leerTrabajadoresAprobadosDeEvento(codigo);
+      var info = _leerInfoEvento(codigo);
+      infoEvento[codigo] = {
+        codigo: codigo,
+        lugar:  info ? info.lugar : '',
+        fecha:  info ? formatFechaCL_(info.fecha) : ''
+      };
+    });
+
+    // Construir por trabajador
+    var porTrabajador = {};
+    var totalEventosUsados = {};
+    codigos.forEach(function(codigo) {
+      var bonosEv = bonosBaseEvento[codigo] || {};
+      (trabsPorEvento[codigo] || []).forEach(function(trab) {
+        var nombreNorm = _normalizarNombre(trab.nombre);
+        var cargoNorm  = _normalizarCargo(trab.cargo);
+        if (!cargoNorm) return;
+
+        // Bonos posibles del cargo
+        var bonosPosibles = bonosPorCargo[cargoNorm] || [];
+        if (bonosPosibles.length === 0) return; // sin bonos definidos para el cargo
+
+        var bonosDelTrab = bonosPosibles.map(function(bp) {
+          var registro = bonosEv[bp.nombreBono] || null;
+          var cumplido, motivo, cumplidos, fallados, evaluado;
+          if (registro) {
+            evaluado  = true;
+            cumplido  = registro.cumplido;
+            motivo    = registro.motivo;
+            cumplidos = registro.cumplidos || [];
+            fallados  = registro.fallados  || [];
+          } else {
+            evaluado  = false;
+            cumplido  = false;
+            motivo    = _motivoNoEvaluado(bp.canal);
+            cumplidos = [];
+            fallados  = [];
+          }
+          var pagKey = codigo + '|||' + bp.nombreBono + '|||' + nombreNorm;
+          return {
+            nombreBono: bp.nombreBono,
+            tipoBono:   bp.tipoBono,
+            canal:      bp.canal,
+            cumplido:   cumplido,
+            monto:      cumplido ? bp.monto : 0,
+            montoPotencial: bp.monto,
+            motivo:     motivo,
+            cumplidos:  cumplidos,
+            fallados:   fallados,
+            evaluado:   evaluado,
+            yaPagado:   !!pagados[pagKey]
+          };
+        });
+
+        // Si no aplica ningún bono → skip
+        if (bonosDelTrab.length === 0) return;
+
+        if (!porTrabajador[nombreNorm]) {
+          var info = emails[nombreNorm] || {};
+          porTrabajador[nombreNorm] = {
+            nombre:        trab.nombre,
+            nombreNorm:    nombreNorm,
+            email:         info.email || '',
+            eventos:       [],
+            totalMonto:    0,
+            totalPotencial: 0,
+            ganados:       0,
+            noGanados:     0,
+            yaPagado:      0,
+            yaEnviadoMail: enviados[nombreNorm] || null
+          };
+        }
+        totalEventosUsados[codigo] = true;
+
+        var subtotal = 0, subtotalPot = 0;
+        bonosDelTrab.forEach(function(b) { subtotal += b.monto; subtotalPot += b.montoPotencial; });
+        var nGanados = bonosDelTrab.filter(function(b) { return b.cumplido; }).length;
+        var nNoEval  = bonosDelTrab.filter(function(b) { return !b.evaluado; }).length;
+
+        porTrabajador[nombreNorm].eventos.push({
+          codigo:   codigo,
+          lugar:    infoEvento[codigo].lugar,
+          fecha:    infoEvento[codigo].fecha,
+          cargo:    trab.cargo,
+          bonos:    bonosDelTrab,
+          subtotal: subtotal,
+          subtotalPotencial: subtotalPot,
+          noEvaluados: nNoEval
+        });
+        porTrabajador[nombreNorm].totalMonto    += subtotal;
+        porTrabajador[nombreNorm].totalPotencial += subtotalPot;
+        porTrabajador[nombreNorm].ganados       += nGanados;
+        porTrabajador[nombreNorm].noGanados     += bonosDelTrab.length - nGanados;
+        bonosDelTrab.forEach(function(b) {
+          if (b.yaPagado) porTrabajador[nombreNorm].yaPagado += (b.cumplido ? b.monto : 0);
+        });
+      });
+    });
+
+    var lista       = Object.values(porTrabajador);
+    var sinEmail    = lista.filter(function(t) { return !t.email; });
+    var conEmail    = lista.filter(function(t) { return  t.email; });
+    var totalGlobal = lista.reduce(function(s, t) { return s + t.totalMonto; }, 0);
+
+    conEmail.sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+    sinEmail.sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+
+    // Estado por evento (cuántos bonos no escritos en Planilla, mismatches)
+    var eventosResumen = Object.keys(totalEventosUsados).map(function(codigo) {
+      var prev = previewBonosParaPlanillaMaestra(codigo);
+      return {
+        codigo:        codigo,
+        lugar:         infoEvento[codigo].lugar,
+        fecha:         infoEvento[codigo].fecha,
+        bonosListos:   prev && prev.ok ? (prev.bonos || []).length : 0,
+        yaEscritos:    prev && prev.ok ? (prev.yaEscritos || 0)    : 0,
+        mismatches:    prev && prev.ok ? (prev.mismatches || [])   : [],
+        totalMonto:    prev && prev.ok ? (prev.totalMonto || 0)    : 0
+      };
+    });
+
+    return {
+      ok:           true,
+      semana:       semana,
+      trabajadores: conEmail,
+      sinEmail:     sinEmail,
+      eventos:      eventosResumen,
+      totalEmails:  conEmail.length,
+      totalGlobal:  totalGlobal,
+      totalEventos: codigos.length
+    };
+  } catch(e) {
+    Logger.log('getResumenSemanaUnificado error: ' + e + '\n' + e.stack);
+    return { ok: false, msg: e.toString() };
+  }
+}
+
+// Lee Base_Criterios de un evento y agrupa por nombreBono. Para cada bono
+// determina cumplido (AND de criterios cumplido=1) y razones.
+function _leerBonosBaseDeEvento(codigoEvento) {
+  var result = {};
+  try {
+    var base = _leerBase();
+    var registros = base.filter(function(r) { return r.codigoEvento === codigoEvento; });
+    registros.forEach(function(r) {
+      var nb = r.nombreBono;
+      if (!result[nb]) {
+        result[nb] = { cumplidos: [], fallados: [], cumplido: true, motivo: '' };
+      }
+      // cumplido del bono = TODOS los criterios cumplidos
+      if (r.cumplido === 1) {
+        if (r.criterio) result[nb].cumplidos.push(r.criterio);
+      } else {
+        result[nb].cumplido = false;
+        if (r.criterio) result[nb].fallados.push(r.criterio);
+      }
+    });
+    // Construir motivo desde fallados
+    Object.keys(result).forEach(function(nb) {
+      var item = result[nb];
+      if (!item.cumplido) {
+        if (item.fallados.length > 0) item.motivo = 'Falló: ' + item.fallados.join(' · ');
+        else item.motivo = 'No cumplió criterios';
+      } else {
+        item.motivo = 'Cumplió todos los criterios';
+      }
+    });
+  } catch(e) { Logger.log('_leerBonosBaseDeEvento error: ' + e); }
+  return result;
+}
+
+// Lee Planilla Maestra Registro (fuente='Bonos') filtrado por semana.
+// Retorna map: (codigoEvento|||nombreBono|||trabajadorNorm) → row info.
+function _leerBonosPagadosSemana(semana) {
+  var map = {};
+  try {
+    var sh = SpreadsheetApp.openById(ID_PLANILLA_MAESTRA).getSheetByName(HOJA_REGISTRO_MAESTRA);
+    if (!sh || sh.getLastRow() < 2) return map;
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues();
+    data.forEach(function(r) {
+      if (String(r[13]).trim() !== 'Bonos') return;        // col N = fuente
+      var rowSemana = _normFechaAStr(r[10]);                // col K = semana
+      if (rowSemana !== semana) return;
+      var codigo     = String(r[15]).trim();                // col P = codigoEvento
+      var nombreBono = String(r[1]).trim();                 // col B = concepto/bono
+      var trab       = _normalizarNombre(String(r[2]).trim()); // col C = trabajador
+      var key = codigo + '|||' + nombreBono + '|||' + trab;
+      map[key] = {
+        monto: Number(r[4]) || 0,
+        estado: String(r[11] || '').trim()
+      };
+    });
+  } catch(e) { Logger.log('_leerBonosPagadosSemana error: ' + e); }
+  return map;
+}
+
+function _motivoNoEvaluado(canal) {
+  if (canal === 'Fotos')        return 'No se registraron fotos';
+  if (canal === 'CG')           return 'No se evaluó en Control de Gestión';
+  if (canal === 'Vajilla')      return 'No se cargó vajilla del evento';
+  if (canal === 'Supervisoras') return 'No fue evaluado por la supervisora';
+  return 'Bono no evaluado';
+}
+
+// ── procesarBonosYMails: orquesta escritura de pagos + envío de mails ──
+// payload = {
+//   eventos:    [codigo, codigo, ...],    // eventos a escribir en Planilla
+//   trabsMail:  [nombreNorm, ...],        // trabajadores a notificar por email
+// }
+// Para "eventos" usa escribirBonosEnPlanillaMaestra (idempotente, sobreescribe).
+// Para "trabsMail" arma el mail y lo envía + registra en Mails_Enviados.
+function procesarBonosYMails(semana, payload) {
+  payload = payload || {};
+  var eventosAEscribir = payload.eventos || [];
+  var trabsAEnviar     = payload.trabsMail || [];
+
+  var resultado = {
+    ok: true,
+    semana: semana,
+    pagos:  { eventosEscritos: [], eventosFallidos: [], totalMonto: 0, totalFilas: 0 },
+    mails:  { enviados: [], errores: [], totalEnviados: 0, totalErrores: 0 }
+  };
+
+  // 1. Escribir pagos por evento (uno a uno)
+  eventosAEscribir.forEach(function(codigo) {
+    try {
+      var r = escribirBonosEnPlanillaMaestra(codigo);
+      if (r && r.ok) {
+        resultado.pagos.eventosEscritos.push({
+          codigo: codigo, escritos: r.escritos || 0, totalMonto: r.totalMonto || 0
+        });
+        resultado.pagos.totalMonto += r.totalMonto || 0;
+        resultado.pagos.totalFilas += r.escritos   || 0;
+      } else {
+        resultado.pagos.eventosFallidos.push({
+          codigo: codigo, msg: (r && r.msg) || 'error desconocido'
+        });
+      }
+    } catch(e) {
+      resultado.pagos.eventosFallidos.push({ codigo: codigo, msg: e.toString() });
+    }
+  });
+
+  // 2. Enviar mails — usa preview unificado para tener todos los datos
+  if (trabsAEnviar.length > 0) {
+    var prev = getResumenSemanaUnificado(semana);
+    if (!prev || !prev.ok) {
+      resultado.ok = false;
+      resultado.msg = 'No se pudo obtener preview para mails: ' + (prev && prev.msg);
+      return resultado;
+    }
+    var setNombres = {};
+    trabsAEnviar.forEach(function(n) { setNombres[_normalizarNombre(n)] = true; });
+    var trabsFiltrados = (prev.trabajadores || []).filter(function(t) { return setNombres[t.nombreNorm]; });
+
+    var asunto = 'Resumen de bonos — Tinto Banquetería';
+    var autor = '';
+    try { autor = Session.getActiveUser().getEmail() || ''; } catch(e) {}
+
+    trabsFiltrados.forEach(function(t) {
+      try {
+        var html = _armarHtmlMailBonos(t, semana);
+        var txt  = _armarTextoMailBonos(t, semana);
+        GmailApp.sendEmail(t.email, asunto, txt, {
+          from:     MAIL_FROM_ALIAS,
+          name:     MAIL_FROM_NAME,
+          cc:       MAIL_CC_BONOS,
+          htmlBody: html
+        });
+        _registrarMailEnviado(t, semana, autor);
+        resultado.mails.enviados.push({
+          nombre: t.nombre, email: t.email, monto: t.totalMonto
+        });
+      } catch(e) {
+        Logger.log('Error enviando a ' + t.email + ': ' + e);
+        resultado.mails.errores.push({
+          nombre: t.nombre, email: t.email, error: e.toString()
+        });
+      }
+    });
+    resultado.mails.totalEnviados = resultado.mails.enviados.length;
+    resultado.mails.totalErrores  = resultado.mails.errores.length;
+  }
+
+  resultado.msg = 'Pagos: ' + resultado.pagos.eventosEscritos.length + ' eventos escritos · ' +
+                  'Mails: ' + resultado.mails.totalEnviados + ' enviados';
+  return resultado;
+}
+
 // -- ORQUESTACIÓN --------------------------------------------------
 
 function sincronizarTodo() {
@@ -1120,7 +1483,27 @@ function syncSupervisoras() {
   var hDash = ssSup.getSheetByName('Dashboard de Bonos');
   if (!hDash || hDash.getLastRow() < 2) return 0;
 
-  var datos        = hDash.getRange(2, 1, hDash.getLastRow() - 1, 11).getValues();
+  // v50: lee hasta 21 cols del Dashboard (11 originales + Crit 1..Crit 10).
+  // v50 fix timezone: lee col D (Fecha Evento) como displayValue para evitar
+  // que un Date object con timezone distinto al spreadsheet desplace el día.
+  // v50 fix dedup: ordena por timestamp DESC antes del loop, así si hay
+  // múltiples EVALs del mismo (codigo, trabajador) toma la MÁS RECIENTE.
+  var dashCols   = Math.min(hDash.getLastColumn(), 21);
+  var datos       = hDash.getRange(2, 1, hDash.getLastRow() - 1, dashCols).getValues();
+  var fechasDisp  = hDash.getRange(2, 4, hDash.getLastRow() - 1, 1).getDisplayValues();
+  // Sobreescribir col 3 (idx D) con display value para que la fecha venga
+  // siempre como string formato "DD/MM/YYYY" sin conversión timezone.
+  for (var d = 0; d < datos.length; d++) {
+    datos[d][3] = String(fechasDisp[d][0] || '').trim();
+  }
+  // Ordenar por timestamp DESC. Si hay duplicados (codigo, trabajador), el
+  // sync conservará la entrada más reciente.
+  datos.sort(function(a, b) {
+    var ta = a[0] instanceof Date ? a[0].getTime() : 0;
+    var tb = b[0] instanceof Date ? b[0].getTime() : 0;
+    return tb - ta;
+  });
+
   var nuevas       = [];
   var actualizadas = []; // [{fila, data}]
   var vistosEnSync = {};
@@ -1130,13 +1513,15 @@ function syncSupervisoras() {
     var timestamp  = r[0];
     var centro     = String(r[1]).trim();
     var novios     = String(r[2]).trim();
-    var fechaEvt   = r[3];
+    var fechaEvt   = r[3]; // YA es string "DD/MM/YYYY" tras el override de getDisplayValues
     var codigo     = String(r[4]).trim();
     var trabajador = String(r[5]).trim();
     var cargo      = String(r[6]).trim();
     var ganoBono   = String(r[7]).trim();
     var nota       = r[8];
     var supervisor = String(r[9]).trim();
+    // r[10] = Fecha Evaluación (no se propaga)
+    // r[11..20] = Crit 1..Crit 10 (sólo los primeros 8 caben en Fuente_Supervisoras)
 
     if (!codigo || !trabajador) continue;
 
@@ -1150,12 +1535,18 @@ function syncSupervisoras() {
     var semana   = _getSemanaStr(fechaEvt);
     var fechaStr = _normFechaAStr(fechaEvt);
 
+    // Cols K..R de Fuente_Supervisoras = primeros 8 criterios del Dashboard (idx 11..18).
+    // Criterios 9-10 se ignoran (truncados) para preservar compatibilidad de schema.
+    var crits = [];
+    for (var k = 11; k < 19 && k < r.length; k++) crits.push(r[k] === undefined ? '' : r[k]);
+    while (crits.length < 8) crits.push('');
+
     var fila = [
       codigo, semana, anio, fechaStr,
       centro, novios,
       trabajador, cargo,
       supervisor, timestamp,
-      '', '', '', '', '', '', '', '',
+      crits[0], crits[1], crits[2], crits[3], crits[4], crits[5], crits[6], crits[7],
       nota, ganoBono
     ];
 
@@ -1184,6 +1575,36 @@ function syncSupervisoras() {
     hFuente.getRange(hFuente.getLastRow() + 1, 1, nuevas.length, 20).setValues(nuevas);
   }
   return nuevas.length + actualizadas.length;
+}
+
+// ── One-shot: limpia Fuente_Supervisoras de filas con año < ANIO_MIN ──
+// Útil tras subir ANIO_MIN o cuando hay backlog histórico irrelevante.
+// Ejecutar manualmente desde el editor de Apps Script.
+function limpiarFuenteSupervisorasPre2026() {
+  var ss      = SpreadsheetApp.openById(ID_SHEET_CENTRALIZADO);
+  var hFuente = ss.getSheetByName(HOJAS.FUENTE_SUPERVISORAS);
+  if (!hFuente) throw new Error('No existe hoja Fuente_Supervisoras');
+  var lastRow = hFuente.getLastRow();
+  var lastCol = hFuente.getLastColumn();
+  if (lastRow < 2) { Logger.log('Sin datos.'); return; }
+
+  var data = hFuente.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var conservar = [];
+  for (var i = 0; i < data.length; i++) {
+    // col C (idx 2) = Año
+    var anio = parseInt(data[i][2], 10);
+    if (!isNaN(anio) && anio >= ANIO_MIN) conservar.push(data[i]);
+  }
+  var eliminadas = data.length - conservar.length;
+
+  // Limpiar rango de datos y reescribir solo los conservados
+  hFuente.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+  if (conservar.length > 0) {
+    hFuente.getRange(2, 1, conservar.length, conservar[0].length).setValues(conservar);
+  }
+  Logger.log('limpiarFuenteSupervisorasPre2026: eliminadas=' + eliminadas +
+             ', conservadas=' + conservar.length + ' (ANIO_MIN=' + ANIO_MIN + ')');
+  return { eliminadas: eliminadas, conservadas: conservar.length };
 }
 
 // -- RECONSTRUIR BASE_CRITERIOS ------------------------------------

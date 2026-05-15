@@ -734,6 +734,12 @@ select option { background: var(--ink); color: #fff; }
   color: #ff9090;
   border-color: rgba(255, 107, 107, 0.45);
 }
+.mail-bono-mini.no-eval {
+  background: rgba(232, 177, 110, 0.13);
+  color: var(--warn, #e8b16e);
+  border-color: rgba(232, 177, 110, 0.45);
+  font-style: italic;
+}
 .mail-evento-monto {
   color: var(--ok);
   font-weight: 600;
@@ -1072,3 +1078,72 @@ select option { background: var(--ink); color: #fff; }
   select { min-width: 0; }
   .modal-box { padding: 16px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   MODAL UNIFICADO PROCESAR (Pagos + Mails)
+   ════════════════════════════════════════════════════════════════════ */
+.proc-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.proc-section-eventos {
+  border-color: rgba(143, 209, 158, 0.25);
+  background: rgba(143, 209, 158, 0.04);
+}
+.proc-section-title {
+  font-size: 0.95em;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.proc-section-sub {
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.proc-section-actions {
+  font-size: 0.8em;
+  margin-bottom: 8px;
+  text-align: right;
+}
+.proc-evento-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.proc-evento-row:hover { background: rgba(255, 255, 255, 0.04); }
+.proc-evento-row.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.proc-evento-row input[type="checkbox"] {
+  width: 18px; height: 18px;
+  cursor: pointer;
+  accent-color: var(--gold);
+}
+.proc-evento-row.disabled input[type="checkbox"] { cursor: not-allowed; }
+.proc-evento-info { flex: 1; min-width: 0; }
+.proc-evento-name {
+  font-size: 0.9em;
+  color: #fff;
+  margin-bottom: 2px;
+}
+.proc-evento-meta {
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.6);
+}
+.proc-evento-meta .ok    { color: var(--ok); font-weight: 600; }
+.proc-evento-meta .warn  { color: var(--warn, #e8b16e); }
+.proc-evento-meta .err   { color: var(--err); font-weight: 600; }
+.proc-evento-meta .muted { color: rgba(255, 255, 255, 0.4); font-style: italic; }
