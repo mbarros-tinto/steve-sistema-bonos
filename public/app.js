@@ -179,8 +179,7 @@ function switchTab(name, btn) {
   document.getElementById('panel-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   // Lazy load
-  if (name === 'criterios' && !APP.criteriosLoaded) cargarCriterios();
-  if (name === 'tarifas'   && !APP.tarifasLoaded)   cargarTarifas();
+  // Criterios y Tarifas fueron migrados a steve-sistema-pagos: tabs removidos.
 }
 
 // ===== Sync =====

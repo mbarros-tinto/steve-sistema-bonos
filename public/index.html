@@ -31,19 +31,17 @@
 
     <!-- TABS NAV -->
     <div class="tabs">
-      <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana', this)">📅 Semana</button>
+      <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana', this)">📅 Resumen bonos</button>
+      <button class="tab-btn" data-tab="cg" onclick="switchTab('cg', this)">📋 Control de Gestión</button>
       <button class="tab-btn" data-tab="cargo" onclick="switchTab('cargo', this)">👥 Cargo</button>
       <button class="tab-btn" data-tab="historial" onclick="switchTab('historial', this)">🔍 Historial</button>
-      <button class="tab-btn" data-tab="cg" onclick="switchTab('cg', this)">📋 CG</button>
-      <button class="tab-btn" data-tab="criterios" onclick="switchTab('criterios', this)">⚙️ Criterios</button>
-      <button class="tab-btn" data-tab="tarifas" onclick="switchTab('tarifas', this)">💰 Tarifas</button>
     </div>
 
     <!-- TAB: SEMANA -->
     <div class="tab-panel active" id="panel-semana">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📅 Bonos por <span class="accent">semana</span></div>
+          <div class="card-title">📅 Resumen de <span class="accent">bonos</span></div>
           <div class="controls" style="margin: 0;">
             <select id="selSemana" onchange="cargarSemana()">
               <option value="">— Seleccionar semana —</option>
@@ -121,30 +119,6 @@
         <div class="cg-save-bar" id="cgSaveBar" style="display:none;">
           <div class="cg-save-info" id="cgSaveInfo">—</div>
           <button class="btn btn-primary" id="cgBtnSave" disabled onclick="cgGuardarEvaluacion()">💾 Guardar evaluación</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: CRITERIOS -->
-    <div class="tab-panel" id="panel-criterios">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">📋 Maestro de <span class="accent">criterios</span></div>
-        </div>
-        <div id="resCriterios">
-          <div class="spinner-wrap"><div class="spinner"></div>Cargando…</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: TARIFAS -->
-    <div class="tab-panel" id="panel-tarifas">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">💰 Tarifas y <span class="accent">bonos</span> 2026</div>
-        </div>
-        <div id="resTarifas">
-          <div class="spinner-wrap"><div class="spinner"></div>Cargando…</div>
         </div>
       </div>
     </div>

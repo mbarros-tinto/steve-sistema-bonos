@@ -26,15 +26,23 @@ var CG = {
 };
 
 function cgApiGet(action, params) {
+  if (!window.CG_API_URL) return Promise.reject(new Error('CG_API_URL no configurado — refresca con Ctrl+Shift+R'));
   var qs = new URLSearchParams({ action: action, ...(params || {}) });
   return fetch(window.CG_API_URL + '?' + qs.toString(), { method: 'GET' })
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      var ct = r.headers.get('Content-Type') || '';
+      if (ct.indexOf('json') < 0) {
+        return r.text().then(function(t) {
+          throw new Error('Respuesta no JSON (' + ct + '): ' + t.slice(0, 80));
+        });
+      }
       return r.json();
     });
 }
 
 function cgApiPost(action, payload) {
+  if (!window.CG_API_URL) return Promise.reject(new Error('CG_API_URL no configurado — refresca con Ctrl+Shift+R'));
   return fetch(window.CG_API_URL, {
     method: 'POST',
     body: JSON.stringify({ action: action, ...(payload || {}) })
