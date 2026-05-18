@@ -1374,10 +1374,29 @@ function asCollect() {
   return d;
 }
 
+function _hasAnyContent(d) {
+  if (!d) return false;
+  if (d.supervisor || d.fecha || d.centro || d.novios) return true;
+  if (d.destac_1 || d.destac_2 || d.destac_3 || d.destac_comentario) return true;
+  if ((d.alerta_tags && d.alerta_tags.length) || d.alerta_comentario) return true;
+  if (d.cargos) {
+    for (const cargo in d.cargos) {
+      const cd = d.cargos[cargo];
+      if (cd.nombre || cd.comentario) return true;
+      if (cd.multiTags && cd.multiTags.length) return true;
+      if (cd.cojefe_sel || cd.cojefe_txt) return true;
+      if (cd.criterios) {
+        for (const k in cd.criterios) if (cd.criterios[k] !== '' && cd.criterios[k] !== undefined) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function autoSave() {
   try {
     const d = asCollect();
-    if (!d.supervisor && !d.fecha && !d.centro) return;
+    if (!_hasAnyContent(d)) return;
     localStorage.setItem(AS_KEY, JSON.stringify(d));
     const ind = document.getElementById('autosave-indicator');
     if (ind) {
@@ -1385,7 +1404,7 @@ function autoSave() {
       clearTimeout(_asIndicatorTimer);
       _asIndicatorTimer = setTimeout(() => ind.classList.remove('show'), 2000);
     }
-  } catch(e) {}
+  } catch(e) { console.warn('autoSave fail', e); }
 }
 function scheduleAutoSave() {
   clearTimeout(_asTimer);
@@ -1479,33 +1498,50 @@ function doRestore() {
       });
     };
     if (_formConfig) restoreCargos(); else setTimeout(restoreCargos, 1500);
-    dismissRestore();
-  } catch(e) { console.error('doRestore error', e); dismissRestore(); }
+    // Cerramos el banner pero NO borramos el draft: si el usuario sigue
+    // editando, el próximo autoSave lo sobreescribe. Solo borrar en submit
+    // exitoso o si el usuario hace click en "Descartar".
+    document.getElementById('restore-banner')?.classList.remove('visible');
+    console.log('[autosave] restaurado desde localStorage');
+  } catch(e) { console.error('[autosave] doRestore error', e); }
 }
 
 function dismissRestore() {
   document.getElementById('restore-banner')?.classList.remove('visible');
-  localStorage.removeItem(AS_KEY);
+  try { localStorage.removeItem(AS_KEY); } catch(e) {}
 }
 
 function asCheckOnLoad() {
   try {
     const raw = localStorage.getItem(AS_KEY);
-    if (!raw) return;
+    if (!raw) { console.log('[autosave] no draft previo'); return; }
     const d = JSON.parse(raw);
-    const hasSomething = d.supervisor || d.fecha || d.centro;
-    if (!hasSomething) return;
+    if (!_hasAnyContent(d)) { console.log('[autosave] draft vacío, ignorado'); return; }
     const ago = Date.now() - (d._saved_at || 0);
-    if (ago < 86400000) document.getElementById('restore-banner')?.classList.add('visible');
-    else localStorage.removeItem(AS_KEY);
-  } catch(e) { localStorage.removeItem(AS_KEY); }
+    if (ago >= 86400000) {
+      console.log('[autosave] draft expirado (>24h), borrando');
+      localStorage.removeItem(AS_KEY);
+      return;
+    }
+    document.getElementById('restore-banner')?.classList.add('visible');
+    console.log('[autosave] draft disponible, banner visible. Edad:', Math.round(ago/1000), 's');
+  } catch(e) {
+    console.warn('[autosave] asCheckOnLoad fail', e);
+    try { localStorage.removeItem(AS_KEY); } catch(_e) {}
+  }
 }
 
+// Marca elementos para no duplicar listeners en sucesivas llamadas
+// (renderDynamicCargos puede re-renderizar y attachAutoSaveListeners
+// se llama de nuevo). Idempotente.
 function attachAutoSaveListeners() {
   document.querySelectorAll('input,textarea,select').forEach(el => {
+    if (el.dataset._asAttached === '1') return;
     el.addEventListener('input', scheduleAutoSave);
     el.addEventListener('change', scheduleAutoSave);
+    el.dataset._asAttached = '1';
   });
+  console.log('[autosave] listeners enchufados a', document.querySelectorAll('input,textarea,select').length, 'inputs');
 }
 
 // ════════════════════════════════════════════════════════════════
