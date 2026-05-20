@@ -22,6 +22,7 @@ var CG = {
   guardadosVajilla: [],
   autoChequeos:     {},
   vajillaConfig:    { costoPorInvitado: 800 },
+  perdidas:         [],
   loaded:           false
 };
 
@@ -87,8 +88,12 @@ function cgCargarSemana() {
   document.getElementById('cgStatusBar').textContent = '';
   document.getElementById('cgSaveBar').style.display = 'none';
 
-  cgApiGet('datosForSemana', { semana: CG.semana })
-    .then(function(data) {
+  Promise.all([
+    cgApiGet('datosForSemana', { semana: CG.semana }),
+    cgApiGet('getPerdidasPorSemana', { semana: CG.semana })
+  ])
+    .then(function(arr) {
+      var data = arr[0]; var perd = arr[1];
       CG.eventos          = data.eventos          || [];
       CG.config           = data.criteriosConfig  || {};
       CG.configVajilla    = data.criteriosVajilla || {};
@@ -96,6 +101,7 @@ function cgCargarSemana() {
       CG.guardadosVajilla = data.yaEvaluadosVajilla || [];
       CG.autoChequeos     = data.autoChequeos     || {};
       if (data.vajillaConfig) CG.vajillaConfig = data.vajillaConfig;
+      CG.perdidas         = (perd && perd.eventos) || [];
       cgRenderSemana();
     })
     .catch(function(e) {
@@ -118,6 +124,7 @@ function cgRenderSemana() {
   }
 
   var html = cgRenderVajillaPanel();
+  html += cgRenderPerdidasPanel();
   CG.eventos.forEach(function(ev) {
     html += cgRenderEvento(ev, cargos);
   });
@@ -251,6 +258,196 @@ function cgGuardarVajilla() {
       btn.textContent = '🍽️ Guardar Vajilla semana';
       showToast('Error: ' + e.message, 'err');
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PANEL PÉRDIDAS — Tabla por evento (Manteles / Servilletas / Cubiertos)
+// Inputs editables Inicial/Final que llaman saveOverridePerdida.
+// Cubiertos: checkbox "Se repite?" + dropdown otro evento → saveCubiertosCompartidos.
+// ═══════════════════════════════════════════════════════════════════
+var _cgPerdDebounce = {};
+
+function cgRenderPerdidasPanel() {
+  if (!CG.perdidas.length) return '';
+
+  var html = '<div class="cg-perdidas-panel">' +
+    '<div class="cg-perdidas-head">' +
+    '<div class="cg-perdidas-title">📉 Pérdidas por <span class="accent">evento</span></div>' +
+    '<div class="cg-perdidas-meta">Inicial − Final − Robo = Pérdida neta. Override de Ini/Fin con click en el número.</div>' +
+    '</div>';
+
+  CG.perdidas.forEach(function(p) {
+    var partes = p.fechaEvento.split('-');
+    var fechaStr = partes[2] + '/' + partes[1] + '/' + partes[0];
+    var safeKey = cgSafeId(p.codigoEvento, '');
+
+    html += '<div class="cg-perdidas-evento">' +
+      '<div class="cg-perdidas-ev-head">🏛️ <b>' + cgEsc(p.centro) + '</b> · ' + fechaStr + '</div>' +
+      '<table class="cg-perdidas-table"><thead><tr>' +
+        '<th>Categoría</th><th>Inicial</th><th>Final</th><th>Robo</th><th>Pérdida</th><th></th>' +
+      '</tr></thead><tbody>';
+
+    // Manteles
+    html += cgRenderPerdidaFila(p, 'manteles', 'Manteles', 0, p.codigoEvento, safeKey);
+    // Servilletas
+    html += cgRenderPerdidaFila(p, 'servilletas', 'Servilletas', 20, p.codigoEvento, safeKey);
+    // Cubiertos (con checkbox repite)
+    html += cgRenderPerdidaFila(p, 'cubiertos', 'Cubiertos', 40, p.codigoEvento, safeKey);
+
+    html += '</tbody></table></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function cgRenderPerdidaFila(p, key, label, limite, codigoEvento, safeKey) {
+  var c = p[key]; if (!c) return '';
+  var iid = 'cg-perd-' + safeKey + '-' + key + '-ini';
+  var fid = 'cg-perd-' + safeKey + '-' + key + '-fin';
+  var pidLabel = 'cg-perd-' + safeKey + '-' + key + '-perdida';
+  var statusCls = (limite > 0)
+    ? (c.perdidaNeta < limite ? 'perd-ok' : 'perd-bad')
+    : (c.perdidaNeta === 0 ? 'perd-ok' : 'perd-bad');
+
+  var html = '<tr data-codigo="' + cgAttr(codigoEvento) + '" data-cat="' + key + '">' +
+    '<td class="perd-cat">' + cgEsc(label) +
+      (c.override ? ' <span class="perd-badge-ov">✎</span>' : '') +
+      (c.compartido ? ' <span class="perd-badge-link">🔗</span>' : '') +
+    '</td>' +
+    '<td><input type="number" class="perd-input" id="' + iid + '" value="' + c.inicial + '"' +
+      ' onchange="cgOnPerdidaInput(\'' + cgAttr(codigoEvento) + '\', \'' + key + '\', \'inicial\', this)"></td>' +
+    '<td><input type="number" class="perd-input" id="' + fid + '" value="' + c.final + '"' +
+      ' onchange="cgOnPerdidaInput(\'' + cgAttr(codigoEvento) + '\', \'' + key + '\', \'final\', this)"></td>' +
+    '<td class="perd-robo">' + cgFmt(c.robo) + '</td>' +
+    '<td class="perd-neta ' + statusCls + '" id="' + pidLabel + '">' + cgFmt(c.perdidaNeta) +
+      (limite > 0 ? ' <span class="perd-lim">(<' + limite + ')</span>' : '') +
+    '</td>';
+
+  // Columna extra: checkbox "Se repite?" solo para cubiertos
+  if (key === 'cubiertos') {
+    var checked = c.compartido && c.parCompartido;
+    var otroEvento = null;
+    if (checked && c.parCompartido) {
+      var c1k = cgEvKey(c.parCompartido.centro1, c.parCompartido.fecha1);
+      var c2k = cgEvKey(c.parCompartido.centro2, c.parCompartido.fecha2);
+      var myk = cgEvKey(p.centro, p.fechaEvento);
+      otroEvento = (c1k === myk)
+        ? cgEvKey(c.parCompartido.centro2, c.parCompartido.fecha2)
+        : cgEvKey(c.parCompartido.centro1, c.parCompartido.fecha1);
+    }
+    html += '<td class="perd-repite">' +
+      '<label class="perd-repite-lbl"><input type="checkbox" ' + (checked ? 'checked' : '') +
+      ' onchange="cgOnRepiteToggle(\'' + cgAttr(codigoEvento) + '\', this)"> ¿Se repite?</label>' +
+      '<select class="perd-repite-sel" ' + (checked ? '' : 'disabled') +
+      ' onchange="cgOnRepiteSelect(\'' + cgAttr(codigoEvento) + '\', this)">' +
+      '<option value="">— Otro evento —</option>';
+    CG.eventos.forEach(function(ev) {
+      if (ev.codigoEvento === codigoEvento) return; // no listarse a sí mismo
+      var k = cgEvKey(ev.centro, ev.fechaEvento);
+      var sel = (k === otroEvento) ? ' selected' : '';
+      html += '<option value="' + cgAttr(k) + '"' + sel + '>' + cgEsc(ev.codigoEvento) + '</option>';
+    });
+    html += '</select></td>';
+  } else {
+    html += '<td></td>';
+  }
+
+  html += '</tr>';
+  return html;
+}
+
+function cgEvKey(centro, fechaEvento) {
+  // Usa centro y fechaEvento como key estable (sin acentos, lowercase)
+  return String(centro || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') +
+    '::' + String(fechaEvento || '').trim();
+}
+
+function cgOnPerdidaInput(codigoEvento, categoria, campo, input) {
+  var val = input.value === '' ? null : Number(input.value);
+  var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+  if (!p || !p[categoria]) return;
+  // Update local
+  if (campo === 'inicial') p[categoria].inicial = (val == null ? 0 : val);
+  if (campo === 'final')   p[categoria].final   = (val == null ? 0 : val);
+  cgRecalcPerdidaFila(codigoEvento, categoria);
+  p[categoria].override = true;
+
+  // Persistir con debounce
+  var key = codigoEvento + '::' + categoria;
+  clearTimeout(_cgPerdDebounce[key]);
+  _cgPerdDebounce[key] = setTimeout(function() {
+    cgApiPost('saveOverridePerdida', {
+      payload: {
+        centro: p.centro, fecha: p.fechaEvento, categoria: categoria,
+        inicial: p[categoria].inicial, final: p[categoria].final
+      }
+    }).then(function(r) {
+      if (r && r.success) showToast('Override ' + categoria + ' guardado', 'ok');
+      else showToast('Error: ' + (r && r.error), 'err');
+    });
+  }, 700);
+}
+
+function cgRecalcPerdidaFila(codigoEvento, categoria) {
+  var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+  if (!p || !p[categoria]) return;
+  var c = p[categoria];
+  c.perdidaBruta = Math.max(0, (Number(c.inicial) || 0) - (Number(c.final) || 0));
+  c.perdidaNeta  = Math.max(0, c.perdidaBruta - (Number(c.robo) || 0));
+  var safeKey = cgSafeId(codigoEvento, '');
+  var pidLabel = 'cg-perd-' + safeKey + '-' + categoria + '-perdida';
+  var el = document.getElementById(pidLabel);
+  if (el) {
+    var limite = categoria === 'manteles' ? 0 : (categoria === 'servilletas' ? 20 : 40);
+    var statusCls = (limite > 0)
+      ? (c.perdidaNeta < limite ? 'perd-ok' : 'perd-bad')
+      : (c.perdidaNeta === 0 ? 'perd-ok' : 'perd-bad');
+    el.className = 'perd-neta ' + statusCls;
+    el.innerHTML = cgFmt(c.perdidaNeta) + (limite > 0 ? ' <span class="perd-lim">(<' + limite + ')</span>' : '');
+  }
+}
+
+function cgOnRepiteToggle(codigoEvento, checkbox) {
+  var row = checkbox.closest('tr');
+  var sel = row.querySelector('.perd-repite-sel');
+  sel.disabled = !checkbox.checked;
+  if (!checkbox.checked) {
+    // Desactivar par actual
+    var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+    if (p && p.cubiertos && p.cubiertos.parCompartido) {
+      var par = p.cubiertos.parCompartido;
+      cgApiPost('saveCubiertosCompartidos', {
+        payload: {
+          centro1: par.centro1, fecha1: par.fecha1,
+          centro2: par.centro2, fecha2: par.fecha2,
+          activo: false
+        }
+      }).then(function(r) {
+        if (r && r.success) { showToast('Repetición desactivada', 'ok'); cgCargarSemana(); }
+      });
+    }
+  }
+}
+
+function cgOnRepiteSelect(codigoEvento, sel) {
+  if (!sel.value) return;
+  var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+  if (!p) return;
+  var parts = sel.value.split('::');
+  var otroCentro = parts[0]; var otroFecha = parts[1];
+  // Necesitamos el centro original (con tildes) del otro evento
+  var otroEv = CG.eventos.find(function(e) { return cgEvKey(e.centro, e.fechaEvento) === sel.value; });
+  if (!otroEv) return;
+  cgApiPost('saveCubiertosCompartidos', {
+    payload: {
+      centro1: p.centro, fecha1: p.fechaEvento,
+      centro2: otroEv.centro, fecha2: otroEv.fechaEvento,
+      activo: true
+    }
+  }).then(function(r) {
+    if (r && r.success) { showToast('Cubiertos compartidos: ' + p.centro + ' ↔ ' + otroEv.centro, 'ok'); cgCargarSemana(); }
+    else showToast('Error: ' + (r && r.error), 'err');
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════

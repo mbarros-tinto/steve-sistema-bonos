@@ -57,6 +57,16 @@ function _routeApi(action, params, body) {
       case 'saveVajillaEvaluation':
         result = saveVajillaEvaluation((body && body.evaluaciones) || []);
         break;
+      // v31 — módulo Pérdidas
+      case 'getPerdidasPorSemana':
+        result = getPerdidasPorSemana(params.semana || (body && body.semana) || '');
+        break;
+      case 'saveOverridePerdida':
+        result = saveOverridePerdida((body && body.payload) || body || {});
+        break;
+      case 'saveCubiertosCompartidos':
+        result = saveCubiertosCompartidos((body && body.payload) || body || {});
+        break;
       default:
         result = { error: 'Acción desconocida: ' + action };
     }
@@ -625,6 +635,61 @@ function _esItemValido(item) {
   return true;
 }
 
+// Regex por categoría (acuerdo con usuario):
+//   - Manteles/caminos: MANTEL, CAMINO, PECHERA, CORBATA, POLAR
+//     (estos 3 últimos afectan el bono "no se pierde ningún mantel ni camino")
+//   - Servilletas: SERVILLETA
+//   - Cubiertos: todos los items del bloque principal que no sean los anteriores
+//     (típicamente CUCHILLO, TENEDOR, CUCHARA)
+var REGEX_MANTEL_CAMINO = /^(MANTEL|CAMINO|PECHERA|CORBATA|POLAR)/;
+var REGEX_SERVILLETA    = /^SERVILLETA/;
+function _esItemCubierto(itemUpper) {
+  if (!_esItemValido(itemUpper)) return false;
+  if (REGEX_MANTEL_CAMINO.test(itemUpper)) return false;
+  if (REGEX_SERVILLETA.test(itemUpper))    return false;
+  return true;
+}
+
+// ── Hoja Robo: descuento de pérdidas por sistema interno de auditoría ──
+// Estructura: Row 3 contiene los nombres de eventos (UN evento por col).
+// Filas siguientes contienen items y su monto de robo POR evento (1 valor
+// por col, no 4 como Cubiertos/Manteles).
+// _getRoboParaEvento(centro, fecha, regex) retorna la suma de robos para los
+// items que matchean el regex en ese evento. Si no hay match de evento o
+// no hay datos, retorna 0 (no penaliza el chequeo).
+function _getRoboParaEvento(centro, fechaEvento, regexItem) {
+  try {
+    const hoja = _loadHojaInv('Robo');
+    if (!hoja) return 0;
+    const row3 = hoja.data[2] || [];
+    // Encontrar la col del evento
+    const targetKey = _normTxt(centro) + '::' + _normFechaISO(fechaEvento);
+    let colEvento = -1;
+    for (let c = 1; c < hoja.lastCol; c++) {
+      const evName = String(row3[c] || '').trim();
+      if (!evName) continue;
+      const m = evName.match(/^(.+?)\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})$/);
+      if (!m) continue;
+      const key = _normTxt(m[1]) + '::' + _normFechaISO(m[2]);
+      if (key === targetKey) { colEvento = c; break; }
+    }
+    if (colEvento < 0) return 0; // evento no listado en Robo → 0 robo
+    // Iterar items y sumar los que matchean
+    let total = 0;
+    for (let r = 3; r < hoja.lastRow; r++) {
+      const itemRaw = String(hoja.data[r][0] || '').trim();
+      if (!_esItemValido(itemRaw)) break;
+      if (regexItem && !regexItem.test(itemRaw.toUpperCase())) continue;
+      const v = Number(hoja.data[r][colEvento]) || 0;
+      if (v > 0) total += v;
+    }
+    return total;
+  } catch(e) {
+    Logger.log('_getRoboParaEvento error: ' + e.message);
+    return 0;
+  }
+}
+
 function _chequearMermaMantelCamino(ev) {
   const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
   if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Manteles' };
@@ -635,21 +700,15 @@ function _chequearMermaMantelCamino(ev) {
   if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
   if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
-  const hoja = _loadHojaInv('Manteles');
-  const perdidos = [];
-  for (let r = 3; r < hoja.lastRow; r++) {
-    const itemRaw = String(hoja.data[r][0] || '').trim();
-    if (!_esItemValido(itemRaw)) break; // fin del bloque principal
-    const item = itemRaw.toUpperCase();
-    if (!/^MANTEL|^CAMINO/.test(item)) continue;
-    const ini = Number(hoja.data[r][colIni]) || 0;
-    const fin = Number(hoja.data[r][colFin]) || 0;
-    const diff = ini - fin;
-    if (diff > 0) perdidos.push(item + ' (-' + diff + ')');
+  // v31: usar override si existe (precedencia sobre suma de items)
+  const calc = _calcularPerdidasCategoria(ev, 'manteles');
+  if (calc.perdidaNeta === 0) {
+    return { ok: true, motivo: '✓ No se perdieron manteles ni caminos' +
+      (calc.override ? ' (override)' : (calc.robo > 0 ? ' (bruta=' + calc.perdidaBruta + ', robo=' + calc.robo + ')' : '')) };
   }
-  return perdidos.length === 0
-    ? { ok: true,  motivo: '✓ No se perdieron manteles ni caminos' }
-    : { ok: false, motivo: '✗ Faltó: ' + perdidos.join(', ') };
+  return { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' manteles/caminos' +
+    (calc.override ? ' (override)' : '') +
+    (calc.robo > 0 ? ' (bruta=' + calc.perdidaBruta + ', robo=' + calc.robo + ', neta=' + calc.perdidaNeta + ')' : '') };
 }
 
 function _chequearMermaServilletas(ev) {
@@ -662,21 +721,15 @@ function _chequearMermaServilletas(ev) {
   if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
   if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
-  const hoja = _loadHojaInv('Manteles');
-  let totalPerdidas = 0;
-  for (let r = 3; r < hoja.lastRow; r++) {
-    const itemRaw = String(hoja.data[r][0] || '').trim();
-    if (!_esItemValido(itemRaw)) break;
-    const item = itemRaw.toUpperCase();
-    if (!/^SERVILLETA/.test(item)) continue;
-    const ini = Number(hoja.data[r][colIni]) || 0;
-    const fin = Number(hoja.data[r][colFin]) || 0;
-    const diff = ini - fin;
-    if (diff > 0) totalPerdidas += diff;
-  }
-  return totalPerdidas < 20
-    ? { ok: true,  motivo: '✓ Se perdieron ' + totalPerdidas + ' servilletas (< 20)' }
-    : { ok: false, motivo: '✗ Se perdieron ' + totalPerdidas + ' servilletas (≥ 20)' };
+  // v31: usar override si existe
+  const calc = _calcularPerdidasCategoria(ev, 'servilletas');
+  const partes = [];
+  if (calc.override) partes.push('override');
+  if (calc.robo > 0) partes.push('bruta=' + calc.perdidaBruta + ', robo=' + calc.robo);
+  const extra = partes.length ? ' (' + partes.join(', ') + ')' : '';
+  return calc.perdidaNeta < 20
+    ? { ok: true,  motivo: '✓ Se perdieron ' + calc.perdidaNeta + ' servilletas (< 20)' + extra }
+    : { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' servilletas (≥ 20)' + extra };
 }
 
 function _chequearMermaCubiertos(ev) {
@@ -689,24 +742,308 @@ function _chequearMermaCubiertos(ev) {
   if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Cubiertos' };
   if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Cubiertos' };
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Cubiertos' };
+  // Pérdida bruta + override + compartido
+  const calc = _calcularPerdidasCubiertos(ev);
+  return calc.perdNeta < 40
+    ? { ok: true,  motivo: '✓ Se perdieron ' + calc.perdNeta + ' cubiertos (< 40)' + calc.extra }
+    : { ok: false, motivo: '✗ Se perdieron ' + calc.perdNeta + ' cubiertos (≥ 40)' + calc.extra };
+}
+
+// Lógica de cálculo de cubiertos (extraída para reutilización en panel)
+function _calcularPerdidasCubiertos(ev) {
+  const eventoInv = _findEventoEnHojaInv('Cubiertos', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Cubiertos', perdNeta: 0, extra: '' };
+
+  // 1. Override de Casa Inicial/Final si existe
+  const ov = _leerOverridePerdida(ev.centro, ev.fechaEvento, 'cubiertos');
+
+  // 2. Compartido: si está activo, calcular pérdida combinada con el otro evento
+  const par = _leerParCompartido(ev.centro, ev.fechaEvento);
+  if (par) {
+    return _calcularPerdidasCubiertosCompartido(ev, par);
+  }
+
+  // 3. Cálculo simple: suma de Casa Inicial - Casa Final por item
   const hoja = _loadHojaInv('Cubiertos');
-  let totalPerdidos = 0;
+  const colIni = eventoInv.colsSubform['Casa Inicial'];
+  const colFin = eventoInv.colsSubform['Casa Final'];
+  let sumIni = 0, sumFin = 0, totalPerdidosItems = 0;
   for (let r = 3; r < hoja.lastRow; r++) {
-    const item = String(hoja.data[r][0] || '').trim();
-    if (!_esItemValido(item)) break; // fin del bloque principal (evita "Historico Estoril" etc.)
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!_esItemValido(itemRaw)) break;
     const ini = Number(hoja.data[r][colIni]) || 0;
     const fin = Number(hoja.data[r][colFin]) || 0;
+    sumIni += ini;
+    sumFin += fin;
     const diff = ini - fin;
-    if (diff > 0) totalPerdidos += diff;
+    if (diff > 0) totalPerdidosItems += diff;
   }
-  return totalPerdidos < 40
-    ? { ok: true,  motivo: '✓ Se perdieron ' + totalPerdidos + ' cubiertos (< 40)' }
-    : { ok: false, motivo: '✗ Se perdieron ' + totalPerdidos + ' cubiertos (≥ 40)' };
+
+  // Aplicar override (si existe, sobreescribe la suma)
+  const iniReal = (ov && ov.inicial != null && ov.inicial !== '') ? Number(ov.inicial) : sumIni;
+  const finReal = (ov && ov.final   != null && ov.final   !== '') ? Number(ov.final)   : sumFin;
+  const perdBruta = (ov && (ov.inicial != null || ov.final != null))
+    ? Math.max(0, iniReal - finReal)
+    : totalPerdidosItems;
+
+  const robo = _getRoboParaEvento(ev.centro, ev.fechaEvento, null);
+  const perdNeta = Math.max(0, perdBruta - robo);
+  const partes = [];
+  if (ov && (ov.inicial != null || ov.final != null)) partes.push('override Ini/Fin');
+  if (robo > 0) partes.push('robo=' + robo);
+  const extra = partes.length ? ' (' + partes.join(', ') + '; bruta=' + perdBruta + ', neta=' + perdNeta + ')' : '';
+  return { ok: perdNeta < 40, perdNeta, perdBruta, robo, sumIni, sumFin, iniReal, finReal, override: !!ov, extra };
+}
+
+// Cálculo combinado para eventos compartidos.
+// par = { centro1, fecha1, centro2, fecha2 } con fecha1 < fecha2.
+// Pérdida combinada = Inicial(evento1) - Final(evento2) - Robo(suma de ambos)
+// Cada evento recibe perdComb / 2.
+function _calcularPerdidasCubiertosCompartido(ev, par) {
+  // Identificar cuál es evento1 (más antiguo) y cuál evento2.
+  const fecha1ISO = _normFechaISO(par.fecha1);
+  const fecha2ISO = _normFechaISO(par.fecha2);
+  const primero = (fecha1ISO <= fecha2ISO)
+    ? { centro: par.centro1, fechaEvento: par.fecha1 }
+    : { centro: par.centro2, fechaEvento: par.fecha2 };
+  const segundo = (fecha1ISO <= fecha2ISO)
+    ? { centro: par.centro2, fechaEvento: par.fecha2 }
+    : { centro: par.centro1, fechaEvento: par.fecha1 };
+
+  // Sumas del primero: Inicial
+  const sumIniPrim = _sumarCubiertosEvento(primero, 'Casa Inicial');
+  // Sumas del segundo: Final
+  const sumFinSeg  = _sumarCubiertosEvento(segundo, 'Casa Final');
+  // Overrides
+  const ovPrim = _leerOverridePerdida(primero.centro, primero.fechaEvento, 'cubiertos');
+  const ovSeg  = _leerOverridePerdida(segundo.centro, segundo.fechaEvento, 'cubiertos');
+  const iniReal = (ovPrim && ovPrim.inicial != null && ovPrim.inicial !== '') ? Number(ovPrim.inicial) : sumIniPrim;
+  const finReal = (ovSeg  && ovSeg.final   != null && ovSeg.final   !== '') ? Number(ovSeg.final)   : sumFinSeg;
+  // Robo combinado
+  const roboPrim = _getRoboParaEvento(primero.centro, primero.fechaEvento, null);
+  const roboSeg  = _getRoboParaEvento(segundo.centro, segundo.fechaEvento, null);
+  const roboTotal = roboPrim + roboSeg;
+  const perdComb = Math.max(0, iniReal - finReal - roboTotal);
+  const perdPorEvento = Math.round(perdComb / 2);
+
+  const extra = ' (compartido con ' + (primero.centro === ev.centro && primero.fechaEvento === ev.fechaEvento ? segundo.centro : primero.centro) +
+                '; combinada=' + perdComb + ', /2=' + perdPorEvento + ', robo total=' + roboTotal + ')';
+  return {
+    ok: perdPorEvento < 40, perdNeta: perdPorEvento, perdBruta: perdComb,
+    robo: roboTotal, sumIni: iniReal, sumFin: finReal,
+    iniReal, finReal, override: !!(ovPrim || ovSeg), compartido: true, extra
+  };
+}
+
+function _sumarCubiertosEvento(ev, subform) {
+  const eventoInv = _findEventoEnHojaInv('Cubiertos', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return 0;
+  const col = eventoInv.colsSubform[subform];
+  const hoja = _loadHojaInv('Cubiertos');
+  let sum = 0;
+  for (let r = 3; r < hoja.lastRow; r++) {
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!_esItemValido(itemRaw)) break;
+    sum += Number(hoja.data[r][col]) || 0;
+  }
+  return sum;
 }
 
 // Routing: dado un texto de criterio, devuelve el chequeo correspondiente o
 // null si el criterio es manual (no auto-chequeable). Vajilla NO entra acá:
 // el frontend la maneja localmente desde S.guardadosVajilla.
+// ════════════════════════════════════════════════════════════════════
+// HOJAS DE PERSISTENCIA — Overrides y eventos compartidos (v31+)
+// ════════════════════════════════════════════════════════════════════
+const HOJA_OVERRIDES   = 'Overrides_Perdidas';
+const HOJA_COMPARTIDOS = 'Cubiertos_Compartidos';
+
+function _ensureOverridesSheet() {
+  const ss = SpreadsheetApp.openById(ID_CG);
+  let sh = ss.getSheetByName(HOJA_OVERRIDES);
+  if (!sh) {
+    sh = ss.insertSheet(HOJA_OVERRIDES);
+    sh.getRange(1, 1, 1, 7).setValues([['Centro', 'Fecha', 'Categoria', 'Inicial', 'Final', 'Timestamp', 'Autor']]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 7).setFontWeight('bold');
+  }
+  return sh;
+}
+function _ensureCompartidosSheet() {
+  const ss = SpreadsheetApp.openById(ID_CG);
+  let sh = ss.getSheetByName(HOJA_COMPARTIDOS);
+  if (!sh) {
+    sh = ss.insertSheet(HOJA_COMPARTIDOS);
+    sh.getRange(1, 1, 1, 7).setValues([['Centro1', 'Fecha1', 'Centro2', 'Fecha2', 'Activo', 'Timestamp', 'Autor']]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 7).setFontWeight('bold');
+  }
+  return sh;
+}
+
+// Lee override de pérdida para un evento+categoría. Retorna {inicial, final} o null.
+function _leerOverridePerdida(centro, fechaEvento, categoria) {
+  try {
+    const sh = SpreadsheetApp.openById(ID_CG).getSheetByName(HOJA_OVERRIDES);
+    if (!sh || sh.getLastRow() < 2) return null;
+    const data = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+    const targetKey = _normTxt(centro) + '::' + _normFechaISO(fechaEvento) + '::' + categoria;
+    // Tomar el ÚLTIMO override (más reciente) que matchee
+    let latest = null;
+    for (let i = 0; i < data.length; i++) {
+      const r = data[i];
+      const key = _normTxt(r[0]) + '::' + _normFechaISO(r[1]) + '::' + String(r[2]).trim().toLowerCase();
+      if (key !== targetKey) continue;
+      const ini = (r[3] === '' || r[3] === null) ? null : r[3];
+      const fin = (r[4] === '' || r[4] === null) ? null : r[4];
+      if (ini == null && fin == null) latest = null; // entrada vacía = borrar override
+      else latest = { inicial: ini, final: fin };
+    }
+    return latest;
+  } catch(e) { Logger.log('_leerOverridePerdida error: ' + e); return null; }
+}
+
+// Upsert override por (centro, fecha, categoria).
+function saveOverridePerdida(payload) {
+  try {
+    const centro    = String(payload.centro || '').trim();
+    const fecha     = String(payload.fecha  || '').trim();
+    const categoria = String(payload.categoria || '').trim().toLowerCase();
+    if (!centro || !fecha || !categoria) return { success: false, error: 'Faltan datos' };
+    const sh = _ensureOverridesSheet();
+    const tsStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
+    const ini = (payload.inicial === undefined || payload.inicial === null || payload.inicial === '') ? '' : Number(payload.inicial);
+    const fin = (payload.final   === undefined || payload.final   === null || payload.final   === '') ? '' : Number(payload.final);
+    const fila = [centro, fecha, categoria, ini, fin, tsStr, payload.autor || ''];
+
+    // Upsert por (centro, fecha, categoria)
+    const lastRow = sh.getLastRow();
+    let foundRow = -1;
+    if (lastRow >= 2) {
+      const data = sh.getRange(2, 1, lastRow - 1, 3).getValues();
+      const targetKey = _normTxt(centro) + '::' + _normFechaISO(fecha) + '::' + categoria;
+      for (let i = 0; i < data.length; i++) {
+        const key = _normTxt(data[i][0]) + '::' + _normFechaISO(data[i][1]) + '::' + String(data[i][2]).trim().toLowerCase();
+        if (key === targetKey) { foundRow = i + 2; break; }
+      }
+    }
+    if (foundRow > 0) sh.getRange(foundRow, 1, 1, 7).setValues([fila]);
+    else              sh.getRange(sh.getLastRow() + 1, 1, 1, 7).setValues([fila]);
+    return { success: true };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+// Lee par compartido para un evento. Retorna {centro1,fecha1,centro2,fecha2} o null.
+function _leerParCompartido(centro, fechaEvento) {
+  try {
+    const sh = SpreadsheetApp.openById(ID_CG).getSheetByName(HOJA_COMPARTIDOS);
+    if (!sh || sh.getLastRow() < 2) return null;
+    const data = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+    const targetKey = _normTxt(centro) + '::' + _normFechaISO(fechaEvento);
+    // Buscar par activo donde centro/fecha coincide con cualquiera de los 2 lados
+    for (let i = data.length - 1; i >= 0; i--) { // iterar al revés para tomar el más reciente
+      const r = data[i];
+      const activo = String(r[4]).trim().toLowerCase() === 'true' || r[4] === true;
+      if (!activo) continue;
+      const key1 = _normTxt(r[0]) + '::' + _normFechaISO(r[1]);
+      const key2 = _normTxt(r[2]) + '::' + _normFechaISO(r[3]);
+      if (key1 === targetKey || key2 === targetKey) {
+        return { centro1: String(r[0]).trim(), fecha1: String(r[1]).trim(),
+                 centro2: String(r[2]).trim(), fecha2: String(r[3]).trim() };
+      }
+    }
+    return null;
+  } catch(e) { Logger.log('_leerParCompartido error: ' + e); return null; }
+}
+
+// Upsert link de eventos compartidos. Si payload.activo === false, lo desactiva.
+function saveCubiertosCompartidos(payload) {
+  try {
+    const c1 = String(payload.centro1 || '').trim();
+    const f1 = String(payload.fecha1  || '').trim();
+    const c2 = String(payload.centro2 || '').trim();
+    const f2 = String(payload.fecha2  || '').trim();
+    if (!c1 || !f1 || !c2 || !f2) return { success: false, error: 'Faltan datos' };
+    const activo = payload.activo === undefined ? true : !!payload.activo;
+    const sh = _ensureCompartidosSheet();
+    const tsStr = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
+
+    // Upsert por (centro1+fecha1 / centro2+fecha2) en cualquier orden
+    const lastRow = sh.getLastRow();
+    let foundRow = -1;
+    if (lastRow >= 2) {
+      const data = sh.getRange(2, 1, lastRow - 1, 4).getValues();
+      const k1 = _normTxt(c1) + '::' + _normFechaISO(f1);
+      const k2 = _normTxt(c2) + '::' + _normFechaISO(f2);
+      for (let i = 0; i < data.length; i++) {
+        const ka = _normTxt(data[i][0]) + '::' + _normFechaISO(data[i][1]);
+        const kb = _normTxt(data[i][2]) + '::' + _normFechaISO(data[i][3]);
+        if ((ka === k1 && kb === k2) || (ka === k2 && kb === k1)) { foundRow = i + 2; break; }
+      }
+    }
+    const fila = [c1, f1, c2, f2, activo, tsStr, payload.autor || ''];
+    if (foundRow > 0) sh.getRange(foundRow, 1, 1, 7).setValues([fila]);
+    else              sh.getRange(sh.getLastRow() + 1, 1, 1, 7).setValues([fila]);
+    return { success: true };
+  } catch(e) { return { success: false, error: e.message }; }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ENDPOINT: getPerdidasPorSemana — agregado por evento+categoría
+// ════════════════════════════════════════════════════════════════════
+function getPerdidasPorSemana(semana) {
+  try {
+    const eventos = _getEventosDeSemana(semana);
+    const out = eventos.map(ev => {
+      const compartido = _leerParCompartido(ev.centro, ev.fechaEvento);
+      const manteles  = _calcularPerdidasCategoria(ev, 'manteles');
+      const servill   = _calcularPerdidasCategoria(ev, 'servilletas');
+      const cubiertos = _calcularPerdidasCubiertos(ev);
+      return {
+        codigoEvento: ev.codigoEvento, centro: ev.centro, fechaEvento: ev.fechaEvento,
+        manteles, servilletas: servill, cubiertos: {
+          inicial: cubiertos.iniReal, final: cubiertos.finReal, robo: cubiertos.robo,
+          perdidaBruta: cubiertos.perdBruta, perdidaNeta: cubiertos.perdNeta,
+          override: !!cubiertos.override, compartido: !!cubiertos.compartido,
+          parCompartido: compartido || null, motivo: cubiertos.extra || ''
+        }
+      };
+    });
+    return { ok: true, semana, eventos: out };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function _calcularPerdidasCategoria(ev, categoria) {
+  const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { inicial: 0, final: 0, robo: 0, perdidaBruta: 0, perdidaNeta: 0, override: false };
+  const hoja = _loadHojaInv('Manteles');
+  const colIni = eventoInv.colsSubform['Casa Inicial'];
+  const colFin = eventoInv.colsSubform['Casa Final'];
+  const regex = (categoria === 'manteles') ? REGEX_MANTEL_CAMINO : REGEX_SERVILLETA;
+  let sumIni = 0, sumFin = 0;
+  for (let r = 3; r < hoja.lastRow; r++) {
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!_esItemValido(itemRaw)) break;
+    if (!regex.test(itemRaw.toUpperCase())) continue;
+    sumIni += Number(hoja.data[r][colIni]) || 0;
+    sumFin += Number(hoja.data[r][colFin]) || 0;
+  }
+  const ov = _leerOverridePerdida(ev.centro, ev.fechaEvento, categoria);
+  const iniReal = (ov && ov.inicial != null) ? Number(ov.inicial) : sumIni;
+  const finReal = (ov && ov.final   != null) ? Number(ov.final)   : sumFin;
+  const robo = _getRoboParaEvento(ev.centro, ev.fechaEvento, regex);
+  const perdBruta = Math.max(0, iniReal - finReal);
+  const perdNeta  = Math.max(0, perdBruta - robo);
+  return {
+    inicial: iniReal, final: finReal, robo: robo,
+    perdidaBruta: perdBruta, perdidaNeta: perdNeta,
+    sumIniRaw: sumIni, sumFinRaw: sumFin,
+    override: !!(ov && (ov.inicial != null || ov.final != null))
+  };
+}
+
+// Aplicar override también a manteles y servilletas en los chequeos automáticos
+// (los nuevos endpoints _calcularPerdidasCategoria ya consideran overrides).
 function _resolverChequeoCriterio(crit, ev) {
   if (/vajilla/i.test(crit)) return null;
   if (/env[ií]o.*conteo.*inicial.*cocina/i.test(crit))   return _chequearFormulario(ev, 'Cocina',   'Conteo inicial');
