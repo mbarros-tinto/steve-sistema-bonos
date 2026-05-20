@@ -120,7 +120,9 @@ function getWeeksData() {
     d.setDate(thisMonday.getDate() - 7 * i);
     weeks.push(_formatLabel(d));
   }
-  return { weeks, defaultWeek: weeks[0] };
+  // Default: semana anterior (weeks[1]) — los eventos del fin de semana
+  // recién pasado ya fueron procesados en inventario CG.
+  return { weeks, defaultWeek: weeks[1] || weeks[0] };
 }
 
 function getDatosForSemana(semana) {
@@ -642,18 +644,31 @@ function _esItemValido(item) {
 }
 
 // Regex por categoría (acuerdo con usuario):
-//   - Manteles/caminos: MANTEL, CAMINO, PECHERA, CORBATA, POLAR
-//     (estos 3 últimos afectan el bono "no se pierde ningún mantel ni camino")
-//   - Servilletas: SERVILLETA
-//   - Cubiertos: todos los items del bloque principal que no sean los anteriores
-//     (típicamente CUCHILLO, TENEDOR, CUCHARA)
-var REGEX_MANTEL_CAMINO = /^(MANTEL|CAMINO|PECHERA|CORBATA|POLAR)/;
+//   UI (5 categorías separadas):
+//     - manteles:    /^MANTEL/
+//     - caminos:     /^CAMINO/
+//     - prendas:     /^(PECHERA|CORBATA|POLAR)/
+//     - servilletas: /^SERVILLETA/
+//     - cubiertos:   resto del bloque (CUCHILLO/TENEDOR/CUCHARA)
+//   Bono "no se pierde ningún mantel ni camino": agrupa manteles+caminos+prendas
+//     (REGEX_BONO_MANTELERIA) — eso es lo que afecta el bono garzones/barmans.
+var REGEX_MANTEL        = /^MANTEL/;
+var REGEX_CAMINO        = /^CAMINO/;
+var REGEX_PRENDA        = /^(PECHERA|CORBATA|POLAR)/;
 var REGEX_SERVILLETA    = /^SERVILLETA/;
-function _esItemCubierto(itemUpper) {
-  if (!_esItemValido(itemUpper)) return false;
-  if (REGEX_MANTEL_CAMINO.test(itemUpper)) return false;
-  if (REGEX_SERVILLETA.test(itemUpper))    return false;
-  return true;
+var REGEX_BONO_MANTELERIA = /^(MANTEL|CAMINO|PECHERA|CORBATA|POLAR)/; // bono "mantel ni camino"
+// Legacy alias para compatibilidad
+var REGEX_MANTEL_CAMINO = REGEX_BONO_MANTELERIA;
+
+function _categoriaToRegex(cat) {
+  switch (cat) {
+    case 'manteles':         return REGEX_MANTEL;
+    case 'caminos':          return REGEX_CAMINO;
+    case 'prendas':          return REGEX_PRENDA;
+    case 'servilletas':      return REGEX_SERVILLETA;
+    case 'manteleria_total': return REGEX_BONO_MANTELERIA;
+    default: return null;
+  }
 }
 
 // ── Hoja Robo: descuento de pérdidas por sistema interno de auditoría ──
@@ -706,13 +721,13 @@ function _chequearMermaMantelCamino(ev) {
   if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
   if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
-  // v31: usar override si existe (precedencia sobre suma de items)
-  const calc = _calcularPerdidasCategoria(ev, 'manteles');
+  // v33: bono "mantel ni camino" agrupa manteles + caminos + prendas (M+C+P)
+  const calc = _calcularPerdidasCategoria(ev, 'manteleria_total');
   if (calc.perdidaNeta === 0) {
     return { ok: true, motivo: '✓ No se perdieron manteles ni caminos' +
       (calc.override ? ' (override)' : (calc.robo > 0 ? ' (bruta=' + calc.perdidaBruta + ', robo=' + calc.robo + ')' : '')) };
   }
-  return { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' manteles/caminos' +
+  return { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' manteles/caminos/prendas' +
     (calc.override ? ' (override)' : '') +
     (calc.robo > 0 ? ' (bruta=' + calc.perdidaBruta + ', robo=' + calc.robo + ', neta=' + calc.perdidaNeta + ')' : '') };
 }
@@ -940,22 +955,25 @@ function saveOverridePerdida(payload) {
 }
 
 // Lee par compartido para un evento. Retorna {centro1,fecha1,centro2,fecha2} o null.
+// IMPORTANTE: las fechas se devuelven NORMALIZADAS a ISO (yyyy-MM-dd) para
+// que el frontend pueda comparar con ev.fechaEvento del CRM (mismo formato).
 function _leerParCompartido(centro, fechaEvento) {
   try {
     const sh = SpreadsheetApp.openById(ID_CG).getSheetByName(HOJA_COMPARTIDOS);
     if (!sh || sh.getLastRow() < 2) return null;
     const data = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
     const targetKey = _normTxt(centro) + '::' + _normFechaISO(fechaEvento);
-    // Buscar par activo donde centro/fecha coincide con cualquiera de los 2 lados
-    for (let i = data.length - 1; i >= 0; i--) { // iterar al revés para tomar el más reciente
+    for (let i = data.length - 1; i >= 0; i--) {
       const r = data[i];
       const activo = String(r[4]).trim().toLowerCase() === 'true' || r[4] === true;
       if (!activo) continue;
-      const key1 = _normTxt(r[0]) + '::' + _normFechaISO(r[1]);
-      const key2 = _normTxt(r[2]) + '::' + _normFechaISO(r[3]);
+      const fechaA = _normFechaISO(r[1]);
+      const fechaB = _normFechaISO(r[3]);
+      const key1 = _normTxt(r[0]) + '::' + fechaA;
+      const key2 = _normTxt(r[2]) + '::' + fechaB;
       if (key1 === targetKey || key2 === targetKey) {
-        return { centro1: String(r[0]).trim(), fecha1: String(r[1]).trim(),
-                 centro2: String(r[2]).trim(), fecha2: String(r[3]).trim() };
+        return { centro1: String(r[0]).trim(), fecha1: fechaA,
+                 centro2: String(r[2]).trim(), fecha2: fechaB };
       }
     }
     return null;
@@ -1002,21 +1020,50 @@ function getPerdidasPorSemana(semana) {
     const eventos = _getEventosDeSemana(semana);
     const out = eventos.map(ev => {
       const compartido = _leerParCompartido(ev.centro, ev.fechaEvento);
-      const manteles  = _calcularPerdidasCategoria(ev, 'manteles');
-      const servill   = _calcularPerdidasCategoria(ev, 'servilletas');
       const cubiertos = _calcularPerdidasCubiertos(ev);
+      // Para "sinDatos" de cubiertos: verificar si la hoja Cubiertos tiene data
+      const cubDatos = _hayDatosCategoria(ev, 'Cubiertos', null);
       return {
         codigoEvento: ev.codigoEvento, centro: ev.centro, fechaEvento: ev.fechaEvento,
-        manteles, servilletas: servill, cubiertos: {
+        manteles:    _calcularPerdidasCategoria(ev, 'manteles'),
+        caminos:     _calcularPerdidasCategoria(ev, 'caminos'),
+        prendas:     _calcularPerdidasCategoria(ev, 'prendas'),
+        servilletas: _calcularPerdidasCategoria(ev, 'servilletas'),
+        cubiertos: {
           inicial: cubiertos.iniReal, final: cubiertos.finReal, robo: cubiertos.robo,
           perdidaBruta: cubiertos.perdBruta, perdidaNeta: cubiertos.perdNeta,
           override: !!cubiertos.override, compartido: !!cubiertos.compartido,
-          parCompartido: compartido || null, motivo: cubiertos.extra || ''
+          parCompartido: compartido || null, motivo: cubiertos.extra || '',
+          sinDatos: !cubDatos.tieneIni || !cubDatos.tieneFin,
+          faltaIni: !cubDatos.tieneIni, faltaFin: !cubDatos.tieneFin
         }
       };
     });
     return { ok: true, semana, eventos: out };
   } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// Determina si la categoría tiene datos en Casa Inicial / Casa Final
+// para el evento dado. Si una columna está totalmente vacía en items que
+// matchean el regex → form no respondido.
+function _hayDatosCategoria(ev, hojaName, regex) {
+  const eventoInv = _findEventoEnHojaInv(hojaName, ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { tieneIni: false, tieneFin: false };
+  const hoja = _loadHojaInv(hojaName);
+  const colIni = eventoInv.colsSubform['Casa Inicial'];
+  const colFin = eventoInv.colsSubform['Casa Final'];
+  let hayIni = false, hayFin = false;
+  for (let r = 3; r < hoja.lastRow; r++) {
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!_esItemValido(itemRaw)) break;
+    if (regex && !regex.test(itemRaw.toUpperCase())) continue;
+    const rawIni = hoja.data[r][colIni];
+    const rawFin = hoja.data[r][colFin];
+    if (rawIni !== '' && rawIni !== null && rawIni !== undefined) hayIni = true;
+    if (rawFin !== '' && rawFin !== null && rawFin !== undefined) hayFin = true;
+    if (hayIni && hayFin) break;
+  }
+  return { tieneIni: hayIni, tieneFin: hayFin };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1026,9 +1073,10 @@ function getPerdidasPorSemana(semana) {
 // ════════════════════════════════════════════════════════════════════
 function getItemsPerdidaEvento(centro, fechaEvento) {
   try {
-    const out = { centro, fechaEvento, manteles: [], servilletas: [], cubiertos: [] };
+    const out = { centro, fechaEvento,
+                  manteles: [], caminos: [], prendas: [], servilletas: [], cubiertos: [] };
 
-    // Leer hoja Manteles (manteles + servilletas)
+    // Leer hoja Manteles (manteles + caminos + prendas + servilletas)
     const evMant = _findEventoEnHojaInv('Manteles', centro, fechaEvento);
     if (evMant) {
       const hojaM = _loadHojaInv('Manteles');
@@ -1040,15 +1088,14 @@ function getItemsPerdidaEvento(centro, fechaEvento) {
         const item = itemRaw.toUpperCase();
         const ini = Number(hojaM.data[r][colIni]) || 0;
         const fin = Number(hojaM.data[r][colFin]) || 0;
-        const perdida = Math.max(0, ini - fin);
         const entry = {
-          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: perdida,
-          row: r + 1,            // 1-based para escribir con setValue
-          colIniSheet: colIni + 1, // 1-based
-          colFinSheet: colFin + 1, // 1-based
+          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: Math.max(0, ini - fin),
+          row: r + 1, colIniSheet: colIni + 1, colFinSheet: colFin + 1,
           hoja: 'Manteles'
         };
-        if (REGEX_MANTEL_CAMINO.test(item))  out.manteles.push(entry);
+        if      (REGEX_MANTEL.test(item))     out.manteles.push(entry);
+        else if (REGEX_CAMINO.test(item))     out.caminos.push(entry);
+        else if (REGEX_PRENDA.test(item))     out.prendas.push(entry);
         else if (REGEX_SERVILLETA.test(item)) out.servilletas.push(entry);
       }
     }
@@ -1064,9 +1111,8 @@ function getItemsPerdidaEvento(centro, fechaEvento) {
         if (!_esItemValido(itemRaw)) break;
         const ini = Number(hojaC.data[r][colIni]) || 0;
         const fin = Number(hojaC.data[r][colFin]) || 0;
-        const perdida = Math.max(0, ini - fin);
         out.cubiertos.push({
-          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: perdida,
+          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: Math.max(0, ini - fin),
           row: r + 1, colIniSheet: colIni + 1, colFinSheet: colFin + 1,
           hoja: 'Cubiertos'
         });
@@ -1101,22 +1147,29 @@ function saveItemPerdida(payload) {
 
 function _calcularPerdidasCategoria(ev, categoria) {
   const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
-  if (!eventoInv) return { inicial: 0, final: 0, robo: 0, perdidaBruta: 0, perdidaNeta: 0, override: false };
+  if (!eventoInv) return { inicial: 0, final: 0, robo: 0, perdidaBruta: 0, perdidaNeta: 0, override: false, sinDatos: true };
   const hoja = _loadHojaInv('Manteles');
   const colIni = eventoInv.colsSubform['Casa Inicial'];
   const colFin = eventoInv.colsSubform['Casa Final'];
-  const regex = (categoria === 'manteles') ? REGEX_MANTEL_CAMINO : REGEX_SERVILLETA;
-  let sumIni = 0, sumFin = 0;
+  const regex = _categoriaToRegex(categoria);
+  if (!regex) return { inicial: 0, final: 0, robo: 0, perdidaBruta: 0, perdidaNeta: 0, override: false, sinDatos: true };
+  let sumIni = 0, sumFin = 0, hayIni = false, hayFin = false;
   for (let r = 3; r < hoja.lastRow; r++) {
     const itemRaw = String(hoja.data[r][0] || '').trim();
     if (!_esItemValido(itemRaw)) break;
     if (!regex.test(itemRaw.toUpperCase())) continue;
-    sumIni += Number(hoja.data[r][colIni]) || 0;
-    sumFin += Number(hoja.data[r][colFin]) || 0;
+    const rawIni = hoja.data[r][colIni];
+    const rawFin = hoja.data[r][colFin];
+    if (rawIni !== '' && rawIni !== null && rawIni !== undefined) hayIni = true;
+    if (rawFin !== '' && rawFin !== null && rawFin !== undefined) hayFin = true;
+    sumIni += Number(rawIni) || 0;
+    sumFin += Number(rawFin) || 0;
   }
   const ov = _leerOverridePerdida(ev.centro, ev.fechaEvento, categoria);
   const iniReal = (ov && ov.inicial != null) ? Number(ov.inicial) : sumIni;
   const finReal = (ov && ov.final   != null) ? Number(ov.final)   : sumFin;
+  // Robo: solo para categorías que existen en hoja Robo (típicamente cubiertos).
+  // Para manteles/caminos/prendas/servilletas el robo es 0 (no se trackea).
   const robo = _getRoboParaEvento(ev.centro, ev.fechaEvento, regex);
   const perdBruta = Math.max(0, iniReal - finReal);
   const perdNeta  = Math.max(0, perdBruta - robo);
@@ -1124,7 +1177,9 @@ function _calcularPerdidasCategoria(ev, categoria) {
     inicial: iniReal, final: finReal, robo: robo,
     perdidaBruta: perdBruta, perdidaNeta: perdNeta,
     sumIniRaw: sumIni, sumFinRaw: sumFin,
-    override: !!(ov && (ov.inicial != null || ov.final != null))
+    override: !!(ov && (ov.inicial != null || ov.final != null)),
+    sinDatos: !hayIni || !hayFin,
+    faltaIni: !hayIni, faltaFin: !hayFin
   };
 }
 

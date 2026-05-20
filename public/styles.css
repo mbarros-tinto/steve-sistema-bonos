@@ -1500,3 +1500,15 @@ select option { background: var(--ink); color: #fff; }
 .perd-item-perd { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .perd-item-perd.perd-item-bad { color: var(--err); }
 .perd-item-perd.perd-item-ok  { color: rgba(255, 255, 255, 0.4); }
+
+.cg-perd-warning {
+  background: rgba(232, 177, 110, 0.13);
+  border: 1px solid rgba(232, 177, 110, 0.45);
+  color: var(--warn);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82em;
+  margin: 8px 0 10px;
+  line-height: 1.4;
+}
+.cg-perd-warning b { color: #fff; font-weight: 600; }

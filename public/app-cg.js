@@ -281,18 +281,34 @@ function cgRenderPerdidasPanel() {
     var fechaStr = partes[2] + '/' + partes[1] + '/' + partes[0];
     var safeKey = cgSafeId(p.codigoEvento, '');
 
+    // Warning si falta alguna respuesta
+    var faltantes = [];
+    ['manteles','caminos','prendas','servilletas','cubiertos'].forEach(function(cat) {
+      var c = p[cat]; if (!c) return;
+      if (c.sinDatos) {
+        var falta = c.faltaIni && c.faltaFin ? 'Casa Inicial y Casa Final'
+                   : c.faltaIni ? 'Casa Inicial'
+                   : c.faltaFin ? 'Casa Final' : 'datos';
+        faltantes.push('<b>' + cat + '</b> (falta ' + falta + ')');
+      }
+    });
+    var warning = faltantes.length
+      ? '<div class="cg-perd-warning">⚠ Formulario incompleto: ' + faltantes.join(', ') + '. Pide al equipo que complete el inventario.</div>'
+      : '';
+
     html += '<div class="cg-perdidas-evento">' +
       '<div class="cg-perdidas-ev-head">🏛️ <b>' + cgEsc(p.centro) + '</b> · ' + fechaStr + '</div>' +
+      warning +
       '<table class="cg-perdidas-table"><thead><tr>' +
         '<th>Categoría</th><th>Inicial</th><th>Final</th><th>Robo</th><th>Pérdida</th><th></th>' +
       '</tr></thead><tbody>';
 
-    // Manteles
-    html += cgRenderPerdidaFila(p, 'manteles', 'Manteles', 0, p.codigoEvento, safeKey);
-    // Servilletas
+    // 5 categorías separadas según acuerdo con usuario
+    html += cgRenderPerdidaFila(p, 'manteles',    'Manteles',    0, p.codigoEvento, safeKey);
+    html += cgRenderPerdidaFila(p, 'caminos',     'Caminos',     0, p.codigoEvento, safeKey);
+    html += cgRenderPerdidaFila(p, 'prendas',     'Prendas',     0, p.codigoEvento, safeKey);
     html += cgRenderPerdidaFila(p, 'servilletas', 'Servilletas', 20, p.codigoEvento, safeKey);
-    // Cubiertos (con checkbox repite)
-    html += cgRenderPerdidaFila(p, 'cubiertos', 'Cubiertos', 40, p.codigoEvento, safeKey);
+    html += cgRenderPerdidaFila(p, 'cubiertos',   'Cubiertos',   40, p.codigoEvento, safeKey);
 
     html += '</tbody></table></div>';
   });
