@@ -610,9 +610,21 @@ function _chequearFormulario(ev, nombreHoja, subform) {
   return { ok: null, motivo: '⚠ Sin datos del evento en ' + nombreHoja };
 }
 
-// v25: chequea merma con Casa Inicial (1ra col) − Casa Final (4ta col).
-// Esa es la fórmula oficial: el inventario en bodega antes vs después del
-// fin de semana. Si faltó algo en bodega después, alguien lo perdió.
+// v28: chequea merma con Casa Inicial (1ra col) − Casa Final (4ta col).
+//
+// IMPORTANTE: la hoja inventario CG tiene secciones secundarias al final
+// (ej. "Historico Estoril" en row 149+) con sus propios valores. Si iteramos
+// hasta `hoja.lastRow`, sumamos esas filas también y el total se infla
+// arbitrariamente. El loop ahora:
+//   - Empieza en r=3 (Row 4 en 1-indexed = primer item, CUCHILLO CARNE).
+//   - Detiene al primer item vacío O al primer header de sub-sección
+//     (Historico, Inventario, Evento, Estoril...).
+function _esItemValido(item) {
+  if (!item) return false;
+  if (/^(hist[oó]rico|inventario|evento|estoril)\b/i.test(item)) return false;
+  return true;
+}
+
 function _chequearMermaMantelCamino(ev) {
   const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
   if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Manteles' };
@@ -625,9 +637,10 @@ function _chequearMermaMantelCamino(ev) {
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
   const hoja = _loadHojaInv('Manteles');
   const perdidos = [];
-  for (let r = 4; r < hoja.lastRow; r++) {
-    const item = String(hoja.data[r][0] || '').trim().toUpperCase();
-    if (!item) continue;
+  for (let r = 3; r < hoja.lastRow; r++) {
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!_esItemValido(itemRaw)) break; // fin del bloque principal
+    const item = itemRaw.toUpperCase();
     if (!/^MANTEL|^CAMINO/.test(item)) continue;
     const ini = Number(hoja.data[r][colIni]) || 0;
     const fin = Number(hoja.data[r][colFin]) || 0;
@@ -651,9 +664,11 @@ function _chequearMermaServilletas(ev) {
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
   const hoja = _loadHojaInv('Manteles');
   let totalPerdidas = 0;
-  for (let r = 4; r < hoja.lastRow; r++) {
-    const item = String(hoja.data[r][0] || '').trim().toUpperCase();
-    if (!item || !/^SERVILLETA/.test(item)) continue;
+  for (let r = 3; r < hoja.lastRow; r++) {
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!_esItemValido(itemRaw)) break;
+    const item = itemRaw.toUpperCase();
+    if (!/^SERVILLETA/.test(item)) continue;
     const ini = Number(hoja.data[r][colIni]) || 0;
     const fin = Number(hoja.data[r][colFin]) || 0;
     const diff = ini - fin;
@@ -676,9 +691,9 @@ function _chequearMermaCubiertos(ev) {
   if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Cubiertos' };
   const hoja = _loadHojaInv('Cubiertos');
   let totalPerdidos = 0;
-  for (let r = 4; r < hoja.lastRow; r++) {
+  for (let r = 3; r < hoja.lastRow; r++) {
     const item = String(hoja.data[r][0] || '').trim();
-    if (!item) continue;
+    if (!_esItemValido(item)) break; // fin del bloque principal (evita "Historico Estoril" etc.)
     const ini = Number(hoja.data[r][colIni]) || 0;
     const fin = Number(hoja.data[r][colFin]) || 0;
     const diff = ini - fin;
