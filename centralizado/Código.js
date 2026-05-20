@@ -1235,17 +1235,43 @@ function procesarBonosYMails(semana, payload) {
     // v52: leer Mails_Enviados de la semana para dedup
     var yaEnviadosMap = _leerMailsEnviados(semana);
 
+    // v54: verificar cuota Gmail antes de empezar.
+    // MailApp.getRemainingDailyQuota retorna mails disponibles HOY.
+    // Workspace básico: 1500/día. Consumer: 100/día.
+    // GmailApp.sendEmail también consume cuota MailApp.
+    var quotaRestante = -1;
+    try { quotaRestante = MailApp.getRemainingDailyQuota(); } catch(e) {}
+    resultado.mails.quotaInicial = quotaRestante;
+    Logger.log('Quota Gmail restante al inicio: ' + quotaRestante);
+
     var asunto = 'Resumen de bonos — Tinto Banquetería';
     var autor = '';
     try { autor = Session.getActiveUser().getEmail() || ''; } catch(e) {}
 
-    trabsFiltrados.forEach(function(t) {
+    var pendientesReales = trabsFiltrados.filter(function(t) {
+      return forzarReenvio || !yaEnviadosMap[t.nombreNorm];
+    }).length;
+    if (quotaRestante >= 0 && pendientesReales > quotaRestante) {
+      Logger.log('ADVERTENCIA: ' + pendientesReales + ' a enviar pero solo ' + quotaRestante + ' de cuota.');
+      resultado.mails.quotaInsuficiente = true;
+    }
+
+    trabsFiltrados.forEach(function(t, idx) {
       // Skip si ya tiene mail enviado esta semana (a menos que se fuerce)
       if (!forzarReenvio && yaEnviadosMap[t.nombreNorm]) {
         resultado.mails.yaEnviados.push({
           nombre: t.nombre, email: t.email,
           fechaPrevia: yaEnviadosMap[t.nombreNorm].fecha,
           autorPrevio: yaEnviadosMap[t.nombreNorm].autor
+        });
+        return;
+      }
+      // Validar email antes de intentar
+      if (!t.email || !/.+@.+\..+/.test(t.email)) {
+        resultado.mails.errores.push({
+          nombre: t.nombre,
+          email: t.email || '(sin email)',
+          error: 'Email inválido o vacío'
         });
         return;
       }
@@ -1266,15 +1292,24 @@ function procesarBonosYMails(semana, payload) {
           nombre: t.nombre, email: t.email, monto: t.totalMonto
         });
       } catch(e) {
-        Logger.log('Error enviando a ' + (t.email || '(sin email)') + ' [' + t.nombre + ']: ' +
-                   e + '\n' + (e.stack || ''));
+        var errMsg = e.message || e.toString();
+        // Detectar cuota agotada explícitamente
+        if (/too many|quota|invoked too many times|service.*limit/i.test(errMsg)) {
+          errMsg = 'Cuota Gmail agotada (límite diario alcanzado). Reintenta mañana.';
+        }
+        Logger.log('Error enviando a ' + t.email + ' [' + t.nombre + ', idx=' + idx + ']: ' +
+                   errMsg + '\n' + (e.stack || ''));
         resultado.mails.errores.push({
           nombre: t.nombre,
-          email: t.email || '(sin email)',
-          error: e.message || e.toString()
+          email: t.email,
+          error: errMsg
         });
       }
     });
+    try {
+      resultado.mails.quotaFinal = MailApp.getRemainingDailyQuota();
+      Logger.log('Quota Gmail restante al final: ' + resultado.mails.quotaFinal);
+    } catch(e) {}
     resultado.mails.totalEnviados   = resultado.mails.enviados.length;
     resultado.mails.totalErrores    = resultado.mails.errores.length;
     resultado.mails.totalYaEnviados = resultado.mails.yaEnviados.length;

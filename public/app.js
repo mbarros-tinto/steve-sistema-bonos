@@ -1242,6 +1242,18 @@ function _renderResultadoProcesar(r) {
     });
     html += '</div>';
   }
+  // v54: info de cuota Gmail
+  if (m.quotaInicial !== undefined && m.quotaInicial >= 0) {
+    var usados = (m.quotaInicial - (m.quotaFinal !== undefined ? m.quotaFinal : m.quotaInicial));
+    var quotaClass = m.quotaInsuficiente ? 'warn' : '';
+    var quotaInfo = 'Cuota Gmail: ' + m.quotaInicial + ' al inicio · ' + usados + ' usados';
+    if (m.quotaFinal !== undefined) quotaInfo += ' · ' + m.quotaFinal + ' restantes';
+    if (m.quotaInsuficiente) quotaInfo += ' ⚠ cuota insuficiente para el total';
+    html += '<div class="modal-section" style="background:' + (m.quotaInsuficiente ? 'rgba(232,177,110,0.13)' : 'rgba(122,168,212,0.08)') +
+            ';border-color:' + (m.quotaInsuficiente ? 'rgba(232,177,110,0.4)' : 'rgba(122,168,212,0.3)') + ';">' +
+            '<div style="color:' + (m.quotaInsuficiente ? 'var(--warn)' : '#7fa8d4') + ';font-size:0.85em;">📊 ' + esc(quotaInfo) + '</div></div>';
+  }
+
   // v52: trabajadores skipped por dedup (ya recibieron mail antes en la semana)
   if (m.yaEnviados && m.yaEnviados.length) {
     html += '<div class="modal-section" style="background:rgba(232,177,110,0.13);border-color:rgba(232,177,110,0.4);">' +
