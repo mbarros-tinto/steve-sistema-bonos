@@ -212,17 +212,24 @@ function saveEvaluation(evaluaciones) {
     const sheet   = SpreadsheetApp.openById(ID_CG).getSheetByName('Bono CG');
     const tsStr   = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
     const lastRow = sheet.getLastRow();
+    // Normalización defensiva: la key de upsert era case-sensitive y sensible
+    // a tildes/espacios. Si el cargo se guardaba como "Garzon Vestíbulo" y
+    // luego venía como "garzon vestibulo" (sin tilde, lowercase), se creaba
+    // fila nueva en vez de sobreescribir. La re-evaluación se "perdía".
+    const _normKey = (s) => String(s || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
     const existingRowMap = {};
     if (lastRow >= 4) {
       sheet.getRange(4, 1, lastRow - 3, 5).getValues().forEach((r, idx) => {
-        if (r[2]) existingRowMap[String(r[2]).trim() + '|||' + String(r[4]).trim()] = 4 + idx;
+        if (r[2]) existingRowMap[_normKey(r[2]) + '|||' + _normKey(r[4])] = 4 + idx;
       });
     }
     const newRows = [];
+    const newRowKeyIdx = {}; // key normalizado → índice en newRows (dedup intra-batch)
     let rowsUpdated = 0;
     evaluaciones.forEach(ev => {
       const normCargo = ev.cargo;
-      const key   = `${ev.codigoEvento}|||${normCargo}`;
+      const key   = _normKey(ev.codigoEvento) + '|||' + _normKey(normCargo);
       const crits = [...ev.criterioValues];
       while (crits.length < 10) crits.push('--');
       const activos   = ev.criterioValues.filter(c => c !== '--');
@@ -238,12 +245,17 @@ function saveEvaluation(evaluaciones) {
         normCargo, '',
         ...crits, total, cumplidos, pct, gana, tsStr
       ];
-      if (existingRowMap[key] !== undefined) {
+      if (existingRowMap[key] !== undefined && existingRowMap[key] > 0) {
+        // Sobreescribir fila existente en el sheet
         sheet.getRange(existingRowMap[key], 1, 1, 21).setValues([rowData]);
         rowsUpdated++;
+      } else if (newRowKeyIdx[key] !== undefined) {
+        // Mismo cargo enviado 2 veces en el mismo POST: pisa la fila pendiente
+        // (en vez de duplicar). El último wins, consistente con el upsert.
+        newRows[newRowKeyIdx[key]] = rowData;
       } else {
+        newRowKeyIdx[key] = newRows.length;
         newRows.push(rowData);
-        existingRowMap[key] = -1;
       }
     });
     if (newRows.length > 0) {

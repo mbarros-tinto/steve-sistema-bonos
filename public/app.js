@@ -214,16 +214,23 @@ function cargarSemana() {
   APP.semanaActual = semana;
   spinner('resSemana', 'Cargando bonos de la semana…');
 
+  // Guard contra race condition: si el usuario cambia de semana antes que
+  // llegue la respuesta de la actual, descartamos el resultado obsoleto.
+  // Snapshot el valor que estamos pidiendo y comparamos en el .then.
+  var semanaPedida = semana;
+
   Promise.all([
     apiGet('getDatosSemana', { semana: semana }),
     apiGet('getDetalleCriteriosSemana', { semana: semana })
   ]).then(function(arr) {
+    if (APP.semanaActual !== semanaPedida) return; // respuesta stale, descartar
     var datos   = arr[0];
     var detalle = arr[1];
     APP.semanaData  = datos;
     APP.detalleData = detalle;
     renderSemana(datos, detalle);
   }).catch(function(e) {
+    if (APP.semanaActual !== semanaPedida) return;
     document.getElementById('resSemana').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div><p>Error: ' + esc(e.message) + '</p></div>';
   });
