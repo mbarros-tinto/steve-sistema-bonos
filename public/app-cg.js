@@ -482,16 +482,83 @@ function cgOnItemInput(codigoEvento, categoria, row, col, hoja, campo, input) {
       }
     }
   }
-  // Persistir con debounce
+  // Persistir con debounce. Tras éxito, refrescar cascada de bonos (autoChequeos
+  // + Pérdidas) sin re-render completo: solo actualiza estado y re-pinta el
+  // panel Pérdidas y la sección de cargos del evento afectado.
   var key = hoja + '::' + row + '::' + col;
   clearTimeout(_cgItemDebounce[key]);
   _cgItemDebounce[key] = setTimeout(function() {
     cgApiPost('saveItemPerdida', { payload: { hoja: hoja, row: row, col: col, value: val } })
       .then(function(r) {
-        if (r && r.success) showToast(hoja + ' actualizado', 'ok');
-        else showToast('Error: ' + (r && r.error), 'err');
+        if (r && r.success) {
+          showToast(hoja + ' actualizado · actualizando bonos…', 'ok');
+          cgRefrescarTrasEdicion(codigoEvento);
+        } else {
+          showToast('Error: ' + (r && r.error), 'err');
+        }
       });
   }, 700);
+}
+
+// Tras un edit que persiste al sheet inv, recargar autoChequeos + pérdidas
+// y re-pintar los cargos del evento afectado. Mantiene el estado del panel
+// Pérdidas (desplegables abiertos).
+function cgRefrescarTrasEdicion(codigoEvento) {
+  if (!CG.semana) return;
+  Promise.all([
+    cgApiGet('datosForSemana', { semana: CG.semana }),
+    cgApiGet('getPerdidasPorSemana', { semana: CG.semana })
+  ]).then(function(arr) {
+    var data = arr[0]; var perd = arr[1];
+    CG.autoChequeos = data.autoChequeos || {};
+    CG.guardados    = data.yaEvaluados   || [];
+    CG.guardadosVajilla = data.yaEvaluadosVajilla || [];
+    CG.perdidas     = (perd && perd.eventos) || [];
+    // Re-render del evento afectado (cargos) sin tocar panel Pérdidas DOM
+    cgRepintarCargosDeEvento(codigoEvento);
+    // También actualizar las sumas de las filas principales del panel Pérdidas
+    cgRepintarFilasPanelPerdidas(codigoEvento);
+  }).catch(function() { /* silent */ });
+}
+
+function cgRepintarCargosDeEvento(codigoEvento) {
+  // Buscar el cg-event-card y reemplazar su contenido
+  var cards = document.querySelectorAll('.cg-event-card');
+  var ev = CG.eventos.find(function(e) { return e.codigoEvento === codigoEvento; });
+  if (!ev) return;
+  var cargos = Object.keys(CG.config);
+  cards.forEach(function(card) {
+    var meta = card.querySelector('.cg-event-meta');
+    if (!meta || meta.textContent.indexOf(codigoEvento) < 0) return;
+    // Reemplazar el card completo
+    var newHTML = cgRenderEvento(ev, cargos);
+    var tempDiv = document.createElement('div');
+    tempDiv.innerHTML = newHTML;
+    if (tempDiv.firstChild) card.parentNode.replaceChild(tempDiv.firstChild, card);
+  });
+}
+
+function cgRepintarFilasPanelPerdidas(codigoEvento) {
+  var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+  if (!p) return;
+  var safeKey = cgSafeId(codigoEvento, '');
+  ['manteles','caminos','prendas','servilletas','cubiertos'].forEach(function(cat) {
+    var c = p[cat]; if (!c) return;
+    var iniEl = document.getElementById('cg-perd-' + safeKey + '-' + cat + '-ini');
+    var finEl = document.getElementById('cg-perd-' + safeKey + '-' + cat + '-fin');
+    var pidEl = document.getElementById('cg-perd-' + safeKey + '-' + cat + '-perdida');
+    if (iniEl) iniEl.textContent = cgFmt(c.inicial);
+    if (finEl) finEl.textContent = cgFmt(c.final);
+    if (pidEl) {
+      var limite = cat === 'manteles' || cat === 'caminos' || cat === 'prendas' ? 0
+                 : cat === 'servilletas' ? 20 : 40;
+      var statusCls = (limite > 0)
+        ? (c.perdidaNeta < limite ? 'perd-ok' : 'perd-bad')
+        : (c.perdidaNeta === 0 ? 'perd-ok' : 'perd-bad');
+      pidEl.className = 'perd-neta ' + statusCls;
+      pidEl.innerHTML = cgFmt(c.perdidaNeta) + (limite > 0 ? ' <span class="perd-lim">(<' + limite + ')</span>' : '');
+    }
+  });
 }
 
 function cgEvKey(centro, fechaEvento) {

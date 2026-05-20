@@ -1233,16 +1233,27 @@ function _resolverChequeoCriterio(crit, ev) {
   if (/env[ií]o.*conteo.*final.*cocina/i.test(crit))     return _chequearFormulario(ev, 'Cocina',   'Conteo final');
   if (/env[ií]o.*conteo.*inicial.*l[ií]quido/i.test(crit)) return _chequearFormulario(ev, 'Liquidos', 'Conteo inicial');
   if (/env[ií]o.*conteo.*final.*l[ií]quido/i.test(crit))   return _chequearFormulario(ev, 'Liquidos', 'Conteo final');
-  // Asignación Conteo Cosas Casa CG - "Manda formulario X cubiertos/manteles"
-  if (/manda formulario inicial cubierto/i.test(crit))   return _chequearFormulario(ev, 'Cubiertos', 'Casa Inicial');
-  if (/manda formulario final cubierto/i.test(crit))     return _chequearFormulario(ev, 'Cubiertos', 'Casa Final');
-  if (/manda formulario inicial mantel/i.test(crit))     return _chequearFormulario(ev, 'Manteles',  'Casa Inicial');
-  if (/manda formulario final mantel/i.test(crit))       return _chequearFormulario(ev, 'Manteles',  'Casa Final');
+  // Asignación Conteo Cosas Casa CG - "Manda formulario X cubiertos/manteles".
+  // El usuario aclara: inicial/final del formulario corresponden a Evento Inicial
+  // (2da col) y Evento Final (3ra col) — NO Casa Inicial / Casa Final.
+  if (/manda formulario inicial cubierto/i.test(crit))   return _chequearFormulario(ev, 'Cubiertos', 'Evento Inicial');
+  if (/manda formulario final cubierto/i.test(crit))     return _chequearFormulario(ev, 'Cubiertos', 'Evento Final');
+  if (/manda formulario inicial mantel/i.test(crit))     return _chequearFormulario(ev, 'Manteles',  'Evento Inicial');
+  if (/manda formulario final mantel/i.test(crit))       return _chequearFormulario(ev, 'Manteles',  'Evento Final');
+  // Jefa de Floristas / Jefa de Decoración - inventarios en hoja Decoración (nomenclatura A).
+  // "Conteo inicial" = 2da col del bloque; "Conteo final" = 3ra col.
+  if (/inventario inicial.*enviado|env[ií]o.*inventario inicial/i.test(crit))
+                                                         return _chequearFormulario(ev, 'Decoracion', 'Conteo inicial');
+  if (/mando inventario final|env[ií]o.*inventario final|inventario final.*enviado/i.test(crit))
+                                                         return _chequearFormulario(ev, 'Decoracion', 'Conteo final');
   if (/no se pierde ning[uú]n mantel/i.test(crit))       return _chequearMermaMantelCamino(ev);
   // Asignación Conteo Cosas Casa CG criterio 5 - prendas (PECHERA/POLAR/CORBATA)
   if (/no se pierde ninguna (pechera|polar|corbata)/i.test(crit)) return _chequearMermaPrendas(ev);
   if (/pierden menos de 20 servilletas/i.test(crit))     return _chequearMermaServilletas(ev);
-  if (/pierden menos de 40 cubiertos/i.test(crit))       return _chequearMermaCubiertos(ev);
+  // Cubiertos: cubre tanto "pierden menos de 40 cubiertos" (Garzones) como
+  // "Conteo de cubiertos, pérdida menor a 40 unidades" (Super metre).
+  if (/conteo de cubiertos.*40|pierden menos de 40 cubiertos|cubiertos.*p[eé]rdida menor a 40|p[eé]rdida menor a 40.*cubiertos/i.test(crit))
+                                                         return _chequearMermaCubiertos(ev);
   return null;
 }
 
