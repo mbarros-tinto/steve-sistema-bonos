@@ -1512,3 +1512,16 @@ select option { background: var(--ink); color: #fff; }
   line-height: 1.4;
 }
 .cg-perd-warning b { color: #fff; font-weight: 600; }
+
+.perd-compartido-info {
+  background: rgba(143, 209, 158, 0.1);
+  border-left: 3px solid var(--ok);
+  padding: 8px 12px;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 8px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+.perd-compartido-info b { color: var(--ok); }
+.perd-compartido-info i { color: var(--gold-soft); font-style: normal; }

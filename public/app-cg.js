@@ -414,18 +414,31 @@ function cgTogglePerdidaItems(codigoEvento, categoria, safeKey) {
 function cgRenderPerdidaItems(wrap, data, categoria, codigoEvento, safeKey) {
   var items = data[categoria] || [];
   if (!items.length) { wrap.innerHTML = '<div class="hint">Sin items en esta categoría.</div>'; return; }
-  var html = '<table class="perd-items-table">' +
+  var html = '';
+  // Si es categoría cubiertos y hay compartido, mostrar banner con info
+  if (categoria === 'cubiertos' && data.compartido) {
+    html += '<div class="perd-compartido-info">🔗 <b>Cubiertos compartidos</b>: ' +
+      '<b>Casa Inicial</b> de <i>' + cgEsc(data.compartido.primero.centro) + '</i>, ' +
+      '<b>Casa Final</b> de <i>' + cgEsc(data.compartido.segundo.centro) + '</i>. ' +
+      'Pérdida mostrada es bruta del par; el total del evento aplica ÷2.' +
+      '</div>';
+  }
+  html += '<table class="perd-items-table">' +
     '<thead><tr><th>Item</th><th>Casa Inicial</th><th>Casa Final</th><th>Pérdida</th></tr></thead><tbody>';
   items.forEach(function(it) {
     var iid = 'perd-it-' + safeKey + '-' + categoria + '-' + it.row + '-ini';
     var fid = 'perd-it-' + safeKey + '-' + categoria + '-' + it.row + '-fin';
     var pid = 'perd-it-' + safeKey + '-' + categoria + '-' + it.row + '-perd';
     var perdCls = it.perdida > 0 ? 'perd-item-bad' : 'perd-item-ok';
+    var titleIni = it.compartido && it.centroIni ? 'Editando: ' + it.centroIni : '';
+    var titleFin = it.compartido && it.centroFin ? 'Editando: ' + it.centroFin : '';
     html += '<tr data-row="' + it.row + '" data-hoja="' + cgAttr(it.hoja) + '">' +
       '<td class="perd-item-name">' + cgEsc(it.item) + '</td>' +
       '<td><input type="number" class="perd-input-item" id="' + iid + '" value="' + it.casaInicial + '"' +
+        (titleIni ? ' title="' + cgAttr(titleIni) + '"' : '') +
         ' onchange="cgOnItemInput(\'' + cgAttr(codigoEvento) + '\', \'' + categoria + '\', ' + it.row + ', ' + it.colIniSheet + ', \'' + it.hoja + '\', \'ini\', this)"></td>' +
       '<td><input type="number" class="perd-input-item" id="' + fid + '" value="' + it.casaFinal + '"' +
+        (titleFin ? ' title="' + cgAttr(titleFin) + '"' : '') +
         ' onchange="cgOnItemInput(\'' + cgAttr(codigoEvento) + '\', \'' + categoria + '\', ' + it.row + ', ' + it.colFinSheet + ', \'' + it.hoja + '\', \'fin\', this)"></td>' +
       '<td class="perd-item-perd ' + perdCls + '" id="' + pid + '">' + cgFmt(it.perdida) + '</td>' +
       '</tr>';

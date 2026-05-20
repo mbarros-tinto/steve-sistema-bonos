@@ -656,7 +656,11 @@ var REGEX_MANTEL        = /^MANTEL/;
 var REGEX_CAMINO        = /^CAMINO/;
 var REGEX_PRENDA        = /^(PECHERA|CORBATA|POLAR)/;
 var REGEX_SERVILLETA    = /^SERVILLETA/;
-var REGEX_BONO_MANTELERIA = /^(MANTEL|CAMINO|PECHERA|CORBATA|POLAR)/; // bono "mantel ni camino"
+// Bono "no se pierde ningún mantel ni camino" (Garzones / Barmans CG) →
+// SOLO manteles + caminos. Las prendas (POLAR/PECHERAS/CORBATAS) tienen
+// su propio bono "no se pierde ninguna pechera, polar y corbata"
+// (Asignación Conteo Cosas Casa CG, criterio 5).
+var REGEX_BONO_MANTELERIA = /^(MANTEL|CAMINO)/;
 // Legacy alias para compatibilidad
 var REGEX_MANTEL_CAMINO = REGEX_BONO_MANTELERIA;
 
@@ -727,7 +731,7 @@ function _chequearMermaMantelCamino(ev) {
     return { ok: true, motivo: '✓ No se perdieron manteles ni caminos' +
       (calc.override ? ' (override)' : (calc.robo > 0 ? ' (bruta=' + calc.perdidaBruta + ', robo=' + calc.robo + ')' : '')) };
   }
-  return { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' manteles/caminos/prendas' +
+  return { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' manteles/caminos' +
     (calc.override ? ' (override)' : '') +
     (calc.robo > 0 ? ' (bruta=' + calc.perdidaBruta + ', robo=' + calc.robo + ', neta=' + calc.perdidaNeta + ')' : '') };
 }
@@ -1074,7 +1078,8 @@ function _hayDatosCategoria(ev, hojaName, regex) {
 function getItemsPerdidaEvento(centro, fechaEvento) {
   try {
     const out = { centro, fechaEvento,
-                  manteles: [], caminos: [], prendas: [], servilletas: [], cubiertos: [] };
+                  manteles: [], caminos: [], prendas: [], servilletas: [], cubiertos: [],
+                  compartido: null };
 
     // Leer hoja Manteles (manteles + caminos + prendas + servilletas)
     const evMant = _findEventoEnHojaInv('Manteles', centro, fechaEvento);
@@ -1100,21 +1105,58 @@ function getItemsPerdidaEvento(centro, fechaEvento) {
       }
     }
 
-    // Leer hoja Cubiertos
-    const evCub = _findEventoEnHojaInv('Cubiertos', centro, fechaEvento);
-    if (evCub) {
+    // Cubiertos: si hay par compartido, mostrar Casa Inicial del PRIMER evento
+    // (fecha menor) y Casa Final del SEGUNDO (fecha mayor). Las cols del primero
+    // se usan al editar Casa Inicial; las del segundo al editar Casa Final.
+    const par = _leerParCompartido(centro, fechaEvento);
+    let primero = { centro, fechaEvento };
+    let segundo = null;
+    if (par) {
+      const f1ISO = _normFechaISO(par.fecha1);
+      const f2ISO = _normFechaISO(par.fecha2);
+      if (f1ISO <= f2ISO) {
+        primero = { centro: par.centro1, fechaEvento: par.fecha1 };
+        segundo = { centro: par.centro2, fechaEvento: par.fecha2 };
+      } else {
+        primero = { centro: par.centro2, fechaEvento: par.fecha2 };
+        segundo = { centro: par.centro1, fechaEvento: par.fecha1 };
+      }
+      out.compartido = { primero, segundo };
+    }
+
+    const evCubPri = _findEventoEnHojaInv('Cubiertos', primero.centro, primero.fechaEvento);
+    const evCubSeg = segundo ? _findEventoEnHojaInv('Cubiertos', segundo.centro, segundo.fechaEvento) : null;
+    if (evCubPri) {
       const hojaC = _loadHojaInv('Cubiertos');
-      const colIni = evCub.colsSubform['Casa Inicial'];
-      const colFin = evCub.colsSubform['Casa Final'];
+      const colIniPri = evCubPri.colsSubform['Casa Inicial'];
+      const colFinPri = evCubPri.colsSubform['Casa Final'];
+      const colFinSeg = evCubSeg ? evCubSeg.colsSubform['Casa Final'] : null;
       for (let r = 3; r < hojaC.lastRow; r++) {
         const itemRaw = String(hojaC.data[r][0] || '').trim();
         if (!_esItemValido(itemRaw)) break;
-        const ini = Number(hojaC.data[r][colIni]) || 0;
-        const fin = Number(hojaC.data[r][colFin]) || 0;
+        const iniPri = Number(hojaC.data[r][colIniPri]) || 0;
+        // Si compartido: Casa Final es del SEGUNDO evento
+        const finVal = (evCubSeg && colFinSeg != null)
+          ? (Number(hojaC.data[r][colFinSeg]) || 0)
+          : (Number(hojaC.data[r][colFinPri]) || 0);
+        // En compartido, la pérdida del ITEM se muestra BRUTA (ini-fin del par).
+        // El /2 solo se aplica al TOTAL del evento (panel arriba). Esto mantiene
+        // los números consistentes con lo que ves en la hoja inv.
+        const perdida = Math.max(0, iniPri - finVal);
         out.cubiertos.push({
-          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: Math.max(0, ini - fin),
-          row: r + 1, colIniSheet: colIni + 1, colFinSheet: colFin + 1,
-          hoja: 'Cubiertos'
+          item: itemRaw,
+          casaInicial: iniPri,
+          casaFinal: finVal,
+          perdida: perdida,
+          row: r + 1,
+          // Casa Inicial → escribir al evento PRIMERO
+          colIniSheet: colIniPri + 1,
+          // Casa Final → si compartido, al evento SEGUNDO; sino al mismo
+          colFinSheet: (evCubSeg && colFinSeg != null) ? (colFinSeg + 1) : (colFinPri + 1),
+          hoja: 'Cubiertos',
+          compartido: !!par,
+          centroIni: primero.centro,
+          centroFin: segundo ? segundo.centro : primero.centro
         });
       }
     }
@@ -1191,10 +1233,31 @@ function _resolverChequeoCriterio(crit, ev) {
   if (/env[ií]o.*conteo.*final.*cocina/i.test(crit))     return _chequearFormulario(ev, 'Cocina',   'Conteo final');
   if (/env[ií]o.*conteo.*inicial.*l[ií]quido/i.test(crit)) return _chequearFormulario(ev, 'Liquidos', 'Conteo inicial');
   if (/env[ií]o.*conteo.*final.*l[ií]quido/i.test(crit))   return _chequearFormulario(ev, 'Liquidos', 'Conteo final');
+  // Asignación Conteo Cosas Casa CG - "Manda formulario X cubiertos/manteles"
+  if (/manda formulario inicial cubierto/i.test(crit))   return _chequearFormulario(ev, 'Cubiertos', 'Casa Inicial');
+  if (/manda formulario final cubierto/i.test(crit))     return _chequearFormulario(ev, 'Cubiertos', 'Casa Final');
+  if (/manda formulario inicial mantel/i.test(crit))     return _chequearFormulario(ev, 'Manteles',  'Casa Inicial');
+  if (/manda formulario final mantel/i.test(crit))       return _chequearFormulario(ev, 'Manteles',  'Casa Final');
   if (/no se pierde ning[uú]n mantel/i.test(crit))       return _chequearMermaMantelCamino(ev);
+  // Asignación Conteo Cosas Casa CG criterio 5 - prendas (PECHERA/POLAR/CORBATA)
+  if (/no se pierde ninguna (pechera|polar|corbata)/i.test(crit)) return _chequearMermaPrendas(ev);
   if (/pierden menos de 20 servilletas/i.test(crit))     return _chequearMermaServilletas(ev);
   if (/pierden menos de 40 cubiertos/i.test(crit))       return _chequearMermaCubiertos(ev);
   return null;
+}
+
+// Chequeo bono prendas (Asignación Conteo Cosas Casa criterio 5):
+// "No se pierde ninguna pechera, polar y corbata" → si la pérdida neta
+// de la categoría prendas es 0, bono ganado.
+function _chequearMermaPrendas(ev) {
+  const calc = _calcularPerdidasCategoria(ev, 'prendas');
+  if (calc.sinDatos) return { ok: null, motivo: '⚠ Sin datos de prendas en Manteles' };
+  if (calc.perdidaNeta === 0) {
+    return { ok: true, motivo: '✓ No se perdieron prendas' +
+      (calc.override ? ' (override)' : '') };
+  }
+  return { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' prenda(s)' +
+    (calc.override ? ' (override)' : '') };
 }
 
 // Resultado: { codigoEvento: { cargo: { idxCriterio: { ok, motivo } } } }
