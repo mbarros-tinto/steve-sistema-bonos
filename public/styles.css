@@ -1437,3 +1437,66 @@ select option { background: var(--ink); color: #fff; }
   padding: 4px 6px;
 }
 .perd-repite-sel:disabled { opacity: 0.4; }
+
+/* ── Panel Pérdidas: desplegable por item ── */
+.perd-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--gold);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.7em;
+  cursor: pointer;
+  margin-right: 4px;
+  transition: background var(--transition);
+}
+.perd-toggle:hover { background: rgba(201, 169, 110, 0.1); }
+.perd-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.85);
+}
+.perd-row-items td { padding: 0 !important; border-bottom: 1px solid var(--line) !important; }
+.perd-items-wrap {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 14px;
+}
+.perd-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82em;
+  margin: 4px 0;
+}
+.perd-items-table th {
+  text-align: left;
+  padding: 5px 8px;
+  font-weight: 600;
+  color: rgba(201, 169, 110, 0.7);
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.perd-items-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  color: rgba(255, 255, 255, 0.85);
+  vertical-align: middle;
+}
+.perd-items-table tr:last-child td { border-bottom: none; }
+.perd-item-name { font-weight: 500; color: rgba(255, 255, 255, 0.7); }
+.perd-input-item {
+  width: 70px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: #fff;
+  border-radius: 5px;
+  font-size: 0.86em;
+  outline: none;
+  text-align: right;
+}
+.perd-input-item:focus { border-color: var(--gold); }
+.perd-item-perd { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.perd-item-perd.perd-item-bad { color: var(--err); }
+.perd-item-perd.perd-item-ok  { color: rgba(255, 255, 255, 0.4); }

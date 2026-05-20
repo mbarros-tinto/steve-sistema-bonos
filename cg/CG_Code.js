@@ -67,6 +67,12 @@ function _routeApi(action, params, body) {
       case 'saveCubiertosCompartidos':
         result = saveCubiertosCompartidos((body && body.payload) || body || {});
         break;
+      case 'getItemsPerdidaEvento':
+        result = getItemsPerdidaEvento(params.centro || (body && body.centro) || '', params.fecha || (body && body.fecha) || '');
+        break;
+      case 'saveItemPerdida':
+        result = saveItemPerdida((body && body.payload) || body || {});
+        break;
       default:
         result = { error: 'Acción desconocida: ' + action };
     }
@@ -1011,6 +1017,86 @@ function getPerdidasPorSemana(semana) {
     });
     return { ok: true, semana, eventos: out };
   } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ENDPOINT: getItemsPerdidaEvento(centro, fecha)
+// Retorna items individuales por categoría con sus Casa Inicial/Final.
+// El frontend usa esto al expandir una categoría en el panel Pérdidas.
+// ════════════════════════════════════════════════════════════════════
+function getItemsPerdidaEvento(centro, fechaEvento) {
+  try {
+    const out = { centro, fechaEvento, manteles: [], servilletas: [], cubiertos: [] };
+
+    // Leer hoja Manteles (manteles + servilletas)
+    const evMant = _findEventoEnHojaInv('Manteles', centro, fechaEvento);
+    if (evMant) {
+      const hojaM = _loadHojaInv('Manteles');
+      const colIni = evMant.colsSubform['Casa Inicial'];
+      const colFin = evMant.colsSubform['Casa Final'];
+      for (let r = 3; r < hojaM.lastRow; r++) {
+        const itemRaw = String(hojaM.data[r][0] || '').trim();
+        if (!_esItemValido(itemRaw)) break;
+        const item = itemRaw.toUpperCase();
+        const ini = Number(hojaM.data[r][colIni]) || 0;
+        const fin = Number(hojaM.data[r][colFin]) || 0;
+        const perdida = Math.max(0, ini - fin);
+        const entry = {
+          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: perdida,
+          row: r + 1,            // 1-based para escribir con setValue
+          colIniSheet: colIni + 1, // 1-based
+          colFinSheet: colFin + 1, // 1-based
+          hoja: 'Manteles'
+        };
+        if (REGEX_MANTEL_CAMINO.test(item))  out.manteles.push(entry);
+        else if (REGEX_SERVILLETA.test(item)) out.servilletas.push(entry);
+      }
+    }
+
+    // Leer hoja Cubiertos
+    const evCub = _findEventoEnHojaInv('Cubiertos', centro, fechaEvento);
+    if (evCub) {
+      const hojaC = _loadHojaInv('Cubiertos');
+      const colIni = evCub.colsSubform['Casa Inicial'];
+      const colFin = evCub.colsSubform['Casa Final'];
+      for (let r = 3; r < hojaC.lastRow; r++) {
+        const itemRaw = String(hojaC.data[r][0] || '').trim();
+        if (!_esItemValido(itemRaw)) break;
+        const ini = Number(hojaC.data[r][colIni]) || 0;
+        const fin = Number(hojaC.data[r][colFin]) || 0;
+        const perdida = Math.max(0, ini - fin);
+        out.cubiertos.push({
+          item: itemRaw, casaInicial: ini, casaFinal: fin, perdida: perdida,
+          row: r + 1, colIniSheet: colIni + 1, colFinSheet: colFin + 1,
+          hoja: 'Cubiertos'
+        });
+      }
+    }
+    return { ok: true, ...out };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ENDPOINT: saveItemPerdida — escribe directo al sheet inventario CG.
+// payload: { hoja: 'Manteles'|'Cubiertos', row, col, value }
+// ════════════════════════════════════════════════════════════════════
+function saveItemPerdida(payload) {
+  try {
+    const hojaName = String(payload.hoja || '').trim();
+    if (hojaName !== 'Manteles' && hojaName !== 'Cubiertos') {
+      return { success: false, error: 'Hoja inválida: ' + hojaName };
+    }
+    const row = parseInt(payload.row, 10);
+    const col = parseInt(payload.col, 10);
+    if (!row || !col || row < 4 || col < 2) return { success: false, error: 'row/col inválidos' };
+    const value = (payload.value === '' || payload.value == null) ? '' : Number(payload.value);
+    const sheet = SpreadsheetApp.openById(ID_INVENTARIO_CG).getSheetByName(hojaName);
+    if (!sheet) return { success: false, error: 'Hoja no encontrada: ' + hojaName };
+    sheet.getRange(row, col).setValue(value);
+    // Invalidar cache local (próxima lectura recarga)
+    delete _cacheInvHojas[hojaName];
+    return { success: true };
+  } catch(e) { return { success: false, error: e.message }; }
 }
 
 function _calcularPerdidasCategoria(ev, categoria) {

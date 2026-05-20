@@ -302,22 +302,22 @@ function cgRenderPerdidasPanel() {
 
 function cgRenderPerdidaFila(p, key, label, limite, codigoEvento, safeKey) {
   var c = p[key]; if (!c) return '';
-  var iid = 'cg-perd-' + safeKey + '-' + key + '-ini';
-  var fid = 'cg-perd-' + safeKey + '-' + key + '-fin';
   var pidLabel = 'cg-perd-' + safeKey + '-' + key + '-perdida';
+  var iniLabel = 'cg-perd-' + safeKey + '-' + key + '-ini';
+  var finLabel = 'cg-perd-' + safeKey + '-' + key + '-fin';
   var statusCls = (limite > 0)
     ? (c.perdidaNeta < limite ? 'perd-ok' : 'perd-bad')
     : (c.perdidaNeta === 0 ? 'perd-ok' : 'perd-bad');
 
-  var html = '<tr data-codigo="' + cgAttr(codigoEvento) + '" data-cat="' + key + '">' +
-    '<td class="perd-cat">' + cgEsc(label) +
-      (c.override ? ' <span class="perd-badge-ov">✎</span>' : '') +
+  var html = '<tr data-codigo="' + cgAttr(codigoEvento) + '" data-cat="' + key + '" class="perd-row-main">' +
+    '<td class="perd-cat">' +
+      '<button class="perd-toggle" id="cg-tog-' + safeKey + '-' + key + '"' +
+      ' onclick="cgTogglePerdidaItems(\'' + cgAttr(codigoEvento) + '\', \'' + key + '\', \'' + safeKey + '\')">▼</button> ' +
+      cgEsc(label) +
       (c.compartido ? ' <span class="perd-badge-link">🔗</span>' : '') +
     '</td>' +
-    '<td><input type="number" class="perd-input" id="' + iid + '" value="' + c.inicial + '"' +
-      ' onchange="cgOnPerdidaInput(\'' + cgAttr(codigoEvento) + '\', \'' + key + '\', \'inicial\', this)"></td>' +
-    '<td><input type="number" class="perd-input" id="' + fid + '" value="' + c.final + '"' +
-      ' onchange="cgOnPerdidaInput(\'' + cgAttr(codigoEvento) + '\', \'' + key + '\', \'final\', this)"></td>' +
+    '<td class="perd-num" id="' + iniLabel + '">' + cgFmt(c.inicial) + '</td>' +
+    '<td class="perd-num" id="' + finLabel + '">' + cgFmt(c.final) + '</td>' +
     '<td class="perd-robo">' + cgFmt(c.robo) + '</td>' +
     '<td class="perd-neta ' + statusCls + '" id="' + pidLabel + '">' + cgFmt(c.perdidaNeta) +
       (limite > 0 ? ' <span class="perd-lim">(<' + limite + ')</span>' : '') +
@@ -329,7 +329,6 @@ function cgRenderPerdidaFila(p, key, label, limite, codigoEvento, safeKey) {
     var otroEvento = null;
     if (checked && c.parCompartido) {
       var c1k = cgEvKey(c.parCompartido.centro1, c.parCompartido.fecha1);
-      var c2k = cgEvKey(c.parCompartido.centro2, c.parCompartido.fecha2);
       var myk = cgEvKey(p.centro, p.fechaEvento);
       otroEvento = (c1k === myk)
         ? cgEvKey(c.parCompartido.centro2, c.parCompartido.fecha2)
@@ -342,7 +341,7 @@ function cgRenderPerdidaFila(p, key, label, limite, codigoEvento, safeKey) {
       ' onchange="cgOnRepiteSelect(\'' + cgAttr(codigoEvento) + '\', this)">' +
       '<option value="">— Otro evento —</option>';
     CG.eventos.forEach(function(ev) {
-      if (ev.codigoEvento === codigoEvento) return; // no listarse a sí mismo
+      if (ev.codigoEvento === codigoEvento) return;
       var k = cgEvKey(ev.centro, ev.fechaEvento);
       var sel = (k === otroEvento) ? ' selected' : '';
       html += '<option value="' + cgAttr(k) + '"' + sel + '>' + cgEsc(ev.codigoEvento) + '</option>';
@@ -353,39 +352,123 @@ function cgRenderPerdidaFila(p, key, label, limite, codigoEvento, safeKey) {
   }
 
   html += '</tr>';
+
+  // Fila desplegable (oculta por default) con items
+  html += '<tr class="perd-row-items" id="cg-items-' + safeKey + '-' + key + '" style="display:none;">' +
+    '<td colspan="6"><div class="perd-items-wrap" id="cg-items-wrap-' + safeKey + '-' + key + '">' +
+    '<div class="hint">Click ▼ para cargar items…</div>' +
+    '</div></td></tr>';
   return html;
+}
+
+// Toggle desplegable items de una categoría. Lazy load al primer expand.
+var _cgItemsCache = {}; // codigoEvento → { manteles, servilletas, cubiertos }
+
+function cgTogglePerdidaItems(codigoEvento, categoria, safeKey) {
+  var rowItems = document.getElementById('cg-items-' + safeKey + '-' + categoria);
+  var btn = document.getElementById('cg-tog-' + safeKey + '-' + categoria);
+  if (!rowItems || !btn) return;
+  var visible = rowItems.style.display !== 'none';
+  if (visible) {
+    rowItems.style.display = 'none';
+    btn.textContent = '▼';
+    return;
+  }
+  rowItems.style.display = '';
+  btn.textContent = '▲';
+
+  // Lazy load
+  var wrap = document.getElementById('cg-items-wrap-' + safeKey + '-' + categoria);
+  if (_cgItemsCache[codigoEvento]) {
+    cgRenderPerdidaItems(wrap, _cgItemsCache[codigoEvento], categoria, codigoEvento, safeKey);
+    return;
+  }
+  var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+  if (!p) return;
+  wrap.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Cargando items…</div>';
+  cgApiGet('getItemsPerdidaEvento', { centro: p.centro, fecha: p.fechaEvento })
+    .then(function(r) {
+      if (!r.ok) { wrap.innerHTML = '<div class="empty">Error: ' + cgEsc(r.error || '') + '</div>'; return; }
+      _cgItemsCache[codigoEvento] = r;
+      cgRenderPerdidaItems(wrap, r, categoria, codigoEvento, safeKey);
+    })
+    .catch(function(e) { wrap.innerHTML = '<div class="empty">Error: ' + cgEsc(e.message) + '</div>'; });
+}
+
+function cgRenderPerdidaItems(wrap, data, categoria, codigoEvento, safeKey) {
+  var items = data[categoria] || [];
+  if (!items.length) { wrap.innerHTML = '<div class="hint">Sin items en esta categoría.</div>'; return; }
+  var html = '<table class="perd-items-table">' +
+    '<thead><tr><th>Item</th><th>Casa Inicial</th><th>Casa Final</th><th>Pérdida</th></tr></thead><tbody>';
+  items.forEach(function(it) {
+    var iid = 'perd-it-' + safeKey + '-' + categoria + '-' + it.row + '-ini';
+    var fid = 'perd-it-' + safeKey + '-' + categoria + '-' + it.row + '-fin';
+    var pid = 'perd-it-' + safeKey + '-' + categoria + '-' + it.row + '-perd';
+    var perdCls = it.perdida > 0 ? 'perd-item-bad' : 'perd-item-ok';
+    html += '<tr data-row="' + it.row + '" data-hoja="' + cgAttr(it.hoja) + '">' +
+      '<td class="perd-item-name">' + cgEsc(it.item) + '</td>' +
+      '<td><input type="number" class="perd-input-item" id="' + iid + '" value="' + it.casaInicial + '"' +
+        ' onchange="cgOnItemInput(\'' + cgAttr(codigoEvento) + '\', \'' + categoria + '\', ' + it.row + ', ' + it.colIniSheet + ', \'' + it.hoja + '\', \'ini\', this)"></td>' +
+      '<td><input type="number" class="perd-input-item" id="' + fid + '" value="' + it.casaFinal + '"' +
+        ' onchange="cgOnItemInput(\'' + cgAttr(codigoEvento) + '\', \'' + categoria + '\', ' + it.row + ', ' + it.colFinSheet + ', \'' + it.hoja + '\', \'fin\', this)"></td>' +
+      '<td class="perd-item-perd ' + perdCls + '" id="' + pid + '">' + cgFmt(it.perdida) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+var _cgItemDebounce = {};
+
+function cgOnItemInput(codigoEvento, categoria, row, col, hoja, campo, input) {
+  var val = input.value === '' ? '' : Number(input.value);
+  // Actualizar cache local
+  var cached = _cgItemsCache[codigoEvento];
+  if (cached && cached[categoria]) {
+    var it = cached[categoria].find(function(x) { return x.row === row; });
+    if (it) {
+      if (campo === 'ini') it.casaInicial = val === '' ? 0 : val;
+      if (campo === 'fin') it.casaFinal   = val === '' ? 0 : val;
+      it.perdida = Math.max(0, it.casaInicial - it.casaFinal);
+      // Update label perdida en vivo
+      var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
+      var safeKey = cgSafeId(codigoEvento, '');
+      var pid = 'perd-it-' + safeKey + '-' + categoria + '-' + row + '-perd';
+      var el = document.getElementById(pid);
+      if (el) {
+        el.textContent = cgFmt(it.perdida);
+        el.className = 'perd-item-perd ' + (it.perdida > 0 ? 'perd-item-bad' : 'perd-item-ok');
+      }
+      // Recalcular suma de la categoría
+      var sumIni = 0, sumFin = 0;
+      cached[categoria].forEach(function(x) { sumIni += x.casaInicial; sumFin += x.casaFinal; });
+      if (p && p[categoria]) {
+        p[categoria].inicial = sumIni;
+        p[categoria].final   = sumFin;
+        var iniEl = document.getElementById('cg-perd-' + safeKey + '-' + categoria + '-ini');
+        var finEl = document.getElementById('cg-perd-' + safeKey + '-' + categoria + '-fin');
+        if (iniEl) iniEl.textContent = cgFmt(sumIni);
+        if (finEl) finEl.textContent = cgFmt(sumFin);
+        cgRecalcPerdidaFila(codigoEvento, categoria);
+      }
+    }
+  }
+  // Persistir con debounce
+  var key = hoja + '::' + row + '::' + col;
+  clearTimeout(_cgItemDebounce[key]);
+  _cgItemDebounce[key] = setTimeout(function() {
+    cgApiPost('saveItemPerdida', { payload: { hoja: hoja, row: row, col: col, value: val } })
+      .then(function(r) {
+        if (r && r.success) showToast(hoja + ' actualizado', 'ok');
+        else showToast('Error: ' + (r && r.error), 'err');
+      });
+  }, 700);
 }
 
 function cgEvKey(centro, fechaEvento) {
   // Usa centro y fechaEvento como key estable (sin acentos, lowercase)
   return String(centro || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') +
     '::' + String(fechaEvento || '').trim();
-}
-
-function cgOnPerdidaInput(codigoEvento, categoria, campo, input) {
-  var val = input.value === '' ? null : Number(input.value);
-  var p = CG.perdidas.find(function(x) { return x.codigoEvento === codigoEvento; });
-  if (!p || !p[categoria]) return;
-  // Update local
-  if (campo === 'inicial') p[categoria].inicial = (val == null ? 0 : val);
-  if (campo === 'final')   p[categoria].final   = (val == null ? 0 : val);
-  cgRecalcPerdidaFila(codigoEvento, categoria);
-  p[categoria].override = true;
-
-  // Persistir con debounce
-  var key = codigoEvento + '::' + categoria;
-  clearTimeout(_cgPerdDebounce[key]);
-  _cgPerdDebounce[key] = setTimeout(function() {
-    cgApiPost('saveOverridePerdida', {
-      payload: {
-        centro: p.centro, fecha: p.fechaEvento, categoria: categoria,
-        inicial: p[categoria].inicial, final: p[categoria].final
-      }
-    }).then(function(r) {
-      if (r && r.success) showToast('Override ' + categoria + ' guardado', 'ok');
-      else showToast('Error: ' + (r && r.error), 'err');
-    });
-  }, 700);
 }
 
 function cgRecalcPerdidaFila(codigoEvento, categoria) {
