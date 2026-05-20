@@ -346,6 +346,22 @@ function _ensureMailsEnviadosSheet() {
 }
 
 // Map: trabajadorNorm -> { nombre, email, monto, ganados, noGanados, fecha, autor }
+// v53: normaliza una semana a formato dd-mm-yyyy para comparación robusta
+// (Sheets puede auto-convertir el texto a Date object y al leer lo devuelve
+// con slash en vez de guión, rompiendo el matching exacto).
+function _normSemanaKey(v) {
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    var dd = String(v.getDate()).padStart(2, '0');
+    var mm = String(v.getMonth() + 1).padStart(2, '0');
+    return dd + '-' + mm + '-' + v.getFullYear();
+  }
+  var s = String(v == null ? '' : v).trim();
+  var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return String(parseInt(m[1], 10)).padStart(2, '0') + '-' +
+                String(parseInt(m[2], 10)).padStart(2, '0') + '-' + m[3];
+  return s;
+}
+
 function _leerMailsEnviados(semana) {
   var map = {};
   try {
@@ -353,9 +369,9 @@ function _leerMailsEnviados(semana) {
     var h = ss.getSheetByName(HOJA_MAILS_ENVIADOS);
     if (!h || h.getLastRow() < 2) return map;
     var data = h.getRange(2, 1, h.getLastRow() - 1, 9).getValues();
+    var semanaKey = _normSemanaKey(semana);
     data.forEach(function(r) {
-      var rowSemana = String(r[3]).trim();
-      if (rowSemana !== String(semana).trim()) return;
+      if (_normSemanaKey(r[3]) !== semanaKey) return;
       var trabNorm = String(r[1]).trim();
       if (!trabNorm) return;
       map[trabNorm] = {
@@ -378,24 +394,35 @@ function _registrarMailEnviado(t, semana, autor) {
   try {
     var h = _ensureMailsEnviadosSheet();
     var fechaStr = Utilities.formatDate(new Date(), 'America/Santiago', 'dd/MM/yyyy HH:mm');
+    // Forzar columna Semana como texto para evitar auto-conversión a Date
+    // por Google Sheets (que rompía el matching exacto del dedup).
+    var semanaTxt = _normSemanaKey(semana);
     var row = [
-      t.nombre, t.nombreNorm, t.email, semana,
+      t.nombre, t.nombreNorm, t.email, semanaTxt,
       t.totalMonto, t.ganados, t.noGanados,
       fechaStr, autor || ''
     ];
-    // Upsert por (trabajadorNorm, semana)
+    // Upsert por (trabajadorNorm, semana) — comparación normalizada
     var found = -1;
     if (h.getLastRow() >= 2) {
-      var data = h.getRange(2, 2, h.getLastRow() - 1, 3).getValues(); // B (norm), C (email), D (semana)
+      var data = h.getRange(2, 2, h.getLastRow() - 1, 3).getValues();
+      var semanaKey = _normSemanaKey(semana);
       for (var i = 0; i < data.length; i++) {
-        if (String(data[i][0]).trim() === t.nombreNorm && String(data[i][2]).trim() === semana) {
+        if (String(data[i][0]).trim() === t.nombreNorm && _normSemanaKey(data[i][2]) === semanaKey) {
           found = i + 2; break;
         }
       }
     }
-    if (found > 0) h.getRange(found, 1, 1, 9).setValues([row]);
-    else            h.getRange(h.getLastRow() + 1, 1, 1, 9).setValues([row]);
-  } catch(e) { Logger.log('_registrarMailEnviado error: ' + e); }
+    // Setear la col D (Semana) explícitamente como text format antes de escribir
+    if (found > 0) {
+      h.getRange(found, 4).setNumberFormat('@');
+      h.getRange(found, 1, 1, 9).setValues([row]);
+    } else {
+      var newRow = h.getLastRow() + 1;
+      h.getRange(newRow, 4).setNumberFormat('@');
+      h.getRange(newRow, 1, 1, 9).setValues([row]);
+    }
+  } catch(e) { Logger.log('_registrarMailEnviado error: ' + e + '\n' + (e.stack || '')); }
 }
 
 // Lee tab "Inscripcion" del Maestro de Trabajadores y retorna un map
