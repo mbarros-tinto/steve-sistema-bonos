@@ -1236,9 +1236,22 @@ function _renderResultadoProcesar(r) {
   if (m.enviados && m.enviados.length) {
     html += '<div class="modal-section" style="background:rgba(46,125,90,0.18);border-color:rgba(46,125,90,0.4);">' +
             '<div style="color:var(--ok);font-weight:700;">✅ ' + m.totalEnviados + ' mail(s) enviado(s)</div></div>';
-    html += '<div class="modal-section"><div class="modal-section-title">Enviados</div>';
+    html += '<div class="modal-section"><div class="modal-section-title">Enviados (' + m.enviados.length + ')</div>';
     m.enviados.forEach(function(e) {
       html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) + '<span class="modal-row-meta"> · ' + esc(e.email) + '</span></span><span class="modal-row-monto">$' + fmtMoney(e.monto) + '</span></div>';
+    });
+    html += '</div>';
+  }
+  // v52: trabajadores skipped por dedup (ya recibieron mail antes en la semana)
+  if (m.yaEnviados && m.yaEnviados.length) {
+    html += '<div class="modal-section" style="background:rgba(232,177,110,0.13);border-color:rgba(232,177,110,0.4);">' +
+            '<div style="color:var(--warn);font-weight:700;">⏭ ' + m.yaEnviados.length + ' mail(s) saltados — ya recibieron esta semana</div></div>';
+    html += '<div class="modal-section"><div class="modal-section-title">Ya enviados previamente</div>';
+    m.yaEnviados.forEach(function(e) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(e.nombre) +
+              '<span class="modal-row-meta"> · ' + esc(e.email) + '</span></span>' +
+              '<span style="color:var(--warn);font-size:0.78em;">' + esc(e.fechaPrevia || 'previo') +
+              (e.autorPrevio ? ' · por ' + esc(e.autorPrevio) : '') + '</span></div>';
     });
     html += '</div>';
   }
@@ -1254,7 +1267,11 @@ function _renderResultadoProcesar(r) {
   var box = document.getElementById('modalProcesarBox');
   var actions = box.querySelector('.modal-actions');
   if (actions) actions.innerHTML = '<button class="btn btn-secondary" onclick="cerrarModal(\'modalProcesarBackdrop\');cargarSemana();">Cerrar y recargar</button>';
-  showToast('Pagos: ' + (p.eventosEscritos || []).length + ' OK · Mails: ' + (m.totalEnviados || 0) + ' OK', (p.eventosFallidos && p.eventosFallidos.length) || (m.totalErrores) ? 'err' : 'ok');
+  var nErr = m.totalErrores || 0;
+  var nOk  = m.totalEnviados || 0;
+  var nSkip = m.totalYaEnviados || (m.yaEnviados || []).length;
+  showToast('Pagos: ' + (p.eventosEscritos || []).length + ' OK · Mails: ' + nOk + ' enviados, ' + nSkip + ' saltados, ' + nErr + ' errores',
+            (p.eventosFallidos && p.eventosFallidos.length) || nErr ? 'err' : 'ok');
 }
 
 // ===== MODAL MAIL BONOS (legacy, mantenido por compat — no se abre desde la UI) =====

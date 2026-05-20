@@ -1161,12 +1161,15 @@ function procesarBonosYMails(semana, payload) {
   payload = payload || {};
   var eventosAEscribir = payload.eventos || [];
   var trabsAEnviar     = payload.trabsMail || [];
+  // v52: por default NO reenvía mails a quien ya recibió en esa semana.
+  // Si se quiere forzar reenvío, pasar forzarReenvio: true en el payload.
+  var forzarReenvio    = !!payload.forzarReenvio;
 
   var resultado = {
     ok: true,
     semana: semana,
     pagos:  { eventosEscritos: [], eventosFallidos: [], totalMonto: 0, totalFilas: 0 },
-    mails:  { enviados: [], errores: [], totalEnviados: 0, totalErrores: 0 }
+    mails:  { enviados: [], errores: [], yaEnviados: [], totalEnviados: 0, totalErrores: 0, totalYaEnviados: 0 }
   };
 
   // 1. Escribir pagos por evento (uno a uno)
@@ -1185,11 +1188,12 @@ function procesarBonosYMails(semana, payload) {
         });
       }
     } catch(e) {
+      Logger.log('procesarBonosYMails error pago ' + codigo + ': ' + e + '\n' + (e.stack || ''));
       resultado.pagos.eventosFallidos.push({ codigo: codigo, msg: e.toString() });
     }
   });
 
-  // 2. Enviar mails — usa preview unificado para tener todos los datos
+  // 2. Enviar mails — usa preview unificado + dedup por Mails_Enviados
   if (trabsAEnviar.length > 0) {
     var prev = getResumenSemanaUnificado(semana);
     if (!prev || !prev.ok) {
@@ -1201,11 +1205,24 @@ function procesarBonosYMails(semana, payload) {
     trabsAEnviar.forEach(function(n) { setNombres[_normalizarNombre(n)] = true; });
     var trabsFiltrados = (prev.trabajadores || []).filter(function(t) { return setNombres[t.nombreNorm]; });
 
+    // v52: leer Mails_Enviados de la semana para dedup
+    var yaEnviadosMap = _leerMailsEnviados(semana);
+
     var asunto = 'Resumen de bonos — Tinto Banquetería';
     var autor = '';
     try { autor = Session.getActiveUser().getEmail() || ''; } catch(e) {}
 
     trabsFiltrados.forEach(function(t) {
+      // Skip si ya tiene mail enviado esta semana (a menos que se fuerce)
+      if (!forzarReenvio && yaEnviadosMap[t.nombreNorm]) {
+        resultado.mails.yaEnviados.push({
+          nombre: t.nombre, email: t.email,
+          fechaPrevia: yaEnviadosMap[t.nombreNorm].fecha,
+          autorPrevio: yaEnviadosMap[t.nombreNorm].autor
+        });
+        return;
+      }
+
       try {
         var html = _armarHtmlMailBonos(t, semana);
         var txt  = _armarTextoMailBonos(t, semana);
@@ -1216,22 +1233,30 @@ function procesarBonosYMails(semana, payload) {
           htmlBody: html
         });
         _registrarMailEnviado(t, semana, autor);
+        // Actualizar mapa local para evitar duplicados si está en la misma corrida
+        yaEnviadosMap[t.nombreNorm] = { fecha: 'recién', autor: autor };
         resultado.mails.enviados.push({
           nombre: t.nombre, email: t.email, monto: t.totalMonto
         });
       } catch(e) {
-        Logger.log('Error enviando a ' + t.email + ': ' + e);
+        Logger.log('Error enviando a ' + (t.email || '(sin email)') + ' [' + t.nombre + ']: ' +
+                   e + '\n' + (e.stack || ''));
         resultado.mails.errores.push({
-          nombre: t.nombre, email: t.email, error: e.toString()
+          nombre: t.nombre,
+          email: t.email || '(sin email)',
+          error: e.message || e.toString()
         });
       }
     });
-    resultado.mails.totalEnviados = resultado.mails.enviados.length;
-    resultado.mails.totalErrores  = resultado.mails.errores.length;
+    resultado.mails.totalEnviados   = resultado.mails.enviados.length;
+    resultado.mails.totalErrores    = resultado.mails.errores.length;
+    resultado.mails.totalYaEnviados = resultado.mails.yaEnviados.length;
   }
 
   resultado.msg = 'Pagos: ' + resultado.pagos.eventosEscritos.length + ' eventos escritos · ' +
-                  'Mails: ' + resultado.mails.totalEnviados + ' enviados';
+                  'Mails: ' + resultado.mails.totalEnviados + ' enviados, ' +
+                  resultado.mails.totalYaEnviados + ' ya enviados (skip), ' +
+                  resultado.mails.totalErrores + ' errores';
   return resultado;
 }
 
