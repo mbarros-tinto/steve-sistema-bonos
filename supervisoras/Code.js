@@ -320,6 +320,13 @@ function _routeApi(action, params, body) {
           params.nota !== undefined ? params.nota : (body && body.nota)
         );
         break;
+      case 'saveValor':
+        result = saveValor(
+          parseInt(params.rowIndex || (body && body.rowIndex), 10),
+          parseInt(params.col || (body && body.col), 10),
+          params.valor !== undefined ? params.valor : (body && body.valor)
+        );
+        break;
       default:
         result = { error: 'Acción desconocida: ' + action };
     }
@@ -597,12 +604,59 @@ function registrarEvaluacionSupervisora(data) {
       return { success: true, warning: 'Sin cargos con nombre' };
     }
 
-    // Batch append de todas las filas EVAL
-    var startRow = sheet.getLastRow() + 1;
-    sheet.getRange(startRow, 1, filasEval.length, HEADERS_NUEVO.length).setValues(filasEval);
+    // v39: UPSERT por (codigoEvento, cargo). Si llega una nueva EVAL para
+    // un evento+cargo que ya existe, sobreescribir la fila antigua en vez
+    // de hacer append. Esto evita duplicados cuando se reenvía el formulario
+    // del mismo evento (p.ej. evaluación de prueba + evaluación real).
+    var lastRow = sheet.getLastRow();
+    var existingMap = {}; // (codigo|||cargo) → rowIndex (1-based)
+    if (lastRow >= 2) {
+      var existing = sheet.getRange(2, 1, lastRow - 1, IDX.cargo + 1).getValues();
+      for (var i = 0; i < existing.length; i++) {
+        var r = existing[i];
+        if (String(r[IDX.tipo] || '').trim() !== 'EVAL') continue;
+        var c  = String(r[IDX.codigoEvento] || '').trim();
+        var cg = String(r[IDX.cargo] || '').trim();
+        if (c && cg) existingMap[c + '|||' + cg] = i + 2;
+      }
+    }
 
-    volcadoBonos();
-    return { success: true };
+    var nuevas       = [];
+    var updates      = []; // [{row, data}]
+    var rowsAfectadas = []; // 1-based, para sincronizar con Dashboard
+    var paresAfectados = []; // [{codigo, cargo}] para invalidar Dashboard
+
+    filasEval.forEach(function(row) {
+      var codigo = row[IDX.codigoEvento];
+      var cargo  = row[IDX.cargo];
+      var key    = codigo + '|||' + cargo;
+      paresAfectados.push({ codigo: codigo, cargo: cargo });
+      if (existingMap[key]) {
+        updates.push({ row: existingMap[key], data: row });
+        rowsAfectadas.push(existingMap[key]);
+      } else {
+        nuevas.push(row);
+      }
+    });
+
+    // Aplicar updates (sobreescribir filas existentes)
+    updates.forEach(function(u) {
+      sheet.getRange(u.row, 1, 1, HEADERS_NUEVO.length).setValues([u.data]);
+    });
+
+    // Append nuevas
+    if (nuevas.length > 0) {
+      var startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 1, nuevas.length, HEADERS_NUEVO.length).setValues(nuevas);
+      for (var i = 0; i < nuevas.length; i++) rowsAfectadas.push(startRow + i);
+    }
+
+    Logger.log('registrarEvaluacion: ' + updates.length + ' upd, ' + nuevas.length + ' nuevas');
+
+    // Sincronizar Dashboard de Bonos para los pares afectados
+    volcadoBonosUpsert(paresAfectados, rowsAfectadas);
+
+    return { success: true, updated: updates.length, created: nuevas.length };
   } catch(err) {
     Logger.log('registrarEvaluacion ERROR: ' + err.toString() + '\n' + err.stack);
     return { success: false, error: err.toString() };
@@ -1392,6 +1446,17 @@ function saveNota(rowIndex, col1based, nota) {
   } catch(err) { return { success: false, error: err.toString() }; }
 }
 
+// Guarda un valor crudo (string o número). Usado para criterios binarios
+// del visualizador (valores "Sí" / "No" no parseables como float).
+function saveValor(rowIndex, col1based, valor) {
+  try {
+    var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_EVAL);
+    var v = (valor === undefined || valor === null) ? '' : valor;
+    sheet.getRange(rowIndex, col1based).setValue(v);
+    return { success: true };
+  } catch(err) { return { success: false, error: err.toString() }; }
+}
+
 // ════════════════════════════════════════════════════════════════════
 //  HELPER
 // ════════════════════════════════════════════════════════════════════
@@ -1573,58 +1638,111 @@ function _normSiNo(v) {
   return 'NO';
 }
 
-// ── Vuelca al Dashboard las filas EVAL del último timestamp ──
-// Se llama automáticamente después de registrarEvaluacionSupervisora.
-function volcadoBonos() {
+// ── v39: Upsert al Dashboard por (codigoEvento, cargo) ──
+// Borra TODAS las filas del Dashboard que matchean el par y re-genera a
+// partir de las filas EVAL afectadas. Maneja correctamente cargos multi-
+// trabajador (Asignación Encargados Novios): si la EVAL nueva tiene
+// menos trabajadores que antes, los sobrantes se eliminan limpiamente.
+//
+// paresAfectados: [{codigo, cargo}, ...]
+// rowsAfectadas:  rowIndex (1-based) de cada fila EVAL afectada
+function volcadoBonosUpsert(paresAfectados, rowsAfectadas) {
   try {
+    if (!paresAfectados || !paresAfectados.length) return;
     var ss        = SpreadsheetApp.openById(SHEET_ID);
     var evalSheet = ss.getSheetByName(SHEET_EVAL);
-    if (!evalSheet) throw new Error('Hoja "' + SHEET_EVAL + '" no encontrada');
+    var bonosSheet = ensureBonosSheet(ss);
 
-    var lastRow = evalSheet.getLastRow();
-    if (lastRow < 2) return;
+    // 1. Identificar filas del Dashboard a borrar (las que tienen el par
+    //    codigo+cargo afectado).
+    var setPares = {};
+    paresAfectados.forEach(function(p) {
+      setPares[String(p.codigo).trim() + '|||' + String(p.cargo).trim()] = true;
+    });
 
-    // Leer las últimas N filas hasta encontrar todas las EVAL del último timestamp
-    var maxLookback = Math.min(50, lastRow - 1);
-    var data = evalSheet.getRange(lastRow - maxLookback + 1, 1, maxLookback, HEADERS_NUEVO.length).getValues();
-
-    // Encontrar timestamp del último EVAL
-    var ultimoTs = null;
-    for (var i = data.length - 1; i >= 0; i--) {
-      if (String(data[i][IDX.tipo] || '').trim() === 'EVAL') {
-        ultimoTs = data[i][IDX.timestamp];
-        break;
+    var lastRowB = bonosSheet.getLastRow();
+    var rowsToDelete = [];
+    if (lastRowB >= 2) {
+      // Dashboard cols: 0 Timestamp · 1 Centro · 2 Novios · 3 FechaEvento ·
+      //                 4 CodigoEvento · 5 NombreTrabajador · 6 Cargo · ...
+      var bd = bonosSheet.getRange(2, 1, lastRowB - 1, 7).getValues();
+      for (var i = 0; i < bd.length; i++) {
+        var codigo = String(bd[i][4] || '').trim();
+        var cargo  = String(bd[i][6] || '').trim();
+        if (codigo && cargo && setPares[codigo + '|||' + cargo]) {
+          rowsToDelete.push(i + 2);
+        }
       }
     }
-    if (!ultimoTs) return;
-    var ultimoMs = ultimoTs instanceof Date ? ultimoTs.getTime() : null;
 
-    // Recoger todas las EVAL con ese timestamp
-    var bonosSheet = ensureBonosSheet(ss);
+    // Borrar de mayor a menor para no desplazar índices
+    rowsToDelete.sort(function(a, b) { return b - a; });
+    rowsToDelete.forEach(function(r) { bonosSheet.deleteRow(r); });
+
+    // 2. Generar filas nuevas a partir de las EVAL afectadas
     var filasBonos = [];
-    for (var j = 0; j < data.length; j++) {
-      if (String(data[j][IDX.tipo] || '').trim() !== 'EVAL') continue;
-      var ts = data[j][IDX.timestamp];
-      if (!(ts instanceof Date)) continue;
-      if (ultimoMs !== null && ts.getTime() !== ultimoMs) continue;
-      var rowIndex = (lastRow - maxLookback + 1) + j;
-      var filas    = extraerFilasBonos(data[j], evalSheet, rowIndex);
+    rowsAfectadas.forEach(function(rowIdx) {
+      var rowData = evalSheet.getRange(rowIdx, 1, 1, HEADERS_NUEVO.length).getValues()[0];
+      var filas = extraerFilasBonos(rowData, evalSheet, rowIdx);
       filas.forEach(function(f) { filasBonos.push(f); });
-    }
-    if (!filasBonos.length) return;
+    });
 
-    filasBonos.forEach(function(fila) { bonosSheet.appendRow(fila); });
+    if (!filasBonos.length) {
+      Logger.log('volcadoBonosUpsert: ' + rowsToDelete.length + ' borradas, 0 nuevas');
+      return;
+    }
+
+    // 3. Append nuevas filas
+    var startRow = bonosSheet.getLastRow() + 1;
+    bonosSheet.getRange(startRow, 1, filasBonos.length, HEADER_BONOS.length).setValues(filasBonos);
 
     // Colorea SÍ verde / NO rojo en col H
-    var totalRows  = bonosSheet.getLastRow();
-    var startRow   = totalRows - filasBonos.length + 1;
     for (var k = 0; k < filasBonos.length; k++) {
       var bono = filasBonos[k][7];
       var cell = bonosSheet.getRange(startRow + k, 8);
       if (bono === 'SÍ') cell.setBackground('#d4edda').setFontColor('#155724').setFontWeight('bold');
       else if (bono === 'NO') cell.setBackground('#f8d7da').setFontColor('#721c24').setFontWeight('bold');
     }
-    Logger.log('volcadoBonos OK: ' + filasBonos.length + ' filas agregadas.');
+    Logger.log('volcadoBonosUpsert OK: ' + rowsToDelete.length + ' borradas, ' + filasBonos.length + ' nuevas');
+  } catch(err) {
+    Logger.log('volcadoBonosUpsert ERROR: ' + err.toString() + '\n' + err.stack);
+  }
+}
+
+// Legacy: mantenido por backward compat (algunos triggers manuales pueden
+// llamarlo). Procesa todas las EVAL del último timestamp y hace append.
+function volcadoBonos() {
+  try {
+    var ss        = SpreadsheetApp.openById(SHEET_ID);
+    var evalSheet = ss.getSheetByName(SHEET_EVAL);
+    if (!evalSheet) throw new Error('Hoja "' + SHEET_EVAL + '" no encontrada');
+    var lastRow = evalSheet.getLastRow();
+    if (lastRow < 2) return;
+    var maxLookback = Math.min(50, lastRow - 1);
+    var data = evalSheet.getRange(lastRow - maxLookback + 1, 1, maxLookback, HEADERS_NUEVO.length).getValues();
+    var ultimoTs = null;
+    for (var i = data.length - 1; i >= 0; i--) {
+      if (String(data[i][IDX.tipo] || '').trim() === 'EVAL') {
+        ultimoTs = data[i][IDX.timestamp]; break;
+      }
+    }
+    if (!ultimoTs) return;
+    var ultimoMs = ultimoTs instanceof Date ? ultimoTs.getTime() : null;
+    var paresAfectados = [];
+    var rowsAfectadas = [];
+    for (var j = 0; j < data.length; j++) {
+      if (String(data[j][IDX.tipo] || '').trim() !== 'EVAL') continue;
+      var ts = data[j][IDX.timestamp];
+      if (!(ts instanceof Date)) continue;
+      if (ultimoMs !== null && ts.getTime() !== ultimoMs) continue;
+      var rowIndex = (lastRow - maxLookback + 1) + j;
+      paresAfectados.push({
+        codigo: String(data[j][IDX.codigoEvento] || '').trim(),
+        cargo:  String(data[j][IDX.cargo] || '').trim()
+      });
+      rowsAfectadas.push(rowIndex);
+    }
+    volcadoBonosUpsert(paresAfectados, rowsAfectadas);
   } catch(err) {
     Logger.log('volcadoBonos ERROR: ' + err.toString() + '\n' + err.stack);
   }

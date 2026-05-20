@@ -610,19 +610,22 @@ function _chequearFormulario(ev, nombreHoja, subform) {
   return { ok: null, motivo: '⚠ Sin datos del evento en ' + nombreHoja };
 }
 
-// Chequeo merma manteles+caminos. Si falta Casa Inicial o Casa Final, no se
-// puede calcular sin riesgo de falso negativo (ej: Casa Final vacía y Casa
-// Inicial=30 daría "perdiste 30 manteles" cuando en realidad nadie contó).
+// v24: chequea merma con Evento Inicial − Evento Final (NO Casa Inicial −
+// Casa Final). La fórmula vieja era propensa a falsos positivos: si el
+// inventario de Casa cambió por OTROS eventos del mismo fin de semana o
+// por lavandería intermedia, Casa Final ≠ Casa Inicial pero NO es merma
+// del evento que estamos evaluando.
+// La merma real es: lo que se envió al evento − lo que volvió del evento.
 function _chequearMermaMantelCamino(ev) {
   const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
   if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Manteles' };
-  const colIni = eventoInv.colsSubform['Casa Inicial'];
-  const colFin = eventoInv.colsSubform['Casa Final'];
+  const colIni = eventoInv.colsSubform['Evento Inicial'];
+  const colFin = eventoInv.colsSubform['Evento Final'];
   const tieneIni = _hayDatosEnColInv('Manteles', colIni);
   const tieneFin = _hayDatosEnColInv('Manteles', colFin);
-  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
-  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
-  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
+  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Evento Inicial ni Evento Final en Manteles' };
+  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Evento Inicial en Manteles' };
+  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Evento Final en Manteles' };
   const hoja = _loadHojaInv('Manteles');
   const perdidos = [];
   for (let r = 4; r < hoja.lastRow; r++) {
@@ -642,13 +645,13 @@ function _chequearMermaMantelCamino(ev) {
 function _chequearMermaServilletas(ev) {
   const eventoInv = _findEventoEnHojaInv('Manteles', ev.centro, ev.fechaEvento);
   if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Manteles' };
-  const colIni = eventoInv.colsSubform['Casa Inicial'];
-  const colFin = eventoInv.colsSubform['Casa Final'];
+  const colIni = eventoInv.colsSubform['Evento Inicial'];
+  const colFin = eventoInv.colsSubform['Evento Final'];
   const tieneIni = _hayDatosEnColInv('Manteles', colIni);
   const tieneFin = _hayDatosEnColInv('Manteles', colFin);
-  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Manteles' };
-  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Manteles' };
-  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Manteles' };
+  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Evento Inicial ni Evento Final en Manteles' };
+  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Evento Inicial en Manteles' };
+  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Evento Final en Manteles' };
   const hoja = _loadHojaInv('Manteles');
   let totalPerdidas = 0;
   for (let r = 4; r < hoja.lastRow; r++) {
@@ -667,13 +670,13 @@ function _chequearMermaServilletas(ev) {
 function _chequearMermaCubiertos(ev) {
   const eventoInv = _findEventoEnHojaInv('Cubiertos', ev.centro, ev.fechaEvento);
   if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Cubiertos' };
-  const colIni = eventoInv.colsSubform['Casa Inicial'];
-  const colFin = eventoInv.colsSubform['Casa Final'];
+  const colIni = eventoInv.colsSubform['Evento Inicial'];
+  const colFin = eventoInv.colsSubform['Evento Final'];
   const tieneIni = _hayDatosEnColInv('Cubiertos', colIni);
   const tieneFin = _hayDatosEnColInv('Cubiertos', colFin);
-  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Casa Inicial ni Casa Final en Cubiertos' };
-  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Casa Inicial en Cubiertos' };
-  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Casa Final en Cubiertos' };
+  if (!tieneIni && !tieneFin) return { ok: null, motivo: '⚠ Sin Evento Inicial ni Evento Final en Cubiertos' };
+  if (!tieneIni)              return { ok: null, motivo: '⚠ Sin Evento Inicial en Cubiertos' };
+  if (!tieneFin)              return { ok: null, motivo: '⚠ Sin Evento Final en Cubiertos' };
   const hoja = _loadHojaInv('Cubiertos');
   let totalPerdidos = 0;
   for (let r = 4; r < hoja.lastRow; r++) {
