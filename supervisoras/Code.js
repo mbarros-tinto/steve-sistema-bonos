@@ -748,28 +748,35 @@ function getEventData(noviosKey) {
     var data = sheet.getRange(2, 1, lastRow - 1, HEADERS_NUEVO.length).getValues();
 
     // Encontrar todas las EVAL con ese novios; agrupar por timestamp y tomar
-    // el timestamp más reciente.
+    // el timestamp más reciente. Las filas de socios (CARGO_SOCIOS) se manejan
+    // aparte para que NO secuestren la "última tanda" de supervisoras y se
+    // muestren juntas en el visualizador.
     var grupos = {}; // tsKey → { ts, rows: [{row, rowIndex}] }
+    var sociosRows = []; // filas EVAL de socios para este evento
     data.forEach(function(row, idx) {
       if (String(row[IDX.tipo] || '').trim() !== 'EVAL') return;
       if (String(row[IDX.novios] || '').trim() !== noviosKey) return;
+      if (String(row[IDX.cargo] || '').trim() === CARGO_SOCIOS) { sociosRows.push({ row: row, rowIndex: idx + 2 }); return; }
       var ts = row[IDX.timestamp];
       var tsKey = (ts instanceof Date) ? ts.getTime() : String(ts);
       if (!grupos[tsKey]) grupos[tsKey] = { ts: ts, rows: [] };
       grupos[tsKey].rows.push({ row: row, rowIndex: idx + 2 });
     });
     var tsKeys = Object.keys(grupos);
-    if (!tsKeys.length) return null;
-    // Tomar el grupo de timestamp máximo
-    var latestKey = tsKeys.sort(function(a, b) {
-      return (grupos[b].ts instanceof Date ? grupos[b].ts.getTime() : 0)
-           - (grupos[a].ts instanceof Date ? grupos[a].ts.getTime() : 0);
-    })[0];
-    var grupo = grupos[latestKey];
-    if (!grupo.rows.length) return null;
+    if (!tsKeys.length && !sociosRows.length) return null;
+    // Tomar el grupo de timestamp máximo (supervisoras); puede no haber ninguno
+    // si el evento solo tiene evaluación de socios.
+    var grupo = { rows: [] };
+    if (tsKeys.length) {
+      var latestKey = tsKeys.sort(function(a, b) {
+        return (grupos[b].ts instanceof Date ? grupos[b].ts.getTime() : 0)
+             - (grupos[a].ts instanceof Date ? grupos[a].ts.getTime() : 0);
+      })[0];
+      grupo = grupos[latestKey];
+    }
 
-    // Metadata del evento: tomar de la primera fila EVAL
-    var primera = grupo.rows[0].row;
+    // Metadata del evento: de la primera fila de supervisoras, o de socios si no hay.
+    var primera = grupo.rows.length ? grupo.rows[0].row : sociosRows[0].row;
     function fechaToStr(v) {
       if (v instanceof Date && !isNaN(v.getTime())) {
         return String(v.getUTCDate()).padStart(2, '0') + '-' +
@@ -841,8 +848,51 @@ function getEventData(noviosKey) {
       };
     });
 
+    // Anexar tarjeta(s) de socios (la más reciente por socio), excluidas de bonos.
+    var sociosPorSocio = {};
+    sociosRows.forEach(function(item) {
+      var socio = String(item.row[IDX.supervisor] || '').trim();
+      var ts = item.row[IDX.timestamp];
+      var t = (ts instanceof Date) ? ts.getTime() : 0;
+      if (!sociosPorSocio[socio] || t >= sociosPorSocio[socio].t) sociosPorSocio[socio] = { item: item, t: t };
+    });
+    Object.keys(sociosPorSocio).forEach(function(socio) {
+      var item = sociosPorSocio[socio].item;
+      var row = item.row, rowIndexS = item.rowIndex;
+      var vigente = _getHeaderVigente(sheet, CARGO_SOCIOS, rowIndexS) || { criterios: [] };
+      var scores = [], binarios = [];
+      vigente.criterios.forEach(function(crit, i) {
+        if (i >= SLOTS_CRIT) return;
+        var raw = row[IDX.crit[i]];
+        var col1based = IDX.crit[i] + 1;
+        if (crit.tipo === 'nota') {
+          var n = parseFloat(raw);
+          scores.push({ label: crit.label, col: col1based, value: isNaN(n) ? '' : n });
+        } else {
+          binarios.push({ label: crit.label, col: col1based, value: String(raw || '').trim() });
+        }
+      });
+      var notasS = scores.map(function(s) { return s.value; }).filter(function(v) { return v !== '' && !isNaN(parseFloat(v)); });
+      var promS  = notasS.length ? Math.round(notasS.reduce(function(a, b) { return a + parseFloat(b); }, 0) / notasS.length * 10) / 10 : null;
+      var tipoS  = (scores.length && binarios.length) ? 'numeric+binary' : (binarios.length ? 'binary' : 'numeric');
+      cargos.push({
+        key:           _slugify(CARGO_SOCIOS + ' ' + socio),
+        label:         'Evaluación Socios' + (socio ? ' (por ' + socio + ')' : ''),
+        tipo:          tipoS,
+        nombre:        String(row[IDX.nombre] || '').trim(),
+        cojefes:       '',
+        scores:        scores,
+        binarios:      binarios,
+        promedio:      promS,
+        bono:          '—',
+        comentario:    String(row[IDX.comentario] || '').trim(),
+        comentarioCol: IDX.comentario + 1,
+        rowIndex:      rowIndexS
+      });
+    });
+
     return {
-      rowIndex:         grupo.rows[0].rowIndex, // legacy compat
+      rowIndex:         (grupo.rows[0] ? grupo.rows[0].rowIndex : (sociosRows[0] ? sociosRows[0].rowIndex : 0)), // legacy compat
       supervisor:       String(primera[IDX.supervisor] || '').trim(),
       novios:           String(primera[IDX.novios] || '').trim(),
       centro:           String(primera[IDX.centro] || '').trim(),
@@ -1560,6 +1610,7 @@ function extraerFilasBonos(row, sheet, rowIndex) {
   var novios     = String(row[IDX.novios] || '').trim();
   var centro     = String(row[IDX.centro] || '').trim();
   var cargo      = String(row[IDX.cargo] || '').trim();
+  if (cargo === CARGO_SOCIOS) return []; // socios no genera filas de bono de trabajador
   var nombreRaw  = String(row[IDX.nombre] || '').trim();
   if (!cargo || !nombreRaw) return [];
 
@@ -1868,20 +1919,12 @@ function testAll() {
 //  Evaluación Socios (A..X): Tipo · Timestamp · Socio · Novios · Centro ·
 //    Fecha Evento · Código Evento · Supervisor(es) · Comentario · Crit_1..Crit_15
 // ════════════════════════════════════════════════════════════════════
-var SHEET_EVAL_SOCIOS = 'Evaluación Socios';
 var CONFIG_SOCIOS_TAB = 'Config_Socios';
-var SLOTS_CRIT_SOCIOS = 15;
-var HEADERS_SOCIOS = [
-  'Tipo', 'Timestamp', 'Socio', 'Novios', 'Centro', 'Fecha Evento', 'Código Evento',
-  'Supervisor(es)', 'Comentario',
-  'Crit_1', 'Crit_2', 'Crit_3', 'Crit_4', 'Crit_5', 'Crit_6', 'Crit_7', 'Crit_8',
-  'Crit_9', 'Crit_10', 'Crit_11', 'Crit_12', 'Crit_13', 'Crit_14', 'Crit_15'
-];
-var IDXS = {
-  tipo: 0, timestamp: 1, socio: 2, novios: 3, centro: 4, fechaEvento: 5,
-  codigoEvento: 6, supervisores: 7, comentario: 8,
-  crit: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-};
+// Las evaluaciones de socios se guardan en la MISMA hoja "Evaluación Supervisoras"
+// bajo este "cargo", reusando el esquema HEADER/EVAL de supervisoras (IDX,
+// HEADERS_NUEVO, SLOTS_CRIT=8). Así aparecen en el visualizador junto a los
+// cargos y quedan EXCLUIDAS del Dashboard de Bonos (ver extraerFilasBonos).
+var CARGO_SOCIOS = 'Evaluación Socios';
 
 // ── Config dinámico de preguntas (lee Config_Socios) ──────────────────
 function getFormConfigSocios() {
@@ -1906,7 +1949,6 @@ function getFormConfigSocios() {
       });
     });
     preguntas.sort(function(a, b) { return a.orden - b.orden; });
-    if (preguntas.length > SLOTS_CRIT_SOCIOS) preguntas = preguntas.slice(0, SLOTS_CRIT_SOCIOS);
     var secciones = [], idxBySec = {};
     preguntas.forEach(function(p) {
       if (idxBySec[p.seccion] === undefined) { idxBySec[p.seccion] = secciones.length; secciones.push({ seccion: p.seccion, preguntas: [] }); }
@@ -1926,88 +1968,28 @@ function _tipoSocios(raw) {
   return 'nota';
 }
 
-function _critToHeaderLabelSocios(p) {
-  if (!p) return '';
-  if (p.tipo === 'bool')  return p.label + ' (Sí/No)';
-  if (p.tipo === 'texto') return p.label + ' (Texto)';
-  return p.label + ' (0-7)';
-}
-
-function _parseHeaderLabelSocios(raw) {
-  var s = String(raw || '').trim();
-  var mBool = s.match(/^(.+?)\s*\(\s*s[ií]\s*\/\s*no\s*\)\s*$/i);
-  if (mBool) return { label: mBool[1].trim(), tipo: 'bool' };
-  var mTxt = s.match(/^(.+?)\s*\(\s*texto\s*\)\s*$/i);
-  if (mTxt) return { label: mTxt[1].trim(), tipo: 'texto' };
-  var m07 = s.match(/^(.+?)\s*\(\s*0\s*[-a\/]\s*7\s*\)\s*$/i);
-  if (m07) return { label: m07[1].trim(), tipo: 'nota' };
-  return { label: s, tipo: 'nota' };
-}
-
-function _emptySociosRow() {
-  var r = []; for (var i = 0; i < HEADERS_SOCIOS.length; i++) r.push(''); return r;
-}
-
-function _ensureSchemaSocios(sheet) {
-  if (sheet.getLastColumn() === 0) {
-    sheet.getRange(1, 1, 1, HEADERS_SOCIOS.length).setValues([HEADERS_SOCIOS]);
-    sheet.getRange(1, 1, 1, HEADERS_SOCIOS.length).setFontWeight('bold').setBackground('#2a2a2a').setFontColor('#ffffff');
-    sheet.setFrozenRows(1);
-  }
-}
-
-function _getHeaderVigenteSocios(sheet) {
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return null;
-  var data = sheet.getRange(2, 1, lastRow - 1, IDXS.crit[SLOTS_CRIT_SOCIOS - 1] + 1).getValues();
-  for (var i = data.length - 1; i >= 0; i--) {
-    if (String(data[i][IDXS.tipo]).trim() !== 'HEADER') continue;
-    var crit = [];
-    for (var k = 0; k < SLOTS_CRIT_SOCIOS; k++) {
-      var raw = String(data[i][IDXS.crit[k]] || '').trim();
-      if (!raw) continue;
-      crit.push(_parseHeaderLabelSocios(raw));
-    }
-    return { rowIndex: i + 2, criterios: crit };
-  }
-  return null;
-}
-
-function _criteriosCalzanSocios(vigentes, actuales) {
-  if (vigentes.length !== actuales.length) return false;
-  for (var i = 0; i < actuales.length; i++) {
-    if (vigentes[i].label !== actuales[i].label) return false;
-    if (vigentes[i].tipo  !== actuales[i].tipo)  return false;
-  }
-  return true;
-}
-
-function _ensureHeaderForSocios(sheet, preguntas) {
-  var vigente = _getHeaderVigenteSocios(sheet);
-  if (vigente && _criteriosCalzanSocios(vigente.criterios, preguntas)) return;
-  var row = _emptySociosRow();
-  row[IDXS.tipo] = 'HEADER';
-  row[IDXS.timestamp] = new Date();
-  for (var i = 0; i < SLOTS_CRIT_SOCIOS; i++) {
-    row[IDXS.crit[i]] = (i < preguntas.length) ? _critToHeaderLabelSocios(preguntas[i]) : '';
-  }
-  sheet.appendRow(row);
-  var n = sheet.getLastRow();
-  sheet.getRange(n, 1, 1, HEADERS_SOCIOS.length).setBackground('#ececec').setFontWeight('bold');
-}
-
-// ── Registro de una evaluación de socio (1 fila EVAL, UPSERT código+socio) ──
+// ── Registro de evaluación de socio → fila EVAL en "Evaluación Supervisoras"
+//    bajo el cargo CARGO_SOCIOS, reusando el esquema HEADER/EVAL de supervisoras.
+//    Aparece en el visualizador; excluida del Dashboard de Bonos (extraerFilasBonos).
+//    UPSERT por (Código Evento + Socio): cada socio una fila por evento; reenviar
+//    sobreescribe. Preguntas "texto" (sin slot Crit) se anexan al comentario.
 function registrarEvaluacionSocios(data) {
   try {
-    var ss = SpreadsheetApp.openById(SHEET_ID);
-    var sheet = ss.getSheetByName(SHEET_EVAL_SOCIOS);
-    if (!sheet) throw new Error('Hoja "' + SHEET_EVAL_SOCIOS + '" no encontrada');
-    _ensureSchemaSocios(sheet);
+    var ss    = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName(SHEET_EVAL);
+    if (!sheet) throw new Error('Hoja "' + SHEET_EVAL + '" no encontrada');
+    _ensureSchema(sheet);
 
     var cfg = getFormConfigSocios();
     if (!cfg.ok) throw new Error('getFormConfigSocios falló: ' + (cfg.error || ''));
     var preguntas = cfg.preguntas || [];
-    _ensureHeaderForSocios(sheet, preguntas);
+
+    // Solo nota/bool ocupan slots Crit (reusan _ensureHeaderFor/_critToHeaderLabel).
+    var critPreg = preguntas
+      .filter(function(p) { return p.tipo === 'nota' || p.tipo === 'bool'; })
+      .map(function(p) { return { label: p.label, tipo: p.tipo }; });
+    if (critPreg.length > SLOTS_CRIT) critPreg = critPreg.slice(0, SLOTS_CRIT);
+    _ensureHeaderFor(sheet, CARGO_SOCIOS, critPreg);
 
     var timestamp    = new Date();
     var fechaFmt     = _fmtFechaSafe(data.fecha);
@@ -2016,41 +1998,50 @@ function registrarEvaluacionSocios(data) {
     var socio        = String(data.socio || '').trim();
     var resp         = data.respuestas || {};
 
-    var row = _emptySociosRow();
-    row[IDXS.tipo]         = 'EVAL';
-    row[IDXS.timestamp]    = timestamp;
-    row[IDXS.socio]        = socio;
-    row[IDXS.novios]       = String(data.novios || '').trim();
-    row[IDXS.centro]       = centro;
-    row[IDXS.fechaEvento]  = fechaFmt;
-    row[IDXS.codigoEvento] = codigoEvento;
-    row[IDXS.supervisores] = String(data.supervisores || '').trim();
-    row[IDXS.comentario]   = String(data.comentario || '').trim();
-
-    preguntas.forEach(function(p, i) {
-      if (i >= SLOTS_CRIT_SOCIOS) return;
-      var v = resp[p.label];
-      if (p.tipo === 'nota') row[IDXS.crit[i]] = (v === '' || v === null || v === undefined) ? '' : Number(v);
-      else                   row[IDXS.crit[i]] = (v === '' || v === null || v === undefined) ? '' : String(v).trim();
+    // Preguntas "texto" no caben en slots Crit → se anexan al comentario.
+    var comentario = String(data.comentario || '').trim();
+    preguntas.forEach(function(p) {
+      if (p.tipo !== 'texto') return;
+      var v = String(resp[p.label] || '').trim();
+      if (v) comentario += (comentario ? '\n' : '') + p.label + ': ' + v;
     });
 
-    // UPSERT por (Código Evento + Socio): reenviar la misma evaluación
-    // sobreescribe en vez de duplicar; distintos socios crean filas distintas.
+    var row = _emptyEvalRow();
+    row[IDX.tipo]         = 'EVAL';
+    row[IDX.timestamp]    = timestamp;
+    row[IDX.supervisor]   = socio;                                  // quién evalúa (socio)
+    row[IDX.novios]       = String(data.novios || '').trim();
+    row[IDX.centro]       = centro;
+    row[IDX.fechaEvento]  = fechaFmt;
+    row[IDX.codigoEvento] = codigoEvento;
+    row[IDX.cargo]        = CARGO_SOCIOS;
+    row[IDX.nombre]       = String(data.supervisores || '').trim(); // a quién(es) evalúa
+    row[IDX.cojefes]      = '';
+    row[IDX.comentario]   = comentario;
+    critPreg.forEach(function(p, i) {
+      if (i >= SLOTS_CRIT) return;
+      var v = resp[p.label];
+      if (p.tipo === 'nota') row[IDX.crit[i]] = (v === '' || v === null || v === undefined) ? '' : Number(v);
+      else                   row[IDX.crit[i]] = (v === '' || v === null || v === undefined) ? '' : String(v).trim();
+    });
+
+    // UPSERT por (Código Evento + Cargo socios + Socio): varios socios coexisten.
     var lastRow = sheet.getLastRow();
     var targetRow = 0;
     if (lastRow >= 2 && codigoEvento) {
-      var existing = sheet.getRange(2, 1, lastRow - 1, IDXS.socio + 1).getValues();
+      var existing = sheet.getRange(2, 1, lastRow - 1, IDX.cargo + 1).getValues();
       for (var j = 0; j < existing.length; j++) {
-        if (String(existing[j][IDXS.tipo] || '').trim() !== 'EVAL') continue;
-        if (String(existing[j][IDXS.codigoEvento] || '').trim() === codigoEvento &&
-            String(existing[j][IDXS.socio] || '').trim() === socio) {
+        if (String(existing[j][IDX.tipo] || '').trim() !== 'EVAL') continue;
+        if (String(existing[j][IDX.cargo] || '').trim() !== CARGO_SOCIOS) continue;
+        if (String(existing[j][IDX.codigoEvento] || '').trim() === codigoEvento &&
+            String(existing[j][IDX.supervisor] || '').trim() === socio) {
           targetRow = j + 2; break;
         }
       }
     }
 
     if (targetRow) {
-      sheet.getRange(targetRow, 1, 1, HEADERS_SOCIOS.length).setValues([row]);
+      sheet.getRange(targetRow, 1, 1, HEADERS_NUEVO.length).setValues([row]);
       return { success: true, updated: 1 };
     }
     sheet.appendRow(row);
