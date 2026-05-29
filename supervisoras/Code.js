@@ -327,6 +327,14 @@ function _routeApi(action, params, body) {
           params.valor !== undefined ? params.valor : (body && body.valor)
         );
         break;
+      case 'formConfigSocios':
+        result = getFormConfigSocios();
+        break;
+      case 'submitSocios':
+        var dataSocios = (body && body.data) ? body.data : null;
+        if (!dataSocios) { result = { success: false, error: 'Falta data' }; break; }
+        result = registrarEvaluacionSocios(dataSocios);
+        break;
       default:
         result = { error: 'Acción desconocida: ' + action };
     }
@@ -1843,4 +1851,219 @@ function testAll() {
     var r = getEventData(eventos[0].novios);
     if (r) Logger.log('Evento OK: ' + r.novios + ' | alerta: "' + r.alerta + '"');
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  EVALUACIÓN DE SOCIOS — módulo aditivo (no toca la lógica de Supervisoras)
+//
+//  Los socios evalúan globalmente la supervisión de cada evento (foco
+//  operativo, comercial y servicios premium). Las preguntas son dinámicas
+//  y editables en la hoja "Config_Socios"; las respuestas se guardan en
+//  "Evaluación Socios" con el MISMO patrón HEADER/EVAL que Supervisoras
+//  (las filas HEADER versionan las preguntas en el tiempo, así los datos
+//  viejos conservan su significado al cambiar el cuestionario).
+//
+//  Config_Socios (cols): A=Orden · B=Sección · C=Pregunta · D=Ayuda ·
+//                        E=Tipo (nota|binaria|texto) · F=Activa (SÍ/NO)
+//  Evaluación Socios (A..X): Tipo · Timestamp · Socio · Novios · Centro ·
+//    Fecha Evento · Código Evento · Supervisor(es) · Comentario · Crit_1..Crit_15
+// ════════════════════════════════════════════════════════════════════
+var SHEET_EVAL_SOCIOS = 'Evaluación Socios';
+var CONFIG_SOCIOS_TAB = 'Config_Socios';
+var SLOTS_CRIT_SOCIOS = 15;
+var HEADERS_SOCIOS = [
+  'Tipo', 'Timestamp', 'Socio', 'Novios', 'Centro', 'Fecha Evento', 'Código Evento',
+  'Supervisor(es)', 'Comentario',
+  'Crit_1', 'Crit_2', 'Crit_3', 'Crit_4', 'Crit_5', 'Crit_6', 'Crit_7', 'Crit_8',
+  'Crit_9', 'Crit_10', 'Crit_11', 'Crit_12', 'Crit_13', 'Crit_14', 'Crit_15'
+];
+var IDXS = {
+  tipo: 0, timestamp: 1, socio: 2, novios: 3, centro: 4, fechaEvento: 5,
+  codigoEvento: 6, supervisores: 7, comentario: 8,
+  crit: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+};
+
+// ── Config dinámico de preguntas (lee Config_Socios) ──────────────────
+function getFormConfigSocios() {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName(CONFIG_SOCIOS_TAB);
+    if (!sh || sh.getLastRow() < 2) return { ok: false, error: 'Config_Socios vacío o inexistente' };
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues();
+    var preguntas = [];
+    data.forEach(function(r) {
+      var activa = String(r[5] || '').trim().toLowerCase();
+      if (['sí', 'si', 'x', 'true', '1', 'verdadero'].indexOf(activa) < 0) return;
+      var label = String(r[2] || '').trim();
+      if (!label) return;
+      var orden = Number(r[0]); if (isNaN(orden)) orden = 9999;
+      preguntas.push({
+        orden: orden,
+        seccion: String(r[1] || 'General').trim() || 'General',
+        label: label,
+        subtitulo: String(r[3] || '').trim(),
+        tipo: _tipoSocios(r[4])
+      });
+    });
+    preguntas.sort(function(a, b) { return a.orden - b.orden; });
+    if (preguntas.length > SLOTS_CRIT_SOCIOS) preguntas = preguntas.slice(0, SLOTS_CRIT_SOCIOS);
+    var secciones = [], idxBySec = {};
+    preguntas.forEach(function(p) {
+      if (idxBySec[p.seccion] === undefined) { idxBySec[p.seccion] = secciones.length; secciones.push({ seccion: p.seccion, preguntas: [] }); }
+      secciones[idxBySec[p.seccion]].preguntas.push(p);
+    });
+    return { ok: true, notaMin: NOTA_MIN_BONO, preguntas: preguntas, secciones: secciones };
+  } catch(err) {
+    Logger.log('getFormConfigSocios ERROR: ' + err);
+    return { ok: false, error: err.toString() };
+  }
+}
+
+function _tipoSocios(raw) {
+  var t = String(raw || 'nota').trim().toLowerCase();
+  if (['binaria', 'bool', 'si/no', 'sí/no', 'booleano'].indexOf(t) >= 0) return 'bool';
+  if (['texto', 'text', 'comentario'].indexOf(t) >= 0) return 'texto';
+  return 'nota';
+}
+
+function _critToHeaderLabelSocios(p) {
+  if (!p) return '';
+  if (p.tipo === 'bool')  return p.label + ' (Sí/No)';
+  if (p.tipo === 'texto') return p.label + ' (Texto)';
+  return p.label + ' (0-7)';
+}
+
+function _parseHeaderLabelSocios(raw) {
+  var s = String(raw || '').trim();
+  var mBool = s.match(/^(.+?)\s*\(\s*s[ií]\s*\/\s*no\s*\)\s*$/i);
+  if (mBool) return { label: mBool[1].trim(), tipo: 'bool' };
+  var mTxt = s.match(/^(.+?)\s*\(\s*texto\s*\)\s*$/i);
+  if (mTxt) return { label: mTxt[1].trim(), tipo: 'texto' };
+  var m07 = s.match(/^(.+?)\s*\(\s*0\s*[-a\/]\s*7\s*\)\s*$/i);
+  if (m07) return { label: m07[1].trim(), tipo: 'nota' };
+  return { label: s, tipo: 'nota' };
+}
+
+function _emptySociosRow() {
+  var r = []; for (var i = 0; i < HEADERS_SOCIOS.length; i++) r.push(''); return r;
+}
+
+function _ensureSchemaSocios(sheet) {
+  if (sheet.getLastColumn() === 0) {
+    sheet.getRange(1, 1, 1, HEADERS_SOCIOS.length).setValues([HEADERS_SOCIOS]);
+    sheet.getRange(1, 1, 1, HEADERS_SOCIOS.length).setFontWeight('bold').setBackground('#2a2a2a').setFontColor('#ffffff');
+    sheet.setFrozenRows(1);
+  }
+}
+
+function _getHeaderVigenteSocios(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var data = sheet.getRange(2, 1, lastRow - 1, IDXS.crit[SLOTS_CRIT_SOCIOS - 1] + 1).getValues();
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (String(data[i][IDXS.tipo]).trim() !== 'HEADER') continue;
+    var crit = [];
+    for (var k = 0; k < SLOTS_CRIT_SOCIOS; k++) {
+      var raw = String(data[i][IDXS.crit[k]] || '').trim();
+      if (!raw) continue;
+      crit.push(_parseHeaderLabelSocios(raw));
+    }
+    return { rowIndex: i + 2, criterios: crit };
+  }
+  return null;
+}
+
+function _criteriosCalzanSocios(vigentes, actuales) {
+  if (vigentes.length !== actuales.length) return false;
+  for (var i = 0; i < actuales.length; i++) {
+    if (vigentes[i].label !== actuales[i].label) return false;
+    if (vigentes[i].tipo  !== actuales[i].tipo)  return false;
+  }
+  return true;
+}
+
+function _ensureHeaderForSocios(sheet, preguntas) {
+  var vigente = _getHeaderVigenteSocios(sheet);
+  if (vigente && _criteriosCalzanSocios(vigente.criterios, preguntas)) return;
+  var row = _emptySociosRow();
+  row[IDXS.tipo] = 'HEADER';
+  row[IDXS.timestamp] = new Date();
+  for (var i = 0; i < SLOTS_CRIT_SOCIOS; i++) {
+    row[IDXS.crit[i]] = (i < preguntas.length) ? _critToHeaderLabelSocios(preguntas[i]) : '';
+  }
+  sheet.appendRow(row);
+  var n = sheet.getLastRow();
+  sheet.getRange(n, 1, 1, HEADERS_SOCIOS.length).setBackground('#ececec').setFontWeight('bold');
+}
+
+// ── Registro de una evaluación de socio (1 fila EVAL, UPSERT código+socio) ──
+function registrarEvaluacionSocios(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName(SHEET_EVAL_SOCIOS);
+    if (!sheet) throw new Error('Hoja "' + SHEET_EVAL_SOCIOS + '" no encontrada');
+    _ensureSchemaSocios(sheet);
+
+    var cfg = getFormConfigSocios();
+    if (!cfg.ok) throw new Error('getFormConfigSocios falló: ' + (cfg.error || ''));
+    var preguntas = cfg.preguntas || [];
+    _ensureHeaderForSocios(sheet, preguntas);
+
+    var timestamp    = new Date();
+    var fechaFmt     = _fmtFechaSafe(data.fecha);
+    var centro       = String(data.centro || '').trim();
+    var codigoEvento = centro && fechaFmt ? centro + ' ' + fechaFmt : (centro || fechaFmt);
+    var socio        = String(data.socio || '').trim();
+    var resp         = data.respuestas || {};
+
+    var row = _emptySociosRow();
+    row[IDXS.tipo]         = 'EVAL';
+    row[IDXS.timestamp]    = timestamp;
+    row[IDXS.socio]        = socio;
+    row[IDXS.novios]       = String(data.novios || '').trim();
+    row[IDXS.centro]       = centro;
+    row[IDXS.fechaEvento]  = fechaFmt;
+    row[IDXS.codigoEvento] = codigoEvento;
+    row[IDXS.supervisores] = String(data.supervisores || '').trim();
+    row[IDXS.comentario]   = String(data.comentario || '').trim();
+
+    preguntas.forEach(function(p, i) {
+      if (i >= SLOTS_CRIT_SOCIOS) return;
+      var v = resp[p.label];
+      if (p.tipo === 'nota') row[IDXS.crit[i]] = (v === '' || v === null || v === undefined) ? '' : Number(v);
+      else                   row[IDXS.crit[i]] = (v === '' || v === null || v === undefined) ? '' : String(v).trim();
+    });
+
+    // UPSERT por (Código Evento + Socio): reenviar la misma evaluación
+    // sobreescribe en vez de duplicar; distintos socios crean filas distintas.
+    var lastRow = sheet.getLastRow();
+    var targetRow = 0;
+    if (lastRow >= 2 && codigoEvento) {
+      var existing = sheet.getRange(2, 1, lastRow - 1, IDXS.socio + 1).getValues();
+      for (var j = 0; j < existing.length; j++) {
+        if (String(existing[j][IDXS.tipo] || '').trim() !== 'EVAL') continue;
+        if (String(existing[j][IDXS.codigoEvento] || '').trim() === codigoEvento &&
+            String(existing[j][IDXS.socio] || '').trim() === socio) {
+          targetRow = j + 2; break;
+        }
+      }
+    }
+
+    if (targetRow) {
+      sheet.getRange(targetRow, 1, 1, HEADERS_SOCIOS.length).setValues([row]);
+      return { success: true, updated: 1 };
+    }
+    sheet.appendRow(row);
+    return { success: true, created: 1 };
+  } catch(err) {
+    Logger.log('registrarEvaluacionSocios ERROR: ' + err + '\n' + (err.stack || ''));
+    return { success: false, error: err.toString() };
+  }
+}
+
+// Test rápido del módulo socios (ejecutar desde el editor de Apps Script)
+function testSocios() {
+  var cfg = getFormConfigSocios();
+  Logger.log('getFormConfigSocios ok=' + cfg.ok + ' preguntas=' + (cfg.preguntas ? cfg.preguntas.length : 0));
+  if (cfg.secciones) cfg.secciones.forEach(function(s) { Logger.log('  · ' + s.seccion + ': ' + s.preguntas.length + ' preg'); });
 }

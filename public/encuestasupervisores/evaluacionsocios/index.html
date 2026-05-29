@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow">
+<title>Evaluación de Socios · Tinto Banquetería</title>
+<link rel="icon" type="image/png" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png">
+<link rel="apple-touch-icon" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png">
+<meta name="theme-color" content="#1a1014">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776365257/Javiera_y_Felipe-468_jxrjef.jpg">
+<style>
+  :root {
+    --gold: #c9a96e;
+    --gold-soft: #e4cfa3;
+    --ink: #1a1014;
+    --ink-soft: #2d2d2d;
+    --bordo: #6b1f2a;
+    --line: rgba(255,255,255,.18);
+    --line-soft: rgba(255,255,255,.08);
+    --err: #ff6b6b;
+    --ok: #8fd19e;
+    --info: #8ab8ff;
+    --warn: #e8b16e;
+    --radius: 14px;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #fff;
+    min-height: 100vh;
+    background:
+      linear-gradient(rgba(15,10,10,.55), rgba(15,10,10,.78)),
+      url('https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776365257/Javiera_y_Felipe-468_jxrjef.jpg') center/cover no-repeat fixed;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0;
+    background: radial-gradient(ellipse at top, transparent 0%, rgba(0,0,0,.5) 100%);
+    pointer-events: none; z-index: 0;
+  }
+  .page { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; padding: 28px 16px 60px; }
+  .topbar { display: flex; justify-content: center; align-items: center; margin-bottom: 22px; }
+  .topbar img { height: 64px; filter: drop-shadow(0 2px 8px rgba(0,0,0,.4)); }
+  .container {
+    width: 100%; max-width: 780px; margin: 0 auto;
+    background: rgba(22,16,18,.72);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset;
+  }
+  header.card-header { padding: 30px 32px 22px; text-align: center; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, rgba(201,169,110,.08), transparent); }
+  header.card-header h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0 0 8px; letter-spacing: .5px; }
+  header.card-header h1 .accent { color: var(--gold); font-style: italic; }
+  header.card-header p { margin: 0; font-size: 13.5px; opacity: .8; letter-spacing: .3px; }
+  .orn-divider { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; max-width: 260px; }
+  .orn-divider::before, .orn-divider::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-soft), transparent); opacity: .6; }
+  .orn-divider span { font-size: 10px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  .card-section { padding: 26px 32px; }
+  .card-section + .card-section { border-top: 1px solid var(--line-soft); }
+  .section-title { display: flex; align-items: center; gap: 12px; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 22px; color: #fff; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(201,169,110,.3); }
+  .section-title .sec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); flex-shrink: 0; }
+  .subseccion { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 600; color: var(--gold); margin: 6px 0 14px; letter-spacing: .5px; }
+  .field { margin-bottom: 18px; }
+  label { display: block; font-weight: 600; font-size: 12.5px; color: rgba(255,255,255,.78); margin-bottom: 6px; letter-spacing: .4px; text-transform: uppercase; }
+  label .req { color: var(--gold); margin-left: 2px; }
+  .hint { font-size: 11.5px; color: rgba(255,255,255,.55); font-style: italic; margin-top: 4px; }
+  .q-sub { font-size: 12.5px; color: rgba(255,255,255,.6); margin: -2px 0 8px; font-style: italic; line-height: 1.45; }
+  input[type=text], input[type=date], select, textarea {
+    width: 100%; padding: 12px 14px; background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.14); border-radius: 10px; color: #fff;
+    font-size: 15px; font-family: inherit; transition: border-color .18s, background .18s, box-shadow .18s;
+  }
+  input::placeholder, textarea::placeholder { color: rgba(255,255,255,.38); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); background: rgba(255,255,255,.09); box-shadow: 0 0 0 3px rgba(201,169,110,.15); }
+  input[type="date"] { color-scheme: dark; }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23c9a96e'%3E%3Cpath d='M5.5 7.5l4.5 5 4.5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 38px; cursor: pointer;
+  }
+  select:disabled { background-color: rgba(255,255,255,.03); color: rgba(255,255,255,.4); cursor: not-allowed; }
+  select option { background: #1a1014; color: #fff; }
+  /* Autocomplete */
+  .ac-wrap { position: relative; }
+  .ac-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--ink); border: 1px solid rgba(255,255,255,.14); border-top: none; border-radius: 0 0 10px 10px; max-height: 240px; overflow-y: auto; z-index: 200; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .ac-item { padding: 11px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.06); color: #fff; transition: background .15s, color .15s; }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: rgba(201,169,110,.12); color: var(--gold-soft); }
+  .ac-item mark { background: transparent; color: var(--gold); font-weight: 700; }
+  .ac-none { padding: 11px 14px; font-size: 13px; color: rgba(255,255,255,.4); font-style: italic; }
+  /* Tags */
+  .tags-wrap { min-height: 48px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 7px 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; cursor: text; transition: border-color .18s, background .18s, box-shadow .18s; }
+  .tags-wrap:focus-within { border-color: var(--gold); background: rgba(255,255,255,.09); box-shadow: 0 0 0 3px rgba(201,169,110,.15); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(180deg, rgba(201,169,110,.25), rgba(184,149,95,.18)); border: 1px solid rgba(201,169,110,.45); color: var(--gold-soft); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 600; }
+  .tag-x { cursor: pointer; border: none; background: none; color: var(--gold-soft); font-size: 14px; line-height: 1; opacity: .75; transition: opacity .15s; padding: 0; }
+  .tag-x:hover { opacity: 1; }
+  .tags-input { border: none; outline: none; background: transparent; color: #fff; font-family: inherit; font-size: 14px; min-width: 140px; flex: 1; padding: 4px 2px; }
+  .tags-input::placeholder { color: rgba(255,255,255,.38); }
+  /* Rating 0-7 */
+  .q-block { margin-bottom: 22px; }
+  .q-block + .q-block { padding-top: 18px; border-top: 1px solid var(--line-soft); }
+  .q-title { font-weight: 600; font-size: 14px; color: #fff; margin-bottom: 4px; line-height: 1.4; }
+  .q-title .req { color: var(--gold); margin-left: 3px; }
+  .rating-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .rating-group .sc-lbl { font-size: 11px; color: rgba(255,255,255,.5); white-space: nowrap; }
+  .rating-btn { width: 38px; height: 38px; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; background: rgba(255,255,255,.04); color: rgba(255,255,255,.8); font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer; transition: all .13s; }
+  .rating-btn:hover { border-color: var(--gold); background: rgba(201,169,110,.1); color: var(--gold-soft); }
+  .rating-btn.sel { background: linear-gradient(180deg, var(--gold), #b8955f); color: var(--ink); border-color: var(--gold); box-shadow: 0 4px 12px -4px rgba(201,169,110,.5); transform: scale(1.05); }
+  /* Yes / No */
+  .yesno-group { display: flex; gap: 10px; margin-top: 4px; }
+  .yesno-btn { flex: 1; min-width: 90px; padding: 10px 22px; border: 1px solid rgba(255,255,255,.18); border-radius: 10px; background: rgba(255,255,255,.04); color: rgba(255,255,255,.85); font-family: inherit; font-weight: 700; font-size: 13px; letter-spacing: .5px; cursor: pointer; transition: all .13s; }
+  .yesno-btn:hover { border-color: var(--gold); }
+  .yesno-btn.sy { background: rgba(143,209,158,.18); color: var(--ok); border-color: rgba(143,209,158,.5); }
+  .yesno-btn.sn { background: rgba(255,107,107,.18); color: var(--err); border-color: rgba(255,107,107,.5); }
+  .toggle-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gold-soft); background: rgba(201,169,110,.08); border: 1px solid rgba(201,169,110,.25); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-family: inherit; margin-top: 8px; transition: all .15s; }
+  .toggle-btn:hover { background: rgba(201,169,110,.18); border-color: var(--gold); color: #fff; }
+  .loading-pulse { text-align: center; padding: 32px 20px; color: rgba(255,255,255,.55); font-size: 13px; }
+  .loading-pulse::after { content: " ⏳"; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: .4 } 50% { opacity: 1 } }
+  .err-hint { color: var(--err); font-size: 12px; margin-top: 6px; display: none; }
+  .field.has-error input, .field.has-error select, .field.has-error textarea, .field.has-error .tags-wrap { border-color: var(--err) !important; box-shadow: 0 0 0 3px rgba(255,107,107,.14); }
+  .field.has-error .err-hint { display: block; }
+  .q-block.has-error .rating-group, .q-block.has-error .yesno-group { outline: 2px solid rgba(255,107,107,.55); border-radius: 10px; padding: 6px; }
+  .q-block.has-error .err-hint { display: block; }
+  .submit-wrap { padding: 26px 32px 30px; text-align: center; border-top: 1px solid var(--line-soft); }
+  .btn-submit { width: 100%; max-width: 360px; background: linear-gradient(180deg, var(--gold), #b8955f); color: var(--ink); border: 0; padding: 14px 26px; font-size: 14px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; border-radius: 10px; cursor: pointer; box-shadow: 0 8px 20px -6px rgba(201,169,110,.4); transition: transform .12s, box-shadow .18s, opacity .18s; font-family: inherit; }
+  .btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 24px -6px rgba(201,169,110,.55); }
+  .btn-submit:active:not(:disabled) { transform: translateY(0); }
+  .btn-submit:disabled { opacity: .55; cursor: not-allowed; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.active { display: flex; }
+  .modal-box { background: rgba(22,16,18,.92); backdrop-filter: blur(14px) saturate(140%); border: 1px solid var(--line); border-radius: var(--radius); padding: 36px 32px; text-align: center; max-width: 420px; width: 100%; box-shadow: 0 24px 60px -12px rgba(0,0,0,.7); }
+  .modal-icon { font-size: 44px; margin-bottom: 14px; color: var(--ok); }
+  .modal-box h2 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 24px; color: var(--gold); margin-bottom: 8px; }
+  .modal-box p { font-size: 14px; color: rgba(255,255,255,.7); line-height: 1.5; }
+  #restore-banner { display: none; background: rgba(232,177,110,.14); border-bottom: 1px solid rgba(232,177,110,.4); padding: 12px 22px; font-size: 13px; color: #f3dcb4; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 100; }
+  #restore-banner.visible { display: flex; }
+  #restore-banner strong { flex: 1; min-width: 200px; }
+  .restore-btn { padding: 7px 16px; border-radius: 999px; border: none; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer; letter-spacing: .4px; text-transform: uppercase; transition: all .15s; }
+  .restore-btn-yes { background: linear-gradient(180deg, var(--gold), #b8955f); color: var(--ink); }
+  .restore-btn-yes:hover { transform: translateY(-1px); }
+  .restore-btn-no { background: transparent; color: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.2); }
+  .restore-btn-no:hover { background: rgba(255,255,255,.05); color: #fff; }
+  #autosave-indicator { position: fixed; bottom: 18px; right: 18px; font-size: 12px; background: rgba(143,209,158,.18); border: 1px solid rgba(143,209,158,.4); color: var(--ok); padding: 7px 14px; border-radius: 999px; opacity: 0; transition: opacity .4s; pointer-events: none; z-index: 999; }
+  #autosave-indicator.show { opacity: 1; }
+  .dyn-badge { display: inline-block; font-size: 9.5px; background: rgba(143,209,158,.18); color: var(--ok); padding: 3px 10px; border-radius: 999px; letter-spacing: .8px; font-weight: 700; margin-left: 10px; text-transform: uppercase; vertical-align: middle; border: 1px solid rgba(143,209,158,.4); }
+  @media (max-width: 600px) {
+    .card-section { padding: 22px 20px; }
+    header.card-header { padding: 26px 22px 18px; }
+    header.card-header h1 { font-size: 24px; }
+    .submit-wrap { padding: 22px 20px 26px; }
+    .rating-btn { width: 34px; height: 34px; font-size: 13px; }
+    .yesno-btn { font-size: 12px; padding: 9px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="restore-banner">
+  <strong>📋 Hay una evaluación guardada automáticamente. ¿Quieres recuperarla?</strong>
+  <button class="restore-btn restore-btn-yes" onclick="doRestore()">↩ Recuperar</button>
+  <button class="restore-btn restore-btn-no" onclick="dismissRestore()">✕ Descartar</button>
+</div>
+<div id="autosave-indicator">✓ Guardado automáticamente</div>
+
+<div class="page">
+  <div class="topbar">
+    <img src="https://res.cloudinary.com/drqkiohu8/image/upload/q_auto/f_auto/v1776383476/Icono_sin_fondo_wyxgzb.png" alt="Tinto">
+  </div>
+
+  <div class="container">
+    <header class="card-header">
+      <h1>Evaluación de <span class="accent">Socios</span></h1>
+      <p>Encuesta breve · Completar después de cada evento</p>
+      <div class="orn-divider"><span>Tinto Banquetería</span></div>
+    </header>
+
+    <!-- IDENTIFICACIÓN -->
+    <section class="card-section">
+      <div class="section-title"><span class="sec-dot"></span>Identificación del evento</div>
+      <div class="field" id="field_socio">
+        <label>Socio que evalúa<span class="req">*</span></label>
+        <input type="text" id="socio" placeholder="Tu nombre">
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <div class="field" id="field_fecha">
+        <label>Fecha del evento<span class="req">*</span></label>
+        <input type="date" id="fecha" onchange="onFechaChange()">
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <div class="field" id="field_evento">
+        <label>Centro y novios / evento<span class="req">*</span></label>
+        <select id="evento_sel" onchange="onEventoChange()" disabled>
+          <option value="">— Selecciona primero la fecha —</option>
+        </select>
+        <div class="err-hint">Campo requerido</div>
+      </div>
+      <input type="hidden" id="centro">
+      <input type="hidden" id="novios">
+      <div class="field">
+        <label>Supervisor(es) a cargo del evento</label>
+        <div class="ac-wrap">
+          <div class="tags-wrap" id="sup_tags_wrap" onclick="document.getElementById('sup_ac_input').focus()">
+            <input type="text" class="tags-input" id="sup_ac_input" placeholder="Busca y agrega supervisor(es)…"
+                   autocomplete="off"
+                   oninput="acFilter('sup')" onkeydown="acKeyTags(event,'sup')"
+                   onfocus="acShowAll('sup')" onblur="acBlur('sup')">
+          </div>
+          <div class="ac-list" id="sup_list"></div>
+        </div>
+        <div class="hint">Opcional. A quién(es) estás evaluando en este evento.</div>
+        <input type="hidden" id="supervisores">
+      </div>
+    </section>
+
+    <!-- PREGUNTAS DINÁMICAS -->
+    <section class="card-section">
+      <div class="section-title"><span class="sec-dot"></span>Evaluación<span class="dyn-badge">Config_Socios</span></div>
+      <div id="dynamic-questions">
+        <div class="loading-pulse">Cargando preguntas</div>
+      </div>
+    </section>
+
+    <!-- COMENTARIO GENERAL -->
+    <section class="card-section">
+      <div class="section-title"><span class="sec-dot"></span>Comentario general</div>
+      <div class="field">
+        <label>Observaciones</label>
+        <textarea id="comentario" placeholder="Lo positivo, lo que se puede mejorar, ejemplos concretos…"></textarea>
+        <div class="hint">Opcional.</div>
+      </div>
+    </section>
+
+    <div class="submit-wrap">
+      <button class="btn-submit" id="submitBtn" onclick="submitForm()">Enviar evaluación</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-icon">✓</div>
+    <h2>¡Evaluación enviada!</h2>
+    <p>Los datos han sido registrados correctamente.</p>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  API — Apps Script Supervisoras (mismo deployment que la encuesta)
+// ════════════════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbyyWVcXYpFovJ2YiQayepM2yVzygJXM1-9Y27-3aF6HR91ECBKcNtoEQkvYgGpOGU64/exec';
+
+function apiGet(action, params) {
+  const qs = new URLSearchParams({ action, ...(params || {}) });
+  return fetch(`${API_URL}?${qs.toString()}`, { method: 'GET' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+}
+function apiPost(action, data) {
+  return fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, data }) })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ════════════════════════════════════════════════════════════════
+let _config       = null;   // { ok, preguntas:[{orden,seccion,label,subtitulo,tipo}], secciones }
+let _trabajadores = [];      // lista para autocompletar supervisor(es)
+let _supTags      = [];      // tags de supervisores seleccionados
+const _acActive   = {};
+
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+// ════════════════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  asCheckOnLoad();
+
+  apiGet('formConfigSocios')
+    .then(cfg => {
+      _config = cfg && cfg.ok ? cfg : null;
+      renderQuestions();
+      attachAutoSaveListeners();
+    })
+    .catch(err => {
+      document.getElementById('dynamic-questions').innerHTML =
+        '<p class="hint" style="color:var(--err)">No se pudo cargar Config_Socios: ' + esc(err.message || String(err)) + '</p>';
+    });
+
+  apiGet('trabajadores')
+    .then(data => { _trabajadores = data.nombres || []; })
+    .catch(() => { _trabajadores = []; });
+});
+
+// ════════════════════════════════════════════════════════════════
+//  RENDER DINÁMICO DE PREGUNTAS (agrupadas por sección)
+// ════════════════════════════════════════════════════════════════
+function renderQuestions() {
+  const root = document.getElementById('dynamic-questions');
+  if (!_config || !_config.preguntas || !_config.preguntas.length) {
+    root.innerHTML = '<p class="hint" style="color:rgba(255,255,255,.6)">No hay preguntas activas en Config_Socios.</p>';
+    return;
+  }
+  let html = '';
+  let lastSec = null;
+  _config.preguntas.forEach((p, i) => {
+    if (p.seccion !== lastSec) {
+      if (lastSec !== null) html += '</div>';
+      html += '<div class="subseccion">' + esc(p.seccion) + '</div><div>';
+      lastSec = p.seccion;
+    }
+    html += renderQuestion(p, i);
+  });
+  if (lastSec !== null) html += '</div>';
+  root.innerHTML = html;
+
+  // Construir botones después de inyectar el HTML
+  _config.preguntas.forEach((p, i) => {
+    const wrap = document.getElementById('q_' + i);
+    if (!wrap) return;
+    if (p.tipo === 'nota') buildRatingButtons(wrap);
+    else if (p.tipo === 'bool') buildYesNoButtons(wrap);
+  });
+}
+
+function renderQuestion(p, i) {
+  const qid = 'q_' + i;
+  let html = '<div class="q-block" id="qb_' + qid + '">';
+  const reqMark = (p.tipo === 'texto') ? '' : '<span class="req">*</span>';
+  html += '<div class="q-title">' + esc(p.label) + reqMark + '</div>';
+  if (p.subtitulo) html += '<div class="q-sub">' + esc(p.subtitulo) + '</div>';
+  if (p.tipo === 'nota') {
+    html += '<div class="rating-group"><span class="sc-lbl">No obs.</span><div class="btns" id="' + qid + '" data-tipo="nota" style="display:flex;gap:6px;flex-wrap:wrap;"></div><span class="sc-lbl">Sobresale</span></div>';
+    html += '<div class="err-hint">Selecciona una nota</div>';
+  } else if (p.tipo === 'bool') {
+    html += '<div class="yesno-group" id="' + qid + '" data-tipo="bool"></div>';
+    html += '<div class="err-hint">Selecciona una opción</div>';
+  } else {
+    html += '<textarea id="' + qid + '_txt" placeholder="Escribe tu respuesta…"></textarea>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function buildRatingButtons(wrap) {
+  wrap.innerHTML = '';
+  for (let i = 0; i <= 7; i++) {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'rating-btn'; btn.textContent = i; btn.dataset.value = i;
+    btn.onclick = () => {
+      wrap.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel'); wrap.dataset.selected = i;
+      wrap.closest('.q-block')?.classList.remove('has-error');
+      scheduleAutoSave();
+    };
+    wrap.appendChild(btn);
+  }
+}
+function buildYesNoButtons(wrap) {
+  wrap.innerHTML = '';
+  ['Sí', 'No'].forEach(label => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'yesno-btn'; btn.textContent = label;
+    btn.onclick = () => {
+      wrap.querySelectorAll('.yesno-btn').forEach(b => b.classList.remove('sy', 'sn'));
+      btn.classList.add(label === 'Sí' ? 'sy' : 'sn');
+      wrap.dataset.selected = label;
+      wrap.closest('.q-block')?.classList.remove('has-error');
+      scheduleAutoSave();
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  AUTOCOMPLETE (fuente: trabajadores) — usado por tags de supervisor
+// ════════════════════════════════════════════════════════════════
+function acInputEl(id) { return document.getElementById(id + '_ac_input'); }
+function acListEl(id) { return document.getElementById(id + '_list'); }
+function acFilter(id) {
+  const input = acInputEl(id), list = acListEl(id);
+  if (!input || !list) return;
+  const q = input.value.trim().toLowerCase();
+  _acActive[id] = -1;
+  if (!q) { acShowAll(id); return; }
+  renderAcList(id, _trabajadores.filter(n => n.toLowerCase().includes(q)).slice(0, 50), q, list);
+}
+function acShowAll(id) {
+  const list = acListEl(id), input = acInputEl(id);
+  if (!list) return;
+  const q = input ? input.value.trim().toLowerCase() : '';
+  renderAcList(id, q ? _trabajadores.filter(n => n.toLowerCase().includes(q)).slice(0, 50) : _trabajadores.slice(0, 80), q, list);
+}
+function renderAcList(id, matches, q, list) {
+  list.innerHTML = '';
+  if (!matches.length) { list.innerHTML = '<div class="ac-none">Sin resultados</div>'; list.style.display = 'block'; return; }
+  matches.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'ac-item';
+    if (q) {
+      const idx = name.toLowerCase().indexOf(q);
+      div.innerHTML = esc(name.slice(0, idx)) + '<mark>' + esc(name.slice(idx, idx + q.length)) + '</mark>' + esc(name.slice(idx + q.length));
+    } else { div.textContent = name; }
+    div.addEventListener('mousedown', e => { e.preventDefault(); addSupTag(name); acInputEl(id).value = ''; list.style.display = 'none'; });
+    list.appendChild(div);
+  });
+  list.style.display = 'block';
+}
+function acBlur(id) {
+  setTimeout(() => {
+    const list = acListEl(id);
+    if (list) list.style.display = 'none';
+    const input = acInputEl(id);
+    if (input && input.value.trim()) { addSupTag(input.value.trim()); input.value = ''; }
+  }, 180);
+}
+function acKey(e, id) {
+  const list = acListEl(id);
+  if (!list) return;
+  const items = list.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); _acActive[id] = Math.min((_acActive[id] || -1) + 1, items.length - 1); items.forEach((it, i) => it.classList.toggle('active', i === _acActive[id])); items[_acActive[id]]?.scrollIntoView({ block: 'nearest' }); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _acActive[id] = Math.max((_acActive[id] || 0) - 1, 0); items.forEach((it, i) => it.classList.toggle('active', i === _acActive[id])); items[_acActive[id]]?.scrollIntoView({ block: 'nearest' }); }
+  else if (e.key === 'Enter') { e.preventDefault(); const idx = _acActive[id] ?? -1; if (idx >= 0 && items[idx]) { addSupTag(items[idx].textContent); acInputEl(id).value = ''; list.style.display = 'none'; } }
+  else if (e.key === 'Escape') { list.style.display = 'none'; }
+}
+function acKeyTags(e, id) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const list = acListEl(id);
+    const items = list ? list.querySelectorAll('.ac-item') : [];
+    const idx = _acActive[id] ?? -1;
+    if (idx >= 0 && items[idx]) { addSupTag(items[idx].textContent); acInputEl(id).value = ''; if (list) list.style.display = 'none'; }
+    else { const input = acInputEl(id); const v = input ? input.value.trim() : ''; if (v) { addSupTag(v); input.value = ''; if (list) list.style.display = 'none'; } }
+  } else { acKey(e, id); }
+}
+function addSupTag(name) {
+  if (!name || _supTags.includes(name)) return;
+  _supTags.push(name); renderSupTags(); syncSupHidden(); scheduleAutoSave();
+}
+function removeSupTag(name) { _supTags = _supTags.filter(t => t !== name); renderSupTags(); syncSupHidden(); scheduleAutoSave(); }
+function renderSupTags() {
+  const wrap = document.getElementById('sup_tags_wrap');
+  const input = document.getElementById('sup_ac_input');
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  _supTags.forEach(name => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = esc(name) + '<button class="tag-x" type="button" onclick="removeSupTag(\'' + name.replace(/'/g, "\\'") + '\')">✕</button>';
+    wrap.insertBefore(tag, input);
+  });
+}
+function syncSupHidden() { document.getElementById('supervisores').value = _supTags.join(' / '); }
+
+// ════════════════════════════════════════════════════════════════
+//  EVENTOS (fecha → eventosPorFecha)
+// ════════════════════════════════════════════════════════════════
+function onFechaChange() {
+  const fecha = document.getElementById('fecha').value;
+  const eventoSel = document.getElementById('evento_sel');
+  document.getElementById('centro').value = '';
+  document.getElementById('novios').value = '';
+  document.getElementById('field_fecha').classList.remove('has-error');
+  if (!fecha) { eventoSel.innerHTML = '<option value="">— Selecciona primero la fecha —</option>'; eventoSel.disabled = true; return; }
+  eventoSel.innerHTML = '<option value="">— Cargando eventos… —</option>'; eventoSel.disabled = true;
+  apiGet('eventosPorFecha', { fecha })
+    .then(data => {
+      eventoSel.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = data.eventos && data.eventos.length ? '— Selecciona un evento —' : '— Sin eventos para esa fecha —';
+      eventoSel.appendChild(ph);
+      (data.eventos || []).forEach((ev, i) => {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = ev.label; o.dataset.centro = ev.centro; o.dataset.novios = ev.novios;
+        eventoSel.appendChild(o);
+      });
+      eventoSel.disabled = !(data.eventos && data.eventos.length);
+    })
+    .catch(() => { eventoSel.innerHTML = '<option value="">— Error al cargar eventos —</option>'; eventoSel.disabled = true; });
+}
+function onEventoChange() {
+  const sel = document.getElementById('evento_sel');
+  const opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+  document.getElementById('centro').value = (opt && opt.dataset.centro) ? opt.dataset.centro : '';
+  document.getElementById('novios').value = (opt && opt.dataset.novios) ? opt.dataset.novios : '';
+  document.getElementById('field_evento').classList.remove('has-error');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  VALIDACIÓN
+// ════════════════════════════════════════════════════════════════
+function validate() {
+  let ok = true;
+  const socioEl = document.getElementById('socio');
+  if (!socioEl.value.trim()) { socioEl.closest('.field').classList.add('has-error'); ok = false; }
+  else { socioEl.closest('.field').classList.remove('has-error'); }
+  if (!document.getElementById('fecha').value) { document.getElementById('field_fecha').classList.add('has-error'); ok = false; }
+  else { document.getElementById('field_fecha').classList.remove('has-error'); }
+  if (!document.getElementById('evento_sel').value || !document.getElementById('centro').value) { document.getElementById('field_evento').classList.add('has-error'); ok = false; }
+  else { document.getElementById('field_evento').classList.remove('has-error'); }
+  if (_config && _config.preguntas) {
+    _config.preguntas.forEach((p, i) => {
+      if (p.tipo === 'texto') return;
+      const wrap = document.getElementById('q_' + i);
+      if (!wrap || wrap.dataset.selected === undefined) { wrap?.closest('.q-block')?.classList.add('has-error'); ok = false; }
+    });
+  }
+  return ok;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  AUTOSAVE
+// ════════════════════════════════════════════════════════════════
+const AS_KEY = 'tinto_socios_draft_v1';
+let _asTimer = null, _asIndicatorTimer = null;
+
+function asCollect() {
+  const d = {
+    socio: document.getElementById('socio').value || '',
+    fecha: document.getElementById('fecha').value || '',
+    centro: document.getElementById('centro').value || '',
+    novios: document.getElementById('novios').value || '',
+    sup_tags: _supTags.slice(),
+    comentario: document.getElementById('comentario').value || '',
+    respuestas: {}
+  };
+  if (_config && _config.preguntas) {
+    _config.preguntas.forEach((p, i) => {
+      if (p.tipo === 'texto') { d.respuestas[p.label] = document.getElementById('q_' + i + '_txt')?.value || ''; }
+      else { const wrap = document.getElementById('q_' + i); d.respuestas[p.label] = wrap?.dataset.selected ?? ''; }
+    });
+  }
+  d._saved_at = Date.now();
+  return d;
+}
+function _hasAnyContent(d) {
+  if (!d) return false;
+  if (d.socio || d.fecha || d.centro || d.comentario) return true;
+  if (d.sup_tags && d.sup_tags.length) return true;
+  if (d.respuestas) { for (const k in d.respuestas) if (d.respuestas[k] !== '' && d.respuestas[k] !== undefined) return true; }
+  return false;
+}
+function autoSave() {
+  try {
+    const d = asCollect();
+    if (!_hasAnyContent(d)) return;
+    localStorage.setItem(AS_KEY, JSON.stringify(d));
+    const ind = document.getElementById('autosave-indicator');
+    if (ind) { ind.classList.add('show'); clearTimeout(_asIndicatorTimer); _asIndicatorTimer = setTimeout(() => ind.classList.remove('show'), 2000); }
+  } catch(e) { console.warn('autoSave fail', e); }
+}
+function scheduleAutoSave() { clearTimeout(_asTimer); _asTimer = setTimeout(autoSave, 1200); }
+
+function doRestore() {
+  try {
+    const raw = localStorage.getItem(AS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    setVal('socio', d.socio);
+    setVal('comentario', d.comentario);
+    if (d.sup_tags && d.sup_tags.length) { _supTags = []; d.sup_tags.forEach(n => addSupTag(n)); }
+    if (d.fecha) {
+      document.getElementById('fecha').value = d.fecha;
+      onFechaChange();
+      setTimeout(() => {
+        const eventoSel = document.getElementById('evento_sel');
+        for (let i = 0; i < eventoSel.options.length; i++) {
+          const opt = eventoSel.options[i];
+          if (opt.dataset.centro === d.centro && opt.dataset.novios === d.novios) {
+            eventoSel.selectedIndex = i;
+            document.getElementById('centro').value = d.centro;
+            document.getElementById('novios').value = d.novios;
+            break;
+          }
+        }
+      }, 2000);
+    }
+    const restoreResp = () => {
+      if (!_config || !d.respuestas) return;
+      _config.preguntas.forEach((p, i) => {
+        const v = d.respuestas[p.label];
+        if (v === '' || v === null || v === undefined) return;
+        if (p.tipo === 'texto') { const t = document.getElementById('q_' + i + '_txt'); if (t) t.value = v; return; }
+        const wrap = document.getElementById('q_' + i);
+        if (!wrap) return;
+        if (p.tipo === 'nota') {
+          wrap.querySelectorAll('.rating-btn').forEach(b => { if (String(b.dataset.value) === String(v)) { b.classList.add('sel'); wrap.dataset.selected = v; } else b.classList.remove('sel'); });
+        } else {
+          wrap.querySelectorAll('.yesno-btn').forEach(b => { if (b.textContent === v) { b.classList.add(v === 'Sí' ? 'sy' : 'sn'); wrap.dataset.selected = v; } else b.classList.remove('sy', 'sn'); });
+        }
+      });
+    };
+    if (_config) restoreResp(); else setTimeout(restoreResp, 1500);
+    document.getElementById('restore-banner')?.classList.remove('visible');
+  } catch(e) { console.error('doRestore error', e); }
+}
+function dismissRestore() { document.getElementById('restore-banner')?.classList.remove('visible'); try { localStorage.removeItem(AS_KEY); } catch(e) {} }
+function asCheckOnLoad() {
+  try {
+    const raw = localStorage.getItem(AS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!_hasAnyContent(d)) return;
+    if (Date.now() - (d._saved_at || 0) >= 86400000) { localStorage.removeItem(AS_KEY); return; }
+    document.getElementById('restore-banner')?.classList.add('visible');
+  } catch(e) { try { localStorage.removeItem(AS_KEY); } catch(_e) {} }
+}
+function attachAutoSaveListeners() {
+  document.querySelectorAll('input,textarea,select').forEach(el => {
+    if (el.dataset._asAttached === '1') return;
+    el.addEventListener('input', scheduleAutoSave);
+    el.addEventListener('change', scheduleAutoSave);
+    el.dataset._asAttached = '1';
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SUBMIT
+// ════════════════════════════════════════════════════════════════
+function submitForm() {
+  if (!validate()) { window.scrollTo({ top: 0, behavior: 'smooth' }); alert('Por favor completa todos los campos obligatorios (marcados con *).'); return; }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const data = {
+    socio: document.getElementById('socio').value.trim(),
+    fecha: document.getElementById('fecha').value,
+    centro: document.getElementById('centro').value.trim(),
+    novios: document.getElementById('novios').value.trim(),
+    supervisores: document.getElementById('supervisores').value.trim(),
+    comentario: document.getElementById('comentario').value.trim(),
+    respuestas: {}
+  };
+  if (_config && _config.preguntas) {
+    _config.preguntas.forEach((p, i) => {
+      if (p.tipo === 'texto') { data.respuestas[p.label] = document.getElementById('q_' + i + '_txt')?.value.trim() || ''; }
+      else { const wrap = document.getElementById('q_' + i); data.respuestas[p.label] = wrap?.dataset.selected ?? ''; }
+    });
+  }
+  apiPost('submitSocios', data)
+    .then(resp => {
+      if (resp && resp.success) {
+        try { localStorage.removeItem(AS_KEY); } catch(e) {}
+        document.getElementById('modal').classList.add('active');
+        setTimeout(() => location.reload(), 3000);
+      } else {
+        btn.disabled = false; btn.textContent = 'Enviar evaluación';
+        alert('Error al enviar: ' + (resp && resp.error ? resp.error : 'respuesta inválida'));
+      }
+    })
+    .catch(err => { btn.disabled = false; btn.textContent = 'Enviar evaluación'; alert('Error al enviar: ' + (err.message || String(err))); });
+}
+</script>
+</body>
+</html>
