@@ -737,6 +737,19 @@ function getEventosList() {
 //  Por cada fila EVAL construye un objeto cargo dinámicamente leyendo el
 //  HEADER vigente para conocer label/tipo de cada criterio.
 // ════════════════════════════════════════════════════════════════════
+// Promedio de notas excluyendo 0 ("No observado") + vacíos/NaN. Null si no queda ninguna.
+function _promSinCero(vals) {
+  var nums = [];
+  for (var i = 0; i < vals.length; i++) {
+    var n = parseFloat(vals[i]);
+    if (!isNaN(n) && n > 0) nums.push(n);
+  }
+  if (!nums.length) return null;
+  var sum = 0;
+  for (var j = 0; j < nums.length; j++) sum += nums[j];
+  return Math.round(sum / nums.length * 10) / 10;
+}
+
 function getEventData(noviosKey) {
   try {
     var ss    = SpreadsheetApp.openById(SHEET_ID);
@@ -808,8 +821,7 @@ function getEventData(noviosKey) {
         }
       });
 
-      var notas = scores.map(function(s) { return s.value; }).filter(function(v) { return v !== '' && !isNaN(parseFloat(v)); });
-      var prom  = notas.length ? Math.round(notas.reduce(function(a, b) { return a + parseFloat(b); }, 0) / notas.length * 10) / 10 : null;
+      var prom = _promSinCero(scores.map(function(s) { return s.value; })); // 0 = No observado → no cuenta
 
       var bools = binarios.map(function(b) { return b.value; }).filter(function(v) { return v !== ''; });
       var notaOk = (prom === null) ? null : (prom >= NOTA_MIN_BONO);
@@ -872,8 +884,7 @@ function getEventData(noviosKey) {
           binarios.push({ label: crit.label, col: col1based, value: String(raw || '').trim() });
         }
       });
-      var notasS = scores.map(function(s) { return s.value; }).filter(function(v) { return v !== '' && !isNaN(parseFloat(v)); });
-      var promS  = notasS.length ? Math.round(notasS.reduce(function(a, b) { return a + parseFloat(b); }, 0) / notasS.length * 10) / 10 : null;
+      var promS = _promSinCero(scores.map(function(s) { return s.value; })); // 0 = No observado → no cuenta
       var tipoS  = (scores.length && binarios.length) ? 'numeric+binary' : (binarios.length ? 'binary' : 'numeric');
       cargos.push({
         key:           _slugify(CARGO_SOCIOS + ' ' + socio),
@@ -1651,10 +1662,9 @@ function extraerFilasBonos(row, sheet, rowIndex) {
   });
   while (critValues.length < 10) critValues.push('');
 
-  // Bono ganado = promedio_notas >= NOTA_MIN  Y  todos_booleanos === SI
-  var notasOk = notas.filter(function(v) { return v !== '' && !isNaN(parseFloat(v)); });
+  // Bono ganado = promedio_notas (excluye 0 = No observado) >= NOTA_MIN  Y  todos_booleanos === SI
   var boolsOk = bools.filter(function(v) { return v !== '' && v !== null; });
-  var prom    = notasOk.length ? Math.round(notasOk.reduce(function(a, b) { return a + parseFloat(b); }, 0) / notasOk.length * 10) / 10 : null;
+  var prom    = _promSinCero(notas);
 
   var notaOk = (prom === null) ? null : (prom >= NOTA_MIN_BONO);
   var boolOk = null;
