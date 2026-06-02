@@ -204,8 +204,8 @@
       </div>
       <input type="hidden" id="centro">
       <input type="hidden" id="novios">
-      <div class="field">
-        <label>Supervisor(es) a cargo del evento</label>
+      <div class="field" id="field_supervisores">
+        <label>Supervisor(es) evaluado(s)<span class="req">*</span></label>
         <div class="ac-wrap">
           <div class="tags-wrap" id="sup_tags_wrap" onclick="document.getElementById('sup_ac_input').focus()">
             <input type="text" class="tags-input" id="sup_ac_input" placeholder="Busca y agrega supervisor(es)…"
@@ -215,8 +215,9 @@
           </div>
           <div class="ac-list" id="sup_list"></div>
         </div>
-        <div class="hint">Opcional. A quién(es) estás evaluando en este evento.</div>
+        <div class="hint">A quién(es) estás evaluando. Si querés poner una nota distinta a cada supervisor, envía una respuesta por cada uno.</div>
         <input type="hidden" id="supervisores">
+        <div class="err-hint">Agrega al menos un supervisor</div>
       </div>
     </section>
 
@@ -444,7 +445,9 @@ function acKeyTags(e, id) {
 }
 function addSupTag(name) {
   if (!name || _supTags.includes(name)) return;
-  _supTags.push(name); renderSupTags(); syncSupHidden(); scheduleAutoSave();
+  _supTags.push(name); renderSupTags(); syncSupHidden();
+  document.getElementById('field_supervisores')?.classList.remove('has-error');
+  scheduleAutoSave();
 }
 function removeSupTag(name) { _supTags = _supTags.filter(t => t !== name); renderSupTags(); syncSupHidden(); scheduleAutoSave(); }
 function renderSupTags() {
@@ -507,6 +510,8 @@ function validate() {
   else { document.getElementById('field_fecha').classList.remove('has-error'); }
   if (!document.getElementById('evento_sel').value || !document.getElementById('centro').value) { document.getElementById('field_evento').classList.add('has-error'); ok = false; }
   else { document.getElementById('field_evento').classList.remove('has-error'); }
+  if (!document.getElementById('supervisores').value.trim()) { document.getElementById('field_supervisores').classList.add('has-error'); ok = false; }
+  else { document.getElementById('field_supervisores').classList.remove('has-error'); }
   if (_config && _config.preguntas) {
     _config.preguntas.forEach((p, i) => {
       if (p.tipo === 'texto') return;

@@ -860,17 +860,22 @@ function getEventData(noviosKey) {
       };
     });
 
-    // Anexar tarjeta(s) de socios (la más reciente por socio), excluidas de bonos.
-    var sociosPorSocio = {};
+    // Anexar tarjeta(s) de socios: UNA por (socio que evalúa, supervisor evaluado),
+    // la más reciente. Excluidas de bonos. nombre = supervisor evaluado.
+    var sociosPorClave = {};
     sociosRows.forEach(function(item) {
-      var socio = String(item.row[IDX.supervisor] || '').trim();
+      var socioEv    = String(item.row[IDX.supervisor] || '').trim(); // quién evaluó
+      var supervisor = String(item.row[IDX.nombre] || '').trim();     // a quién evaluó
+      var clave = socioEv + '|||' + supervisor;
       var ts = item.row[IDX.timestamp];
       var t = (ts instanceof Date) ? ts.getTime() : 0;
-      if (!sociosPorSocio[socio] || t >= sociosPorSocio[socio].t) sociosPorSocio[socio] = { item: item, t: t };
+      if (!sociosPorClave[clave] || t >= sociosPorClave[clave].t) {
+        sociosPorClave[clave] = { item: item, t: t, socioEv: socioEv, supervisor: supervisor };
+      }
     });
-    Object.keys(sociosPorSocio).forEach(function(socio) {
-      var item = sociosPorSocio[socio].item;
-      var row = item.row, rowIndexS = item.rowIndex;
+    Object.keys(sociosPorClave).forEach(function(clave) {
+      var ent = sociosPorClave[clave];
+      var row = ent.item.row, rowIndexS = ent.item.rowIndex;
       var vigente = _getHeaderVigente(sheet, CARGO_SOCIOS, rowIndexS) || { criterios: [] };
       var scores = [], binarios = [];
       vigente.criterios.forEach(function(crit, i) {
@@ -887,10 +892,10 @@ function getEventData(noviosKey) {
       var promS = _promSinCero(scores.map(function(s) { return s.value; })); // 0 = No observado → no cuenta
       var tipoS  = (scores.length && binarios.length) ? 'numeric+binary' : (binarios.length ? 'binary' : 'numeric');
       cargos.push({
-        key:           _slugify(CARGO_SOCIOS + ' ' + socio),
-        label:         'Evaluación Socios' + (socio ? ' (por ' + socio + ')' : ''),
+        key:           _slugify(CARGO_SOCIOS + ' ' + ent.socioEv + ' ' + ent.supervisor),
+        label:         'Evaluación Socios' + (ent.socioEv ? ' (por ' + ent.socioEv + ')' : ''),
         tipo:          tipoS,
-        nombre:        String(row[IDX.nombre] || '').trim(),
+        nombre:        ent.supervisor || '(sin supervisor)',
         cojefes:       '',
         scores:        scores,
         binarios:      binarios,
@@ -2016,46 +2021,64 @@ function registrarEvaluacionSocios(data) {
       if (v) comentario += (comentario ? '\n' : '') + p.label + ': ' + v;
     });
 
-    var row = _emptyEvalRow();
-    row[IDX.tipo]         = 'EVAL';
-    row[IDX.timestamp]    = timestamp;
-    row[IDX.supervisor]   = socio;                                  // quién evalúa (socio)
-    row[IDX.novios]       = String(data.novios || '').trim();
-    row[IDX.centro]       = centro;
-    row[IDX.fechaEvento]  = fechaFmt;
-    row[IDX.codigoEvento] = codigoEvento;
-    row[IDX.cargo]        = CARGO_SOCIOS;
-    row[IDX.nombre]       = String(data.supervisores || '').trim(); // a quién(es) evalúa
-    row[IDX.cojefes]      = '';
-    row[IDX.comentario]   = comentario;
-    critPreg.forEach(function(p, i) {
-      if (i >= SLOTS_CRIT) return;
-      var v = resp[p.label];
-      if (p.tipo === 'nota') row[IDX.crit[i]] = (v === '' || v === null || v === undefined) ? '' : Number(v);
-      else                   row[IDX.crit[i]] = (v === '' || v === null || v === undefined) ? '' : String(v).trim();
-    });
+    // Lista de supervisores evaluados → UNA fila por supervisor (mismas notas).
+    // Permite evaluar varios supervisores del mismo evento sin pisarse; para
+    // notas distintas por supervisor, se envían respuestas separadas.
+    // UPSERT por (Código Evento + Socio[col C] + Supervisor evaluado[col I]).
+    var supervisores = String(data.supervisores || '').split(/[\/,;]/)
+      .map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+    if (!supervisores.length) supervisores = [''];
 
-    // UPSERT por (Código Evento + Cargo socios + Socio): varios socios coexisten.
     var lastRow = sheet.getLastRow();
-    var targetRow = 0;
+    var existingMap = {}; // supervisor evaluado → rowIndex (para este evento+socio)
     if (lastRow >= 2 && codigoEvento) {
-      var existing = sheet.getRange(2, 1, lastRow - 1, IDX.cargo + 1).getValues();
+      var existing = sheet.getRange(2, 1, lastRow - 1, IDX.nombre + 1).getValues();
       for (var j = 0; j < existing.length; j++) {
         if (String(existing[j][IDX.tipo] || '').trim() !== 'EVAL') continue;
         if (String(existing[j][IDX.cargo] || '').trim() !== CARGO_SOCIOS) continue;
-        if (String(existing[j][IDX.codigoEvento] || '').trim() === codigoEvento &&
-            String(existing[j][IDX.supervisor] || '').trim() === socio) {
-          targetRow = j + 2; break;
-        }
+        if (String(existing[j][IDX.codigoEvento] || '').trim() !== codigoEvento) continue;
+        if (String(existing[j][IDX.supervisor] || '').trim() !== socio) continue;
+        existingMap[String(existing[j][IDX.nombre] || '').trim()] = j + 2;
       }
     }
 
-    if (targetRow) {
-      sheet.getRange(targetRow, 1, 1, HEADERS_NUEVO.length).setValues([row]);
-      return { success: true, updated: 1 };
+    function _buildRowSocio(supervisor) {
+      var row = _emptyEvalRow();
+      row[IDX.tipo]         = 'EVAL';
+      row[IDX.timestamp]    = timestamp;
+      row[IDX.supervisor]   = socio;        // quién evalúa (socio)
+      row[IDX.novios]       = String(data.novios || '').trim();
+      row[IDX.centro]       = centro;
+      row[IDX.fechaEvento]  = fechaFmt;
+      row[IDX.codigoEvento] = codigoEvento;
+      row[IDX.cargo]        = CARGO_SOCIOS;
+      row[IDX.nombre]       = supervisor;   // supervisor evaluado (1 por fila)
+      row[IDX.cojefes]      = '';
+      row[IDX.comentario]   = comentario;
+      critPreg.forEach(function(p, i) {
+        if (i >= SLOTS_CRIT) return;
+        var v = resp[p.label];
+        if (p.tipo === 'nota') row[IDX.crit[i]] = (v === '' || v === null || v === undefined) ? '' : Number(v);
+        else                   row[IDX.crit[i]] = (v === '' || v === null || v === undefined) ? '' : String(v).trim();
+      });
+      return row;
     }
-    sheet.appendRow(row);
-    return { success: true, created: 1 };
+
+    var creadas = 0, actualizadas = 0;
+    supervisores.forEach(function(supervisor) {
+      var row = _buildRowSocio(supervisor);
+      var target = existingMap[supervisor];
+      if (target) {
+        sheet.getRange(target, 1, 1, HEADERS_NUEVO.length).setValues([row]);
+        actualizadas++;
+      } else {
+        sheet.appendRow(row);
+        existingMap[supervisor] = sheet.getLastRow(); // por si se repite en la misma tanda
+        creadas++;
+      }
+    });
+
+    return { success: true, created: creadas, updated: actualizadas };
   } catch(err) {
     Logger.log('registrarEvaluacionSocios ERROR: ' + err + '\n' + (err.stack || ''));
     return { success: false, error: err.toString() };
