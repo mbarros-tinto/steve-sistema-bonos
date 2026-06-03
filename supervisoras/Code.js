@@ -330,6 +330,9 @@ function _routeApi(action, params, body) {
       case 'formConfigSocios':
         result = getFormConfigSocios();
         break;
+      case 'criteriosPlatos':
+        result = getCriteriosPlatos();
+        break;
       case 'submitSocios':
         var dataSocios = (body && body.data) ? body.data : null;
         if (!dataSocios) { result = { success: false, error: 'Falta data' }; break; }
@@ -664,6 +667,9 @@ function registrarEvaluacionSupervisora(data) {
     // Sincronizar Dashboard de Bonos para los pares afectados
     volcadoBonosUpsert(paresAfectados, rowsAfectadas);
 
+    // Evaluación de platos (feedback cocina, hoja Eval_Platos aparte, NO toca Centralizado)
+    _registrarPlatos(data, supervisor, String(data.novios || '').trim(), centro, fechaFmt, codigoEvento);
+
     return { success: true, updated: updates.length, created: nuevas.length };
   } catch(err) {
     Logger.log('registrarEvaluacion ERROR: ' + err.toString() + '\n' + err.stack);
@@ -831,6 +837,7 @@ function getEventData(noviosKey) {
       return m ? (m[1] + '-' + m[2] + '-' + m[3]) : s;
     }
 
+    var platosEvento = _getEvalPlatos(noviosKey);
     var cargos = grupo.rows.map(function(item) {
       var row      = item.row;
       var rowIndex = item.rowIndex;
@@ -873,7 +880,8 @@ function getEventData(noviosKey) {
         bono:          bonoTxt,
         comentario:    String(row[IDX.comentario] || '').trim(),
         comentarioCol: IDX.comentario + 1,
-        rowIndex:      rowIndex
+        rowIndex:      rowIndex,
+        platos:        (cargoNm === 'Jefe Cocina') ? platosEvento : null
       };
     });
 
@@ -2095,4 +2103,102 @@ function testSocios() {
   var cfg = getFormConfigSocios();
   Logger.log('getFormConfigSocios ok=' + cfg.ok + ' preguntas=' + (cfg.preguntas ? cfg.preguntas.length : 0));
   if (cfg.secciones) cfg.secciones.forEach(function(s) { Logger.log('  · ' + s.seccion + ': ' + s.preguntas.length + ' preg'); });
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  EVALUACIÓN DE PLATOS (feedback de cocina) — hoja Eval_Platos aparte.
+//  El supervisor, dentro de la sección Jefe Cocina, elige 1-2 platos (de
+//  Criterios_platos) y evalúa sus criterios (Sí/No). Se guarda en Eval_Platos
+//  y se muestra en la tarjeta de cocina del visualizador. NO va al Centralizado.
+// ════════════════════════════════════════════════════════════════════
+var CRITERIOS_PLATOS_TAB = 'Criterios_platos';
+var SHEET_EVAL_PLATOS    = 'Eval_Platos';
+
+// Lee Criterios_platos → { ok, platos: [{ plato, criterios: [..] }, ...] }
+function getCriteriosPlatos() {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName(CRITERIOS_PLATOS_TAB);
+    if (!sh || sh.getLastRow() < 2) return { ok: false, error: 'Criterios_platos vacío' };
+    var nCols = Math.max(sh.getLastColumn(), 2);
+    var data  = sh.getRange(2, 1, sh.getLastRow() - 1, nCols).getValues();
+    var platos = [];
+    data.forEach(function(r) {
+      var plato = String(r[0] || '').trim();
+      if (!plato) return;
+      var criterios = [];
+      for (var j = 1; j < r.length; j++) {
+        var c = String(r[j] || '').trim();
+        if (c) criterios.push(c);
+      }
+      if (criterios.length) platos.push({ plato: plato, criterios: criterios });
+    });
+    return { ok: true, platos: platos };
+  } catch(err) {
+    Logger.log('getCriteriosPlatos ERROR: ' + err);
+    return { ok: false, error: err.toString() };
+  }
+}
+
+// Escribe la evaluación de platos del evento en Eval_Platos (formato largo).
+// data.platos = [{ plato, criterios: [{ criterio, cumple }, ...] }, ...]
+// Re-enviar el formulario reemplaza las filas previas del mismo Código Evento.
+function _registrarPlatos(data, supervisor, novios, centro, fechaFmt, codigoEvento) {
+  try {
+    var platos = data && data.platos;
+    if (!platos || !platos.length) return;
+    var ss    = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName(SHEET_EVAL_PLATOS);
+    if (!sheet) return;
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2 && codigoEvento) {
+      var cods = sheet.getRange(2, 6, lastRow - 1, 1).getValues(); // col F = Código Evento
+      var del  = [];
+      for (var i = 0; i < cods.length; i++) {
+        if (String(cods[i][0] || '').trim() === codigoEvento) del.push(i + 2);
+      }
+      for (var d = del.length - 1; d >= 0; d--) sheet.deleteRow(del[d]);
+    }
+
+    var timestamp = new Date();
+    var filas = [];
+    platos.forEach(function(p, idx) {
+      var plato = String(p.plato || '').trim();
+      if (!plato) return;
+      (p.criterios || []).forEach(function(c) {
+        var crit = String(c.criterio || '').trim();
+        if (!crit) return;
+        filas.push([timestamp, supervisor, novios, centro, fechaFmt, codigoEvento,
+                    idx + 1, plato, crit, String(c.cumple || '').trim()]);
+      });
+    });
+    if (filas.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, filas.length, 10).setValues(filas);
+    }
+  } catch(err) {
+    Logger.log('_registrarPlatos ERROR: ' + err);
+  }
+}
+
+// Lee Eval_Platos de un evento (por novios) →
+//   [{ nPlato, plato, criterios:[{criterio,cumple}] }, ...]
+function _getEvalPlatos(noviosKey) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName(SHEET_EVAL_PLATOS);
+    if (!sh || sh.getLastRow() < 2) return [];
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 10).getValues();
+    var byPlato = {}, order = [];
+    data.forEach(function(r) {
+      if (String(r[2] || '').trim() !== noviosKey) return; // col C = Novios
+      var key = String(r[6]) + '|||' + String(r[7] || '').trim();
+      if (!byPlato[key]) { byPlato[key] = { nPlato: r[6], plato: String(r[7] || '').trim(), criterios: [] }; order.push(key); }
+      byPlato[key].criterios.push({ criterio: String(r[8] || '').trim(), cumple: String(r[9] || '').trim() });
+    });
+    return order.map(function(k) { return byPlato[k]; });
+  } catch(err) {
+    Logger.log('_getEvalPlatos ERROR: ' + err);
+    return [];
+  }
 }

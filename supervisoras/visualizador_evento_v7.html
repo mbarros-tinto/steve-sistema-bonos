@@ -156,6 +156,8 @@ body{font-family:'Quicksand',sans-serif;background:#1a1a2e;color:#222;min-height
 .bin-list-val{font-weight:700;padding:2px 8px;border-radius:8px;font-size:.74rem;white-space:nowrap}
 .bin-bono{background:rgba(201,169,110,.12);border:1px solid rgba(201,169,110,.5);border-radius:8px;padding:6px 8px;margin-top:6px}
 .bin-bono .bin-list-label,.bin-bono .modal-bin-label{color:#8a6d3b;font-weight:700}
+.platos-card{margin-top:10px;padding-top:8px;border-top:1px solid #f0f0f0}
+.platos-card-plato{font-weight:700;font-size:.82rem;color:#444;margin:8px 0 4px}
 
 .comment-section{margin-top:4px}
 .comment-section label{display:block;font-weight:700;font-size:.85rem;color:var(--dark);margin-bottom:7px}
@@ -456,6 +458,20 @@ function renderCard(cargo, notaMin) {
     </div>`;
   }
 
+  let platosPrev = '';
+  if (cargo.platos && cargo.platos.length) {
+    platosPrev = '<div class="platos-card">';
+    cargo.platos.forEach(pl => {
+      platosPrev += '<div class="platos-card-plato">🍽 ' + esc(pl.plato) + '</div>';
+      (pl.criterios || []).forEach(c => {
+        const okp = c.cumple === 'Sí';
+        const clsp = okp ? 'yn-yes' : (c.cumple === 'No' ? 'yn-no' : '');
+        const icp = okp ? '✓' : (c.cumple === 'No' ? '✗' : '—');
+        platosPrev += '<div class="bin-list-item"><span class="bin-list-label">' + esc(c.criterio) + '</span><span class="bin-list-val ' + clsp + '">' + icp + ' ' + (c.cumple || '—') + '</span></div>';
+      });
+    });
+    platosPrev += '</div>';
+  }
   const comentPrev = cargo.comentario
     ? `<div class="card-comment">${esc(cargo.comentario)}</div>`
     : `<div class="card-comment empty">Sin comentario. Haz clic para editar.</div>`;
@@ -467,7 +483,7 @@ function renderCard(cargo, notaMin) {
       </div>
       <div class="card-body">
         <div class="card-nombre">${esc(cargo.nombre)}</div>
-        ${body}${comentPrev}
+        ${body}${platosPrev}${comentPrev}
       </div>
     </div>`;
 }

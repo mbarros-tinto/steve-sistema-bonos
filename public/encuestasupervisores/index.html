@@ -257,6 +257,10 @@
   .q-title .req { color: var(--gold); margin-left: 3px; }
   /* Pregunta que decide el bono (destacada) */
   .qb-bono { border: 1px solid rgba(201,169,110,.55); background: rgba(201,169,110,.08); border-radius: 12px; padding: 14px 16px; }
+  .platos-box{margin:14px 0 18px;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid var(--line-soft);border-radius:12px}
+  .platos-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--gold);margin-bottom:10px}
+  .plato-unit{margin-bottom:12px}
+  .plato-crits{margin-top:8px}
   .bono-tag { display:inline-block; margin-left:10px; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color: var(--ink); background: linear-gradient(180deg, var(--gold), #b8955f); border-radius:999px; padding:3px 10px; vertical-align:middle; }
   .rating-group {
     display: flex; align-items: center;
@@ -721,6 +725,7 @@ function apiPost(action, data) {
 //  ESTADO GLOBAL
 // ════════════════════════════════════════════════════════════════
 let _formConfig    = null;
+let _platosConfig  = [];
 let _byCentro      = {};
 let _cargoNames    = {};
 let _trabajadores  = [];
@@ -760,6 +765,7 @@ window.addEventListener('DOMContentLoaded', () => {
       _formConfig = cfg && cfg.ok ? cfg : null;
       renderDynamicCargos();
       attachAutoSaveListeners();
+      renderPlatosSection();
     })
     .catch(err => {
       document.getElementById('dynamic-cargos').innerHTML =
@@ -777,6 +783,10 @@ window.addEventListener('DOMContentLoaded', () => {
   apiGet('trabajadores')
     .then(data => { _trabajadores = data.nombres || []; })
     .catch(() => { _trabajadores = []; });
+
+  apiGet('criteriosPlatos')
+    .then(data => { _platosConfig = (data && data.ok) ? (data.platos || []) : []; renderPlatosSection(); })
+    .catch(() => { _platosConfig = []; });
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -853,6 +863,7 @@ function renderCargoSection(c, idx) {
   c.criterios.forEach((crit, i) => {
     const qid = 'q_' + s + '_' + i;
     const esBono = /merece.*bono/i.test(crit.label);
+    if (esBono && c.cargo === 'Jefe Cocina') html += '<div id="platos_cocina"></div>';
     html += '<div class="q-block' + (esBono ? ' qb-bono' : '') + '" id="qb_' + qid + '">';
     html += '<div class="q-title">' + esc(crit.label) + '<span class="req">*</span>' + (esBono ? '<span class="bono-tag">🏆 Define el bono</span>' : '') + '</div>';
     if (crit.subtitulo) html += '<div class="q-sub">' + esc(crit.subtitulo) + '</div>';
@@ -1590,6 +1601,7 @@ function submitForm() {
       data.cargos[c.cargo] = cargoResp;
     });
   }
+  data.platos = collectPlatos();
   apiPost('submitEvaluacion', data)
     .then(resp => {
       if (resp && resp.success) {
@@ -1607,6 +1619,75 @@ function submitForm() {
       btn.textContent = 'Enviar evaluación';
       alert('Error al enviar: ' + (err.message || String(err)));
     });
+}
+// ── Evaluación de platos (sub-sección de Jefe Cocina) ──
+function renderPlatosSection() {
+  const anchor = document.getElementById('platos_cocina');
+  if (!anchor || anchor.dataset.rendered === '1') return;
+  if (!_platosConfig || !_platosConfig.length) return;
+  anchor.dataset.rendered = '1';
+  const opts = '<option value="">— Selecciona el plato —</option>' +
+    _platosConfig.map(p => '<option value="' + esc(p.plato) + '">' + esc(p.plato) + '</option>').join('');
+  anchor.innerHTML =
+    '<div class="platos-box">' +
+      '<div class="platos-title">🍽 Evaluación de platos</div>' +
+      '<div class="plato-unit">' +
+        '<label>Plato 1</label>' +
+        '<select id="plato_1_sel" onchange="onPlatoChange(1)">' + opts + '</select>' +
+        '<div id="plato_1_crits" class="plato-crits"></div>' +
+      '</div>' +
+      '<button type="button" class="toggle-btn" id="plato_add_btn" onclick="addSegundoPlato()">＋ Agregar segundo plato</button>' +
+      '<div class="plato-unit" id="plato_2_unit" style="display:none">' +
+        '<label>Plato 2</label>' +
+        '<select id="plato_2_sel" onchange="onPlatoChange(2)">' + opts + '</select>' +
+        '<div id="plato_2_crits" class="plato-crits"></div>' +
+      '</div>' +
+    '</div>';
+}
+function onPlatoChange(n) {
+  const sel = document.getElementById('plato_' + n + '_sel');
+  const cont = document.getElementById('plato_' + n + '_crits');
+  if (!sel || !cont) return;
+  cont.innerHTML = '';
+  const p = (_platosConfig || []).find(x => x.plato === sel.value);
+  if (p) {
+    p.criterios.forEach((crit, i) => {
+      const id = 'platoc_' + n + '_' + i;
+      const div = document.createElement('div');
+      div.className = 'q-block';
+      div.innerHTML = '<div class="q-title" style="font-size:13px">' + esc(crit) + '<span class="req">*</span></div>' +
+                      '<div class="yesno-group" id="' + id + '" data-tipo="bool"></div>';
+      cont.appendChild(div);
+      buildYesNoButtons(document.getElementById(id));
+    });
+  }
+  scheduleAutoSave();
+}
+function addSegundoPlato() {
+  const u = document.getElementById('plato_2_unit');
+  const b = document.getElementById('plato_add_btn');
+  if (!u) return;
+  const open = u.style.display !== 'none';
+  u.style.display = open ? 'none' : 'block';
+  if (b) b.textContent = open ? '＋ Agregar segundo plato' : '✕ Quitar segundo plato';
+  if (open) { const s2 = document.getElementById('plato_2_sel'); if (s2) s2.value = ''; const c2 = document.getElementById('plato_2_crits'); if (c2) c2.innerHTML = ''; }
+  scheduleAutoSave();
+}
+function collectPlatos() {
+  const out = [];
+  [1, 2].forEach(n => {
+    if (n === 2) { const u = document.getElementById('plato_2_unit'); if (!u || u.style.display === 'none') return; }
+    const sel = document.getElementById('plato_' + n + '_sel');
+    if (!sel || !sel.value) return;
+    const p = (_platosConfig || []).find(x => x.plato === sel.value);
+    if (!p) return;
+    const criterios = p.criterios.map((crit, i) => {
+      const w = document.getElementById('platoc_' + n + '_' + i);
+      return { criterio: crit, cumple: (w && w.dataset.selected) ? w.dataset.selected : '' };
+    });
+    out.push({ plato: sel.value, criterios: criterios });
+  });
+  return out;
 }
 </script>
 </body>
