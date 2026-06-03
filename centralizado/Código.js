@@ -79,6 +79,9 @@ function _cargarBonosInfo() {
       var sistema   = String(data[i][3]).trim();
       var aplStr    = String(data[i][17] || '').trim();
       if (!cargoBase || !tipo || !sistema) continue;
+      // "Supervisor" en Fotos = solo feedback (fotos que sube el supervisor desde
+      // su formulario), SIN bono monetario → excluir del consolidado para no ensuciar.
+      if (sistema === 'Fotos' && cargoBase === 'Supervisor') continue;
       var aplicables = aplStr ? aplStr.split(',').map(function(s){ return s.trim(); }).filter(function(s){return s;}) : [cargoBase];
       var nombreBono = 'Bono ' + tipo + ' ' + cargoBase;
       // Canal: Vajilla se separa dentro del sistema CG
