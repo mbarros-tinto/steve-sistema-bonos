@@ -945,6 +945,7 @@ function getEventData(noviosKey) {
       alerta:           String(primera[IDX.alerta] || '').trim(),
       destacComentario: String(primera[IDX.destacCom] || '').trim(),
       alertaComentario: String(primera[IDX.alertaCom] || '').trim(),
+      fotosSupervisor:  _getFotosSupervisor(String(primera[IDX.codigoEvento] || '').trim()),
       cargos:           cargos
     };
   } catch(err) {
@@ -2201,4 +2202,84 @@ function _getEvalPlatos(noviosKey) {
     Logger.log('_getEvalPlatos ERROR: ' + err);
     return [];
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  FOTOS DEL SUPERVISOR (cargo "Supervisor" del sistema Fotos 2.0)
+//  Para el feedback del visualizador: qué fotos exige el cargo y cuáles
+//  subió el supervisor para este evento (con su URL en Drive).
+// ════════════════════════════════════════════════════════════════════
+var ID_FOTOS = '1fJFabJhtLfoX51R2ewSuZ89TGDGruLdBRA-CdQffiYU'; // spreadsheet Fotos 2.0
+
+// Lista de fotos exigidas al cargo "Supervisor" (Maestro_Bonos, Sistema=Fotos)
+function _fotosRequeridasSupervisor() {
+  try {
+    var ss = SpreadsheetApp.openById(CENTRALIZADO_BONOS_ID);
+    var sh = ss.getSheetByName(MAESTRO_BONOS_TAB);
+    if (!sh || sh.getLastRow() < 2) return [];
+    var data = sh.getRange(2, 1, sh.getLastRow() - 1, 14).getValues();
+    var req = [];
+    data.forEach(function(r) {
+      var cargo   = String(r[0]).trim();
+      var sistema = String(r[3]).trim();
+      if (sistema !== 'Fotos' || cargo !== 'Supervisor') return;
+      for (var i = 4; i < 14; i++) {
+        var raw = String(r[i]).trim();
+        if (!raw || /^[-—\s]*$/.test(raw)) continue;
+        req.push(raw);
+      }
+    });
+    return req;
+  } catch(err) {
+    Logger.log('_fotosRequeridasSupervisor ERROR: ' + err);
+    return [];
+  }
+}
+
+function _normCodigoFotos(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Mapa { instruccion: urlDrive } de las fotos válidas subidas para el evento
+function _fotosSubidasSupervisor(codigoEvento) {
+  var map = {};
+  try {
+    if (!codigoEvento) return map;
+    var target = _normCodigoFotos(codigoEvento);
+    var ss   = SpreadsheetApp.openById(ID_FOTOS);
+    var hReg = ss.getSheetByName('Registro');
+    if (!hReg || hReg.getLastRow() < 2) return map;
+    // Registro cols: Timestamp(0) Fecha(1) Centro(2) Cargo(3) Nombre(4)
+    //                Instruccion(5) URL(6) Codigo(7) Valida(8)
+    var data = hReg.getRange(2, 1, hReg.getLastRow() - 1, 9).getValues();
+    data.forEach(function(r) {
+      if (String(r[3]).trim() !== 'Supervisor') return;
+      if (_normCodigoFotos(r[7]) !== target) return;
+      var valida = (r[8] === true || String(r[8]).toUpperCase() === 'TRUE');
+      if (!valida) return;
+      var instr = String(r[5]).trim();
+      var url   = String(r[6]).trim();
+      if (instr) map[instr] = url;
+    });
+    return map;
+  } catch(err) {
+    Logger.log('_fotosSubidasSupervisor ERROR: ' + err);
+    return map;
+  }
+}
+
+// Para getEventData: estado de las fotos del supervisor en este evento
+//   → { fotos:[{instruccion,url}], subidas, total }
+function _getFotosSupervisor(codigoEvento) {
+  var requeridas = _fotosRequeridasSupervisor();
+  var subidas    = _fotosSubidasSupervisor(codigoEvento);
+  var fotos = requeridas.map(function(instr) {
+    return { instruccion: instr, url: subidas[instr] || '' };
+  });
+  // Fotos subidas que ya no estén en la lista requerida (por si cambió la config)
+  Object.keys(subidas).forEach(function(instr) {
+    if (requeridas.indexOf(instr) === -1) fotos.push({ instruccion: instr, url: subidas[instr] });
+  });
+  var nSub = fotos.filter(function(f) { return !!f.url; }).length;
+  return { fotos: fotos, subidas: nSub, total: fotos.length };
 }

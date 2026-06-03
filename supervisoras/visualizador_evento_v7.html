@@ -85,6 +85,21 @@ body{font-family:'Quicksand',sans-serif;background:#1a1a2e;color:#222;min-height
 .alerta-tags{display:flex;flex-wrap:wrap;gap:8px}
 .alerta-tag{display:inline-flex;align-items:center;gap:6px;background:var(--orange-bg);color:var(--orange);border:1.5px solid #fed7aa;border-radius:20px;padding:5px 14px;font-size:.85rem;font-weight:600}
 .alerta-tag-icon{font-size:.9rem}
+/* ── Fotos del supervisor ── */
+.fotos-box{background:#fff;border-radius:12px;padding:20px 24px;margin-top:16px;box-shadow:0 2px 12px rgba(0,0,0,.09);border-left:4px solid #6366f1}
+.fotos-box h3{font-family:'Cinzel',serif;font-size:.85rem;letter-spacing:2px;text-transform:uppercase;color:#4f46e5;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fotos-count{font-family:'Inter',sans-serif;font-size:.72rem;letter-spacing:.5px;padding:2px 10px;border-radius:20px;font-weight:700}
+.fotos-ok{background:#dcfce7;color:#16a34a}
+.fotos-warn{background:#fef3c7;color:#b45309}
+.foto-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:.88rem}
+.foto-row:last-child{border-bottom:none}
+.foto-ic{font-weight:700;width:18px;text-align:center}
+.foto-ok .foto-ic{color:#16a34a}
+.foto-miss .foto-ic{color:#dc2626}
+.foto-instr{flex:1;color:#444;font-weight:600}
+.foto-link{color:#4f46e5;font-weight:700;text-decoration:none;font-size:.82rem;white-space:nowrap}
+.foto-link:hover{text-decoration:underline}
+.foto-nope{color:#dc2626;font-size:.8rem;font-weight:600;white-space:nowrap}
 .alerta-empty{font-size:.88rem;color:#aaa;font-style:italic}
 
 .loading{text-align:center;padding:60px 20px;color:#888}
@@ -379,6 +394,19 @@ function renderDashboard(d) {
     if (d.destacComentario) {
       html += `<div class="seccion-comentario"><div class="seccion-comentario-label">Comentario</div>${esc(d.destacComentario)}</div>`;
     }
+    html += `</div>`;
+  }
+
+  // ── Fotos del Supervisor ──
+  if (d.fotosSupervisor && d.fotosSupervisor.total) {
+    const fs = d.fotosSupervisor;
+    const todasOk = fs.subidas >= fs.total;
+    html += `<div class="fotos-box">
+      <h3>📸 Fotos del Supervisor <span class="fotos-count ${todasOk ? 'fotos-ok' : 'fotos-warn'}">${fs.subidas}/${fs.total}</span></h3>`;
+    html += fs.fotos.map(f => f.url
+      ? `<div class="foto-row foto-ok"><span class="foto-ic">✓</span><span class="foto-instr">${esc(f.instruccion)}</span><a class="foto-link" href="${esc(f.url)}" target="_blank" rel="noopener">Ver foto ↗</a></div>`
+      : `<div class="foto-row foto-miss"><span class="foto-ic">✗</span><span class="foto-instr">${esc(f.instruccion)}</span><span class="foto-nope">No subida</span></div>`
+    ).join('');
     html += `</div>`;
   }
 
