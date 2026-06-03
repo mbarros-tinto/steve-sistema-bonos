@@ -154,6 +154,8 @@ body{font-family:'Quicksand',sans-serif;background:#1a1a2e;color:#222;min-height
 .bin-list-item{display:flex;justify-content:space-between;align-items:center;font-size:.78rem}
 .bin-list-label{color:#666;flex:1;line-height:1.2;padding-right:8px}
 .bin-list-val{font-weight:700;padding:2px 8px;border-radius:8px;font-size:.74rem;white-space:nowrap}
+.bin-bono{background:rgba(201,169,110,.12);border:1px solid rgba(201,169,110,.5);border-radius:8px;padding:6px 8px;margin-top:6px}
+.bin-bono .bin-list-label,.bin-bono .modal-bin-label{color:#8a6d3b;font-weight:700}
 
 .comment-section{margin-top:4px}
 .comment-section label{display:block;font-weight:700;font-size:.85rem;color:var(--dark);margin-bottom:7px}
@@ -434,8 +436,9 @@ function renderCard(cargo, notaMin) {
       const v = b.value;
       const cls = v === 'Sí' ? 'yn-yes' : v === 'No' ? 'yn-no' : '';
       const icon = v === 'Sí' ? '✓' : v === 'No' ? '✗' : '—';
-      body += `<div class="bin-list-item">
-        <span class="bin-list-label">${esc(b.label)}</span>
+      const esBono = /merece.*bono/i.test(String(b.label || ''));
+      body += `<div class="bin-list-item${esBono ? ' bin-bono' : ''}">
+        <span class="bin-list-label">${esBono ? '🏆 ' : ''}${esc(b.label)}</span>
         <span class="bin-list-val ${cls}">${icon} ${v || '—'}</span>
       </div>`;
     });
@@ -535,9 +538,10 @@ function abrirModal(key) {
       const v = b.value;
       const ySel = v === 'Sí' ? ' sy' : '';
       const nSel = v === 'No' ? ' sn' : '';
+      const esBono = /merece.*bono/i.test(String(b.label || ''));
       bodyHtml += `
-        <div class="modal-binary-row" style="flex-direction:column;align-items:flex-start;gap:8px">
-          <span class="modal-bin-label">${esc(b.label)}</span>
+        <div class="modal-binary-row${esBono ? ' bin-bono' : ''}" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <span class="modal-bin-label">${esBono ? '🏆 ' : ''}${esc(b.label)}</span>
           <div class="modal-yesno-group" data-col="${b.col}">
             <button type="button" class="modal-yesno-btn${ySel}" data-col="${b.col}" data-val="Sí"
                     onclick="onModalBinaryClick(this, ${b.col}, 'Sí', '${key}')">Sí</button>

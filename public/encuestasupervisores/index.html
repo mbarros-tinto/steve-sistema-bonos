@@ -255,6 +255,9 @@
     line-height: 1.4;
   }
   .q-title .req { color: var(--gold); margin-left: 3px; }
+  /* Pregunta que decide el bono (destacada) */
+  .qb-bono { border: 1px solid rgba(201,169,110,.55); background: rgba(201,169,110,.08); border-radius: 12px; padding: 14px 16px; }
+  .bono-tag { display:inline-block; margin-left:10px; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color: var(--ink); background: linear-gradient(180deg, var(--gold), #b8955f); border-radius:999px; padding:3px 10px; vertical-align:middle; }
   .rating-group {
     display: flex; align-items: center;
     gap: 6px; flex-wrap: wrap;
@@ -849,8 +852,9 @@ function renderCargoSection(c, idx) {
   // Criterios
   c.criterios.forEach((crit, i) => {
     const qid = 'q_' + s + '_' + i;
-    html += '<div class="q-block" id="qb_' + qid + '">';
-    html += '<div class="q-title">' + esc(crit.label) + '<span class="req">*</span></div>';
+    const esBono = /merece.*bono/i.test(crit.label);
+    html += '<div class="q-block' + (esBono ? ' qb-bono' : '') + '" id="qb_' + qid + '">';
+    html += '<div class="q-title">' + esc(crit.label) + '<span class="req">*</span>' + (esBono ? '<span class="bono-tag">🏆 Define el bono</span>' : '') + '</div>';
     if (crit.subtitulo) html += '<div class="q-sub">' + esc(crit.subtitulo) + '</div>';
     if (crit.tipo === 'nota') {
       html += '<div class="rating-group"><span class="sc-lbl">No obs.</span><div class="btns" id="' + qid + '" data-tipo="nota" style="display:flex;gap:6px;flex-wrap:wrap;"></div><span class="sc-lbl">Sobresale</span></div>';
