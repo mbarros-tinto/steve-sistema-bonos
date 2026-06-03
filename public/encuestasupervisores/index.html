@@ -261,6 +261,7 @@
   .platos-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--gold);margin-bottom:10px}
   .plato-unit{margin-bottom:12px}
   .plato-crits{margin-top:8px}
+  .platos-error{outline:2px solid var(--err);outline-offset:2px}
   .bono-tag { display:inline-block; margin-left:10px; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color: var(--ink); background: linear-gradient(180deg, var(--gold), #b8955f); border-radius:999px; padding:3px 10px; vertical-align:middle; }
   .rating-group {
     display: flex; align-items: center;
@@ -1333,6 +1334,22 @@ function validate() {
       });
     });
   }
+  if (_platosConfig && _platosConfig.length) {
+    const sel1 = document.getElementById('plato_1_sel');
+    if (sel1) {
+      let pOk = !!sel1.value;
+      if (sel1.value) document.querySelectorAll('#plato_1_crits .yesno-group').forEach(w => { if (w.dataset.selected === undefined) pOk = false; });
+      const u2 = document.getElementById('plato_2_unit');
+      if (u2 && u2.style.display !== 'none') {
+        const sel2 = document.getElementById('plato_2_sel');
+        if (!sel2.value) pOk = false;
+        else document.querySelectorAll('#plato_2_crits .yesno-group').forEach(w => { if (w.dataset.selected === undefined) pOk = false; });
+      }
+      const box = document.getElementById('platos_cocina');
+      if (!pOk) { if (box) box.classList.add('platos-error'); ok = false; }
+      else if (box) box.classList.remove('platos-error');
+    }
+  }
   return ok;
 }
 
@@ -1360,7 +1377,8 @@ function asCollect() {
     alerta_tags:    _alertaTags.slice(),
     alerta_hidden:  document.getElementById('alerta_trabajadores').value || '',
     alerta_comentario: document.getElementById('alerta_comentario').value || '',
-    cargos: {}
+    cargos: {},
+    platos: collectPlatos()
   };
   if (_formConfig && _formConfig.cargos) {
     _formConfig.cargos.forEach(c => {
@@ -1513,6 +1531,7 @@ function doRestore() {
       });
     };
     if (_formConfig) restoreCargos(); else setTimeout(restoreCargos, 1500);
+    setTimeout(restorePlatos, 1500);
     // Cerramos el banner pero NO borramos el draft: si el usuario sigue
     // editando, el próximo autoSave lo sobreescribe. Solo borrar en submit
     // exitoso o si el usuario hace click en "Descartar".
@@ -1521,6 +1540,31 @@ function doRestore() {
   } catch(e) { console.error('[autosave] doRestore error', e); }
 }
 
+function restorePlatos() {
+  try {
+    const raw = localStorage.getItem(AS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d.platos || !d.platos.length) return;
+    if (!document.getElementById('plato_1_sel')) { setTimeout(restorePlatos, 600); return; }
+    d.platos.forEach((pl, idx) => {
+      const n = idx + 1;
+      if (n === 2) { const u = document.getElementById('plato_2_unit'); if (u && u.style.display === 'none') addSegundoPlato(); }
+      const sel = document.getElementById('plato_' + n + '_sel');
+      if (!sel) return;
+      sel.value = pl.plato;
+      onPlatoChange(n);
+      (pl.criterios || []).forEach((c, i) => {
+        const w = document.getElementById('platoc_' + n + '_' + i);
+        if (!w || !c.cumple) return;
+        w.querySelectorAll('.yesno-btn').forEach(b => {
+          if (b.textContent === c.cumple) { b.classList.add(c.cumple === 'Sí' ? 'sy' : 'sn'); w.dataset.selected = c.cumple; }
+          else b.classList.remove('sy', 'sn');
+        });
+      });
+    });
+  } catch(e) { console.warn('restorePlatos', e); }
+}
 function dismissRestore() {
   document.getElementById('restore-banner')?.classList.remove('visible');
   try { localStorage.removeItem(AS_KEY); } catch(e) {}
