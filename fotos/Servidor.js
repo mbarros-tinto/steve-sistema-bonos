@@ -391,6 +391,15 @@ function procesarFoto(params) {
                     params.mimeType || 'image/jpeg',
                     nombreFinal);
     var file    = cargoFolder.createFile(blob);
+    // Las fotos del cargo "Supervisor" se muestran en el dashboard de evaluación
+    // (encuestasupervisores, accesible sin login) → visibles por link.
+    if (String(params.cargo || '').trim() === 'Supervisor') {
+      try {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShare) {
+        Logger.log('setSharing Supervisor falló (¿política Workspace bloquea link externo?): ' + eShare);
+      }
+    }
     var fileUrl = file.getUrl();
 
     // -- 2. Registro en hoja -- upsert por (codigoEvento, cargo, instruccion) --
@@ -719,4 +728,31 @@ function _actualizarBonoFotos(params, ss) {
   } catch(e) {
     Logger.log('_actualizarBonoFotos error: ' + e.toString());
   }
+}
+
+// ── Backfill one-shot: hace públicas por link las fotos del cargo "Supervisor"
+//    ya subidas, para que se vean en el dashboard de evaluación sin login.
+//    Idempotente (re-aplicar sharing a un archivo ya público es inocuo). ──
+function backfillSharingFotosSupervisor() {
+  var ss   = SpreadsheetApp.openById(CONFIG.SHEET_ID);
+  var hReg = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
+  var out  = { total: 0, ok: 0, errores: 0, detalle: [] };
+  if (!hReg || hReg.getLastRow() < 2) return out;
+  var data = hReg.getRange(2, 1, hReg.getLastRow() - 1, 9).getValues();
+  data.forEach(function(row) {
+    if (String(row[3]).trim() !== 'Supervisor') return; // col D: Cargo
+    var url = String(row[6]).trim();                     // col G: URL Drive
+    var m = url.match(/[-\w]{25,}/);                      // extraer fileId
+    if (!m) return;
+    out.total++;
+    try {
+      DriveApp.getFileById(m[0]).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      out.ok++;
+    } catch (e) {
+      out.errores++;
+      out.detalle.push(m[0] + ': ' + e);
+    }
+  });
+  Logger.log('backfillSharingFotosSupervisor: ' + JSON.stringify(out));
+  return out;
 }
