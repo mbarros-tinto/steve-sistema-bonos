@@ -613,16 +613,21 @@ function recalcPromedioModal() {
     _currentCargo.promedio = prom;
   }
 
-  // Bono = (promedio >= NOTA_MIN) AND (todos binarios === 'Sí')
-  const notaMin = _currentEvent ? _currentEvent.notaMin : 6;
-  const notaOk  = prom === null ? null : prom >= notaMin;
-  const bools   = binarios.map(b => b.value).filter(v => v === 'Sí' || v === 'No');
-  const boolOk  = bools.length ? bools.every(v => v === 'Sí') : null;
+  // Bono: si hay binario "¿Merece el bono?", el bono = esa respuesta; si no, regla vieja.
+  const mb = binarios.find(b => /merece.*bono/i.test(String(b.label || '')));
   let gano;
-  if (notaOk !== null && boolOk !== null) gano = notaOk && boolOk;
-  else if (notaOk !== null)               gano = notaOk;
-  else if (boolOk !== null)               gano = boolOk;
-  else                                     gano = null;
+  if (mb) {
+    gano = mb.value === 'Sí' ? true : (mb.value === 'No' ? false : null);
+  } else {
+    const notaMin = _currentEvent ? _currentEvent.notaMin : 6;
+    const notaOk  = prom === null ? null : prom >= notaMin;
+    const bools   = binarios.map(b => b.value).filter(v => v === 'Sí' || v === 'No');
+    const boolOk  = bools.length ? bools.every(v => v === 'Sí') : null;
+    if (notaOk !== null && boolOk !== null) gano = notaOk && boolOk;
+    else if (notaOk !== null)               gano = notaOk;
+    else if (boolOk !== null)               gano = boolOk;
+    else                                     gano = null;
+  }
   _currentCargo.bono = gano === null ? '—' : (gano ? 'SÍ' : 'NO');
 
   // Actualizar UI del promedio

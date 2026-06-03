@@ -750,6 +750,36 @@ function _promSinCero(vals) {
   return Math.round(sum / nums.length * 10) / 10;
 }
 
+// Determina si el cargo gana el bono según el HEADER vigente + la fila EVAL.
+//   · Si hay criterio "¿Merece el bono?" → bono = esa respuesta (Sí/No). Las
+//     notas y demás binarios quedan SOLO como feedback (no deciden el bono).
+//   · Si no (evaluaciones viejas cuyo HEADER no tiene la pregunta) → regla
+//     histórica: promedio de notas (excl. 0) >= NOTA_MIN_BONO Y todos los
+//     binarios = Sí. Retorna true | false | null.
+function _ganoBonoCargo(criterios, row, prom) {
+  for (var i = 0; i < criterios.length && i < SLOTS_CRIT; i++) {
+    if (/merece.*bono/i.test(String(criterios[i].label || ''))) {
+      var mv = _normSiNo(row[IDX.crit[i]]); // 'SI' | 'NO' | ''
+      return mv === 'SI' ? true : (mv === 'NO' ? false : null);
+    }
+  }
+  var notaOk = (prom === null || prom === undefined) ? null : (prom >= NOTA_MIN_BONO);
+  var bools = [];
+  for (var j = 0; j < criterios.length && j < SLOTS_CRIT; j++) {
+    if (criterios[j].tipo === 'nota') continue;
+    var b = String(row[IDX.crit[j]] || '').trim();
+    if (b !== '') bools.push(b);
+  }
+  var boolOk = bools.length ? bools.every(function(b) {
+    var s = String(b).toLowerCase();
+    return (s === 'sí' || s === 'si' || s === '1' || s === 'true' || s === 'yes' || s === 'y');
+  }) : null;
+  if (notaOk !== null && boolOk !== null) return notaOk && boolOk;
+  if (notaOk !== null) return notaOk;
+  if (boolOk !== null) return boolOk;
+  return null;
+}
+
 function getEventData(noviosKey) {
   try {
     var ss    = SpreadsheetApp.openById(SHEET_ID);
@@ -823,20 +853,7 @@ function getEventData(noviosKey) {
 
       var prom = _promSinCero(scores.map(function(s) { return s.value; })); // 0 = No observado → no cuenta
 
-      var bools = binarios.map(function(b) { return b.value; }).filter(function(v) { return v !== ''; });
-      var notaOk = (prom === null) ? null : (prom >= NOTA_MIN_BONO);
-      var boolOk = null;
-      if (bools.length) {
-        boolOk = bools.every(function(v) {
-          var s = String(v).toLowerCase();
-          return (s === 'sí' || s === 'si');
-        });
-      }
-      var gano;
-      if (notaOk !== null && boolOk !== null) gano = (notaOk && boolOk);
-      else if (notaOk !== null)               gano = notaOk;
-      else if (boolOk !== null)               gano = boolOk;
-      else                                     gano = null;
+      var gano    = _ganoBonoCargo(vigente.criterios, row, prom);
       var bonoTxt = (gano === null) ? '—' : (gano ? 'SÍ' : 'NO');
 
       var tipo;
@@ -1667,23 +1684,11 @@ function extraerFilasBonos(row, sheet, rowIndex) {
   });
   while (critValues.length < 10) critValues.push('');
 
-  // Bono ganado = promedio_notas (excluye 0 = No observado) >= NOTA_MIN  Y  todos_booleanos === SI
-  var boolsOk = bools.filter(function(v) { return v !== '' && v !== null; });
+  // Bono: si el cargo tiene criterio "¿Merece el bono?" → bono = esa respuesta;
+  // si no (evals viejas) → regla histórica (promedio >= NOTA_MIN Y binarios Sí).
+  // Las notas y demás binarios quedan SOLO como feedback.
   var prom    = _promSinCero(notas);
-
-  var notaOk = (prom === null) ? null : (prom >= NOTA_MIN_BONO);
-  var boolOk = null;
-  if (boolsOk.length) {
-    boolOk = boolsOk.every(function(v) {
-      var s = String(v || '').trim().toLowerCase();
-      return (s === 'sí' || s === 'si' || s === '1' || s === 'true' || s === 'yes' || s === 'y');
-    });
-  }
-  var gano;
-  if (notaOk !== null && boolOk !== null) gano = (notaOk && boolOk);
-  else if (notaOk !== null)               gano = notaOk;
-  else if (boolOk !== null)               gano = boolOk;
-  else                                     gano = null;
+  var gano    = _ganoBonoCargo(vigente.criterios, row, prom);
   var ganoTxt = (gano === null) ? '—' : (gano ? 'SÍ' : 'NO');
 
   // Multi-trabajador: expandir en N filas
