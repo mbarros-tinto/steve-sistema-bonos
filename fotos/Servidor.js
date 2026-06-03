@@ -190,9 +190,50 @@ function _leerBonosDesdeAux() {
 // WEB APP ENTRY POINTS
 // ==================================================================
 function doGet(e) {
+  var params = (e && e.parameter) ? e.parameter : {};
+  if (params.action) return _routeApiFotos(params.action, params, null);
   return HtmlService.createHtmlOutputFromFile('WebApp')
     .setTitle('Sistema Fotos Tinto')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// API JSON (para que el formulario de supervisores reuse este sistema de fotos).
+// POST con body text/plain (sin Content-Type) para evitar preflight CORS.
+function doPost(e) {
+  var body = {};
+  try { body = (e && e.postData && e.postData.contents) ? JSON.parse(e.postData.contents) : {}; } catch(err) { body = {}; }
+  var params = (e && e.parameter) ? e.parameter : {};
+  var action = body.action || params.action || '';
+  return _routeApiFotos(action, params, body);
+}
+
+function _routeApiFotos(action, params, body) {
+  try {
+    var b = body || {};
+    var result;
+    switch (action) {
+      case 'instructivoBonos':
+        result = getInstructivoBonos(params.cargo || b.cargo || '');
+        break;
+      case 'fotosSubidas':
+        result = getFotosSubidas(params.fecha || b.fecha, params.centro || b.centro,
+                                 params.cargo || b.cargo, params.nombre || b.nombre,
+                                 params.codigo || b.codigo);
+        break;
+      case 'eventosPorFecha':
+        result = { eventos: getEventosPorFecha(params.fecha || b.fecha || '') };
+        break;
+      case 'procesarFoto':
+        var data = b.data || null;
+        result = data ? procesarFoto(data) : { ok: false, mensaje: 'Falta data' };
+        break;
+      default:
+        result = { error: 'Acción desconocida: ' + action };
+    }
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 // ==================================================================

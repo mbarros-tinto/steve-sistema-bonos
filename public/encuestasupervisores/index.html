@@ -262,6 +262,13 @@
   .plato-unit{margin-bottom:12px}
   .plato-crits{margin-top:8px}
   .platos-error{outline:2px solid var(--err);outline-offset:2px}
+  .foto-slot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.03)}
+  .foto-slot.foto-done{border-color:rgba(143,209,158,.4);background:rgba(143,209,158,.08)}
+  .foto-label{font-size:13px;color:#fff;flex:1;line-height:1.3}
+  .foto-action{display:flex;align-items:center;gap:8px;white-space:nowrap}
+  .foto-btn{cursor:pointer;font-size:12px;font-weight:700;color:var(--ink);background:linear-gradient(180deg,var(--gold),#b8955f);border-radius:8px;padding:7px 12px}
+  .foto-ok{color:var(--ok);font-weight:700;font-size:13px}
+  .foto-status{font-size:11px;color:rgba(255,255,255,.65)}
   .bono-tag { display:inline-block; margin-left:10px; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color: var(--ink); background: linear-gradient(180deg, var(--gold), #b8955f); border-radius:999px; padding:3px 10px; vertical-align:middle; }
   .rating-group {
     display: flex; align-items: center;
@@ -594,6 +601,13 @@
       <input type="hidden" id="novios">
     </section>
 
+    <!-- ─── FOTOS EXIGIDAS (SUPERVISOR) ───────────────────────────── -->
+    <section class="card-section" id="fotos_supervisor_section" style="display:none">
+      <div class="section-title"><span class="sec-dot"></span>Fotos exigidas<span class="dyn-badge">Supervisor</span></div>
+      <p class="hint" style="margin-bottom:12px">Súbelas durante o después del evento. Quedan guardadas apenas las subes, aunque cierres el formulario.</p>
+      <div id="fotos_supervisor_list"><div class="hint">Selecciona el evento para ver las fotos.</div></div>
+    </section>
+
     <!-- ─── CARGOS DINÁMICOS ──────────────────────────────────────── -->
     <section class="card-section">
       <div class="section-title">
@@ -727,6 +741,8 @@ function apiPost(action, data) {
 // ════════════════════════════════════════════════════════════════
 let _formConfig    = null;
 let _platosConfig  = [];
+let _fotosEventoMeta = null;
+const FOTOS_API = 'https://script.google.com/macros/s/AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY/exec';
 let _byCentro      = {};
 let _cargoNames    = {};
 let _trabajadores  = [];
@@ -1281,6 +1297,7 @@ function onEventoChange() {
   document.getElementById('centro').value = (opt && opt.dataset.centro) ? opt.dataset.centro : '';
   document.getElementById('novios').value = (opt && opt.dataset.novios) ? opt.dataset.novios : '';
   document.getElementById('field_evento').classList.remove('has-error');
+  loadFotosSupervisor();
 }
 
 function toggleComent(wrapId, btn) {
@@ -1468,6 +1485,7 @@ function doRestore() {
             break;
           }
         }
+        loadFotosSupervisor();
       }, 2000);
     }
     ['destac_1', 'destac_2', 'destac_3'].forEach(id => {
@@ -1732,6 +1750,114 @@ function collectPlatos() {
     out.push({ plato: sel.value, criterios: criterios });
   });
   return out;
+}
+// ── Fotos exigidas al supervisor (reusa el sistema Fotos 2.0 vía API) ──
+function fotosApiGet(action, params) {
+  const qs = new URLSearchParams(Object.assign({ action }, params || {}));
+  return fetch(FOTOS_API + '?' + qs.toString()).then(r => r.json());
+}
+function fotosApiPost(action, data) {
+  return fetch(FOTOS_API, { method: 'POST', body: JSON.stringify({ action, data }) }).then(r => r.json());
+}
+function _fechaISOaDMA(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3] + '/' + m[2] + '/' + m[1]) : (iso || '');
+}
+function loadFotosSupervisor() {
+  const sec = document.getElementById('fotos_supervisor_section');
+  const list = document.getElementById('fotos_supervisor_list');
+  if (!sec || !list) return;
+  const fecha = document.getElementById('fecha').value;
+  const centro = document.getElementById('centro').value;
+  if (!fecha || !centro) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = '<div class="loading-pulse">Cargando fotos exigidas</div>';
+  const fechaDMA = _fechaISOaDMA(fecha);
+  fotosApiGet('eventosPorFecha', { fecha }).then(r => {
+    const evs = (r && r.eventos) || [];
+    let ev = evs.find(e => (e.centro || '').trim() === centro.trim());
+    if (!ev) ev = evs.find(e => (e.codigo || '').indexOf(centro.trim()) === 0);
+    _fotosEventoMeta = ev || { codigo: centro + ' ' + fechaDMA, centro: centro, semanaOperacion: fechaDMA };
+    return Promise.all([
+      fotosApiGet('instructivoBonos', { cargo: 'Supervisor' }),
+      fotosApiGet('fotosSubidas', { fecha: fechaDMA, centro: _fotosEventoMeta.centro, cargo: 'Supervisor', nombre: '', codigo: _fotosEventoMeta.codigo })
+    ]);
+  }).then(res => {
+    const inst = res[0], subidas = res[1] || {};
+    const bonos = (inst && inst.bonos) || [];
+    const crits = bonos.length ? (bonos[0].criterios || []) : [];
+    renderFotosSlots(crits, subidas);
+  }).catch(err => {
+    list.innerHTML = '<p class="hint" style="color:var(--err)">No se pudieron cargar las fotos: ' + esc(err.message || String(err)) + '</p>';
+  });
+}
+function renderFotosSlots(crits, yaSub) {
+  const list = document.getElementById('fotos_supervisor_list');
+  if (!crits.length) { list.innerHTML = '<p class="hint">No hay fotos configuradas para el cargo Supervisor (Maestro_Bonos).</p>'; return; }
+  let html = '';
+  crits.forEach((instr, i) => {
+    const done = !!yaSub[instr];
+    html += '<div class="foto-slot' + (done ? ' foto-done' : '') + '" id="foto_slot_' + i + '">' +
+      '<div class="foto-label">' + esc(instr) + '</div>' +
+      '<div class="foto-action">' +
+        (done ? '<span class="foto-ok">✓ Subida</span>' :
+          '<label class="foto-btn">📷 Subir<input type="file" accept="image/*" capture="environment" style="display:none" data-idx="' + i + '" data-instr="' + esc(instr) + '" onchange="onFotoSelect(this)"></label>') +
+        '<span class="foto-status" id="foto_status_' + i + '"></span>' +
+      '</div>' +
+    '</div>';
+  });
+  list.innerHTML = html;
+}
+function onFotoSelect(input) {
+  const idx = input.dataset.idx;
+  const instr = input.dataset.instr;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const status = document.getElementById('foto_status_' + idx);
+  if (status) status.textContent = 'Procesando…';
+  compressImage(file, 1280, 0.7, (base64, mime) => {
+    if (!base64) { if (status) status.textContent = 'Error al procesar'; return; }
+    if (status) status.textContent = 'Subiendo…';
+    const meta = _fotosEventoMeta || {};
+    const params = {
+      nombre: (document.getElementById('supervisor').value || '').trim(),
+      centro: meta.centro || document.getElementById('centro').value,
+      cargo: 'Supervisor',
+      instruccion: instr,
+      codigo: meta.codigo,
+      fechaEvento: _fechaISOaDMA(document.getElementById('fecha').value),
+      semanaOperacion: meta.semanaOperacion || '',
+      archivoBase64: base64,
+      mimeType: mime || 'image/jpeg',
+      nombreArchivo: file.name || 'foto.jpg'
+    };
+    fotosApiPost('procesarFoto', params).then(r => {
+      if (r && r.ok) {
+        const slot = document.getElementById('foto_slot_' + idx);
+        if (slot) { slot.classList.add('foto-done'); slot.querySelector('.foto-action').innerHTML = '<span class="foto-ok">✓ Subida</span>'; }
+      } else { if (status) status.textContent = 'Error: ' + ((r && r.mensaje) || 'no se pudo subir'); }
+    }).catch(e => { if (status) status.textContent = 'Error: ' + (e.message || e); });
+  });
+}
+function compressImage(file, maxDim, quality, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      cb(dataUrl.split(',')[1], 'image/jpeg');
+    };
+    img.onerror = () => cb(null);
+    img.src = e.target.result;
+  };
+  reader.onerror = () => cb(null);
+  reader.readAsDataURL(file);
 }
 </script>
 </body>
