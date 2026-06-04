@@ -262,6 +262,7 @@
   .plato-unit{margin-bottom:12px}
   .plato-crits{margin-top:8px}
   .platos-error{outline:2px solid var(--err);outline-offset:2px}
+  .plato-rm{margin-left:8px;font-size:11px;color:var(--err);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
   .foto-slot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.03)}
   .foto-slot.foto-done{border-color:rgba(143,209,158,.4);background:rgba(143,209,158,.08)}
   .foto-label{font-size:13px;color:#fff;flex:1;line-height:1.3}
@@ -741,6 +742,7 @@ function apiPost(action, data) {
 // ════════════════════════════════════════════════════════════════
 let _formConfig    = null;
 let _platosConfig  = [];
+const MAX_PLATOS = 4;
 let _fotosEventoMeta = null;
 const FOTOS_API = 'https://script.google.com/macros/s/AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY/exec';
 let _byCentro      = {};
@@ -1356,11 +1358,12 @@ function validate() {
     if (sel1) {
       let pOk = !!sel1.value;
       if (sel1.value) document.querySelectorAll('#plato_1_crits .yesno-group').forEach(w => { if (w.dataset.selected === undefined) pOk = false; });
-      const u2 = document.getElementById('plato_2_unit');
-      if (u2 && u2.style.display !== 'none') {
-        const sel2 = document.getElementById('plato_2_sel');
-        if (!sel2.value) pOk = false;
-        else document.querySelectorAll('#plato_2_crits .yesno-group').forEach(w => { if (w.dataset.selected === undefined) pOk = false; });
+      for (let n = 2; n <= MAX_PLATOS; n++) {
+        const uN = document.getElementById('plato_' + n + '_unit');
+        if (!uN || uN.style.display === 'none') continue;
+        const selN = document.getElementById('plato_' + n + '_sel');
+        if (!selN || !selN.value) { pOk = false; continue; }
+        document.querySelectorAll('#plato_' + n + '_crits .yesno-group').forEach(w => { if (w.dataset.selected === undefined) pOk = false; });
       }
       const box = document.getElementById('platos_cocina');
       if (!pOk) { if (box) box.classList.add('platos-error'); ok = false; }
@@ -1567,7 +1570,7 @@ function restorePlatos() {
     if (!document.getElementById('plato_1_sel')) { setTimeout(restorePlatos, 600); return; }
     d.platos.forEach((pl, idx) => {
       const n = idx + 1;
-      if (n === 2) { const u = document.getElementById('plato_2_unit'); if (u && u.style.display === 'none') addSegundoPlato(); }
+      if (n > 1) { const u = document.getElementById('plato_' + n + '_unit'); if (u && u.style.display === 'none') u.style.display = 'block'; }
       const sel = document.getElementById('plato_' + n + '_sel');
       if (!sel) return;
       sel.value = pl.plato;
@@ -1581,6 +1584,7 @@ function restorePlatos() {
         });
       });
     });
+    _updateAddPlatoBtn();
   } catch(e) { console.warn('restorePlatos', e); }
 }
 function dismissRestore() {
@@ -1690,21 +1694,17 @@ function renderPlatosSection() {
   anchor.dataset.rendered = '1';
   const opts = '<option value="">— Selecciona el plato —</option>' +
     _platosConfig.map(p => '<option value="' + esc(p.plato) + '">' + esc(p.plato) + '</option>').join('');
-  anchor.innerHTML =
-    '<div class="platos-box">' +
-      '<div class="platos-title">🍽 Evaluación de platos</div>' +
-      '<div class="plato-unit">' +
-        '<label>Plato 1</label>' +
-        '<select id="plato_1_sel" onchange="onPlatoChange(1)">' + opts + '</select>' +
-        '<div id="plato_1_crits" class="plato-crits"></div>' +
-      '</div>' +
-      '<button type="button" class="toggle-btn" id="plato_add_btn" onclick="addSegundoPlato()">＋ Agregar segundo plato</button>' +
-      '<div class="plato-unit" id="plato_2_unit" style="display:none">' +
-        '<label>Plato 2</label>' +
-        '<select id="plato_2_sel" onchange="onPlatoChange(2)">' + opts + '</select>' +
-        '<div id="plato_2_crits" class="plato-crits"></div>' +
-      '</div>' +
-    '</div>';
+  let _ph = '<div class="platos-box"><div class="platos-title">🍽 Evaluación de platos</div>';
+  for (let _n = 1; _n <= MAX_PLATOS; _n++) {
+    _ph +=
+      '<div class="plato-unit" id="plato_' + _n + '_unit"' + (_n === 1 ? '' : ' style="display:none"') + '>' +
+        '<label>Plato ' + _n + (_n > 1 ? ' <button type="button" class="plato-rm" onclick="removePlato(' + _n + ')">✕ quitar</button>' : '') + '</label>' +
+        '<select id="plato_' + _n + '_sel" onchange="onPlatoChange(' + _n + ')">' + opts + '</select>' +
+        '<div id="plato_' + _n + '_crits" class="plato-crits"></div>' +
+      '</div>';
+  }
+  _ph += '<button type="button" class="toggle-btn" id="plato_add_btn" onclick="addPlato()">＋ Agregar plato</button></div>';
+  anchor.innerHTML = _ph;
 }
 function onPlatoChange(n) {
   const sel = document.getElementById('plato_' + n + '_sel');
@@ -1725,30 +1725,47 @@ function onPlatoChange(n) {
   }
   scheduleAutoSave();
 }
-function addSegundoPlato() {
-  const u = document.getElementById('plato_2_unit');
-  const b = document.getElementById('plato_add_btn');
-  if (!u) return;
-  const open = u.style.display !== 'none';
-  u.style.display = open ? 'none' : 'block';
-  if (b) b.textContent = open ? '＋ Agregar segundo plato' : '✕ Quitar segundo plato';
-  if (open) { const s2 = document.getElementById('plato_2_sel'); if (s2) s2.value = ''; const c2 = document.getElementById('plato_2_crits'); if (c2) c2.innerHTML = ''; }
+function addPlato() {
+  for (let n = 2; n <= MAX_PLATOS; n++) {
+    const u = document.getElementById('plato_' + n + '_unit');
+    if (u && u.style.display === 'none') { u.style.display = 'block'; break; }
+  }
+  _updateAddPlatoBtn();
   scheduleAutoSave();
+}
+function removePlato(n) {
+  const u = document.getElementById('plato_' + n + '_unit');
+  if (!u) return;
+  u.style.display = 'none';
+  const sel = document.getElementById('plato_' + n + '_sel'); if (sel) sel.value = '';
+  const c = document.getElementById('plato_' + n + '_crits'); if (c) c.innerHTML = '';
+  _updateAddPlatoBtn();
+  scheduleAutoSave();
+}
+function _updateAddPlatoBtn() {
+  const b = document.getElementById('plato_add_btn');
+  if (!b) return;
+  let hayOculta = false;
+  for (let n = 2; n <= MAX_PLATOS; n++) {
+    const u = document.getElementById('plato_' + n + '_unit');
+    if (u && u.style.display === 'none') { hayOculta = true; break; }
+  }
+  b.style.display = hayOculta ? '' : 'none';
 }
 function collectPlatos() {
   const out = [];
-  [1, 2].forEach(n => {
-    if (n === 2) { const u = document.getElementById('plato_2_unit'); if (!u || u.style.display === 'none') return; }
+  for (let n = 1; n <= MAX_PLATOS; n++) {
+    if (n > 1) { const u = document.getElementById('plato_' + n + '_unit'); if (!u || u.style.display === 'none') continue; }
     const sel = document.getElementById('plato_' + n + '_sel');
-    if (!sel || !sel.value) return;
+    if (!sel || !sel.value) continue;
     const p = (_platosConfig || []).find(x => x.plato === sel.value);
-    if (!p) return;
+    if (!p) continue;
     const criterios = p.criterios.map((crit, i) => {
       const w = document.getElementById('platoc_' + n + '_' + i);
       return { criterio: crit, cumple: (w && w.dataset.selected) ? w.dataset.selected : '' };
     });
     out.push({ plato: sel.value, criterios: criterios });
-  });
+  }
   return out;
 }
 // ── Fotos exigidas al supervisor (reusa el sistema Fotos 2.0 vía API) ──
