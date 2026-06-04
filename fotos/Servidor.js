@@ -98,6 +98,16 @@ function _formatFechaDisplay(fechaStr) {
   return s;  // ya está en otro formato (DD/MM/YYYY, etc.)
 }
 
+// Extrae el LUGAR del código de evento ("Lugar DD/MM/YYYY" → "Lugar").
+// Se usa para nombrar la carpeta del evento como "fecha + lugar" (en vez del
+// nombre de la novia). Si el código viene vacío, cae al centro como respaldo.
+function _lugarDesdeCodigo(codigo, centroFallback) {
+  var c = String(codigo || '').trim();
+  // Quitar una fecha al final: " DD/MM/YYYY" o " DD-MM-YYYY".
+  c = c.replace(/\s+\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}\s*$/, '').trim();
+  return c || String(centroFallback || '').trim();
+}
+
 // Limpia un texto para usarlo como nombre de archivo:
 // elimina / \ : * ? " < > | y recorta espacios.
 function _sanitizarNombreArchivo(s) {
@@ -354,11 +364,22 @@ function procesarFoto(params) {
   params.instruccion = String(params.instruccion || '').trim();
   params.codigo      = String(params.codigo || '').trim();
 
-  // Usar semanaOperacion del CRM para determinar las carpetas de fecha;
-  // si no viene, derivar de fechaEvento.
-  var fechaParaCarpeta = (params.semanaOperacion && params.semanaOperacion !== '')
-                         ? params.semanaOperacion
-                         : params.fechaEvento;
+  // El mes/semana de la carpeta se organiza por Semana Operación (lunes de la
+  // semana operativa del CRM). Pero a veces llega un valor disparatado (ej. una
+  // semana op de enero para un evento de junio) → lo validamos contra la fecha
+  // del evento: si los lunes difieren más de 31 días, el valor es implausible y
+  // usamos la semana del propio evento. Así se preserva el offset legítimo de
+  // preparación (≤ ~2 semanas) y se corrigen los valores basura.
+  var _lunesEvento  = _getLunesSemana(params.fechaEvento);
+  var _lunesCarpeta = _lunesEvento;
+  if (params.semanaOperacion && String(params.semanaOperacion).trim() !== '') {
+    var _lunesOp   = _getLunesSemana(params.semanaOperacion);
+    var _diffDias  = Math.abs(_lunesOp.getTime() - _lunesEvento.getTime()) / 86400000;
+    if (_diffDias <= 31) _lunesCarpeta = _lunesOp;
+    else Logger.log('procesarFoto: semanaOperacion implausible (' + params.semanaOperacion +
+                    ' vs evento ' + params.fechaEvento + ', ' + Math.round(_diffDias) +
+                    ' días) → uso semana del evento');
+  }
 
   var lock = LockService.getScriptLock();
   try { lock.waitLock(20000); } catch(e) { Logger.log('Lock timeout: ' + e); }
@@ -366,7 +387,7 @@ function procesarFoto(params) {
   try {
     // -- 1. Carpetas Drive (dentro del lock para evitar duplicados) -----------
     var rootFolder    = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
-    var lunesSemana   = _getLunesSemana(fechaParaCarpeta);
+    var lunesSemana   = _lunesCarpeta;
 
     // Nivel 1: año  ("2026")
     var anioFolder    = _getOrCreateFolder(rootFolder,   _formatCarpetaAnio(lunesSemana));
@@ -374,9 +395,10 @@ function procesarFoto(params) {
     var mesFolder     = _getOrCreateFolder(anioFolder,   _formatCarpetaMes(lunesSemana));
     // Nivel 3: semana  ("Semana 3")
     var semanaFolder  = _getOrCreateFolder(mesFolder,    _formatCarpetaSemana(lunesSemana));
-    // Nivel 4: evento  ("DD/MM/AAAA Nombre novia")
-    //   params.centro = nombre novia (col O del CRM para matrimonios)
-    var eventoNombre  = _formatFechaDisplay(params.fechaEvento) + ' ' + params.centro;
+    // Nivel 4: evento  ("DD/MM/AAAA Lugar")
+    //   Antes se usaba params.centro (= nombre novia en matrimonios). Ahora el
+    //   nombre es fecha + LUGAR, derivado del código de evento ("Lugar DD/MM/YYYY").
+    var eventoNombre  = _formatFechaDisplay(params.fechaEvento) + ' ' + _lugarDesdeCodigo(params.codigo, params.centro);
     var eventoFolder  = _getOrCreateFolder(semanaFolder, eventoNombre);
     // Nivel 5: cargo
     var cargoFolder   = _getOrCreateFolder(eventoFolder, params.cargo);
