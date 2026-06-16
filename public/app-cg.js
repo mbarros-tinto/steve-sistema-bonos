@@ -117,8 +117,8 @@ function cgRenderSemana() {
   if (!CG.eventos.length) {
     container.innerHTML =
       '<div class="empty"><div class="empty-icon">📭</div>' +
-      '<p>No hay matrimonios para la semana <b>' + cgEsc(CG.semana) + '</b>.</p>' +
-      '<p class="sub">Verifica que el CRM tenga eventos tipo Matrimonio en esa semana.</p></div>';
+      '<p>No hay eventos para la semana <b>' + cgEsc(CG.semana) + '</b>.</p>' +
+      '<p class="sub">Verifica que el CRM tenga eventos en esa semana.</p></div>';
     cgUpdateSaveBar();
     return;
   }
@@ -132,7 +132,7 @@ function cgRenderSemana() {
 
   var total = CG.eventos.length * cargos.length;
   document.getElementById('cgStatusBar').innerHTML =
-    '<b>' + CG.eventos.length + '</b> matrimonio(s) · <b>' + cargos.length + '</b> cargo(s) · ' +
+    '<b>' + CG.eventos.length + '</b> evento(s) · <b>' + cargos.length + '</b> cargo(s) · ' +
     '<b style="color:var(--gold);">' + CG.guardados.length + '/' + total + '</b> ya evaluados';
   cgUpdateSaveBar();
 }

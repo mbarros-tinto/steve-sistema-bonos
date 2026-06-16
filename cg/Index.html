@@ -363,8 +363,8 @@ function renderSemana(data) {
 
   if (!S.eventos.length) {
     container.innerHTML = `<div class="empty"><div class="icon">📭</div>
-      <p>No hay matrimonios para la semana <strong>${S.semana}</strong>.</p>
-      <p class="sub">Verifica que el CRM tenga eventos de tipo Matrimonio en esa semana.</p></div>`;
+      <p>No hay eventos para la semana <strong>${S.semana}</strong>.</p>
+      <p class="sub">Verifica que el CRM tenga eventos en esa semana.</p></div>`;
     updateSaveBar(); return;
   }
 
@@ -514,7 +514,7 @@ function renderSemana(data) {
   container.innerHTML = html;
   const total = S.eventos.length * cargos.length;
   document.getElementById('status-bar').textContent =
-    `${S.eventos.length} matrimonio(s) · ${cargos.length} cargos · ${S.guardados.length}/${total} ya evaluados`;
+    `${S.eventos.length} evento(s) · ${cargos.length} cargos · ${S.guardados.length}/${total} ya evaluados`;
   updateSaveBar();
 }
 

@@ -148,22 +148,35 @@ function _getEventosDeSemana(semana) {
   const sheet   = SpreadsheetApp.openById(ID_CRM).getSheetByName(CRM_SHEET);
   const lastRow = sheet.getLastRow();
   if (lastRow < 3) return [];
-  const data = sheet.getRange(3, 1, lastRow - 2, 31).getValues();
+  // Leemos hasta la col AL (38 cols). Antes el CG solo consideraba matrimonios y
+  // usaba la col Q (idx 16) como semana; pero col Q no sirve para todos los tipos
+  // (en corporativos trae el nombre del evento, en graduaciones el N° de egresados).
+  // La semana operativa universal es la col AL (idx 37 = Fecha Semana), la misma que
+  // ya usan Centralizado y Fotos. Sin filtro de tipo: lista las 3 líneas.
+  const data = sheet.getRange(3, 1, lastRow - 2, 38).getValues();
   const map  = {};
   data.forEach(row => {
-    const tipo = String(row[6]).trim().toLowerCase();
-    if (!tipo.includes('matrimonio')) return;
-    const semanaRow = _normCRMSemana(row[16]);
+    const tipo = String(row[6]).trim();          // col G — Matrimonio / Graduación / Corporativo
+    const semanaRow = _normCRMSemana(row[37]);   // col AL — Fecha Semana operativa
     if (semanaRow !== semana) return;
-    const codigo = String(row[15]).trim();
+    const centro = String(row[13]).trim();       // col N — Lugar
+    // Fecha del evento (col I): ISO para mostrar/ordenar, DD/MM/YYYY para el código.
+    let fechaRaw = row[8], fechaISO, fechaDMA;
+    if (fechaRaw instanceof Date) {
+      fechaISO = Utilities.formatDate(fechaRaw, TZ, 'yyyy-MM-dd');
+      fechaDMA = Utilities.formatDate(fechaRaw, TZ, 'dd/MM/yyyy');
+    } else {
+      fechaISO = String(fechaRaw).trim();
+      fechaDMA = fechaISO;
+    }
+    // Código de evento = col P (idx 15). Las graduaciones vienen SIN código en el CRM,
+    // así que lo construimos como "Lugar DD/MM/YYYY" — idéntico al que arma Supervisoras
+    // (centro + ' ' + fecha) para que reconcilien por código en el pipeline.
+    let codigo = String(row[15]).trim();
+    if (!codigo) codigo = (centro && fechaDMA) ? (centro + ' ' + fechaDMA) : (centro || fechaDMA);
     if (!codigo || map[codigo]) return;
-    let fecha = row[8];
-    fecha = (fecha instanceof Date)
-      ? Utilities.formatDate(fecha, TZ, 'yyyy-MM-dd')
-      : String(fecha).trim();
-    const centro = String(row[13]).trim();
-    const invitadosComida = Number(row[30]) || 0;
-    map[codigo] = { semana, fechaEvento: fecha, codigoEvento: codigo, centro, invitadosComida };
+    const invitadosComida = Number(row[30]) || 0;  // col AE — Comida
+    map[codigo] = { semana, fechaEvento: fechaISO, codigoEvento: codigo, centro, invitadosComida, tipo };
   });
   return Object.values(map).sort((a, b) => a.fechaEvento.localeCompare(b.fechaEvento));
 }
