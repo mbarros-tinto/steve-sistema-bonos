@@ -463,32 +463,37 @@ function getCentrosAndNovios() {
 
 // ════════════════════════════════════════════════════════════════════
 //  CRM — Eventos por fecha
-//  Lee hoja "CRM TINTO" del CRM General y devuelve los eventos
+//  Lee la hoja "CRM CONSOLIDADO" del CRM General y devuelve los eventos
 //  que coinciden con la fecha ISO indicada (yyyy-MM-dd).
-//  Estructura CRM TINTO (datos desde fila 4):
-//    Col H (idx 0 del rango) = Fecha Evento
-//    Col M (idx 5 del rango) = Lugar / Centro de Eventos
-//    Col N (idx 6 del rango) = Nombre / Novios
+//  CONSOLIDADO incluye las 3 líneas: Tinto (matrimonios), Vodaeventos
+//  (graduaciones) y Bordó (corporativos). Mismo tab que ya leen el
+//  Centralizado, Fotos 2.0 y CG (consistencia cross-sistema).
+//  Estructura CRM CONSOLIDADO (datos desde fila 3, índices absolutos col A=0):
+//    Col G (idx 6)  = Tipo Evento (Matrimonio / Graduación / Corporativo)
+//    Col I (idx 8)  = Fecha Evento
+//    Col N (idx 13) = Lugar / Centro de Eventos
+//    Col O (idx 14) = Nombre / Novios / Colegio / Empresa
 // ════════════════════════════════════════════════════════════════════
 function getEventosPorFecha(fechaISO) {
   try {
     var ss    = SpreadsheetApp.openById(CRM_GENERAL_ID);
-    var sheet = ss.getSheetByName('CRM TINTO');
-    if (!sheet) return { eventos: [], error: 'Hoja CRM TINTO no encontrada' };
+    var sheet = ss.getSheetByName('CRM CONSOLIDADO');
+    if (!sheet) return { eventos: [], error: 'Hoja CRM CONSOLIDADO no encontrada' };
 
     var lastRow = sheet.getLastRow();
-    if (lastRow < 4) return { eventos: [] };
+    if (lastRow < 3) return { eventos: [] };
 
-    // Cols H(8) a N(14) = 7 columnas; datos desde fila 4
-    var data = sheet.getRange(4, 8, lastRow - 3, 7).getValues();
+    // Cols A(1) a O(15) = 15 columnas; datos desde fila 3
+    var data = sheet.getRange(3, 1, lastRow - 2, 15).getValues();
     var tz   = Session.getScriptTimeZone();
     var eventos = [];
     var seen    = {};
 
     data.forEach(function(row) {
-      var fechaEvento = row[0]; // col H
-      var lugar  = String(row[5] || '').trim(); // col M
-      var nombre = String(row[6] || '').trim(); // col N
+      var tipo   = String(row[6]  || '').trim(); // col G
+      var fechaEvento = row[8];                  // col I
+      var lugar  = String(row[13] || '').trim(); // col N
+      var nombre = String(row[14] || '').trim(); // col O
       if (!lugar && !nombre) return;
 
       var isoStr = '';
@@ -500,9 +505,10 @@ function getEventosPorFecha(fechaISO) {
       if (isoStr !== fechaISO) return;
 
       var label = (lugar && nombre) ? lugar + ' — ' + nombre : (lugar || nombre);
+      if (tipo) label += '  ·  ' + tipo;
       if (seen[label]) return;
       seen[label] = true;
-      eventos.push({ label: label, centro: lugar, novios: nombre });
+      eventos.push({ label: label, centro: lugar, novios: nombre, tipo: tipo });
     });
 
     return { eventos: eventos };
