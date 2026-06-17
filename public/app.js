@@ -742,11 +742,11 @@ function renderPreviewSingle(r, codigo) {
 
   if (r.mismatches && r.mismatches.length) {
     html += '<div class="modal-section mismatch">';
-    html += '<div class="modal-section-title" style="color:var(--err);">❌ Mismatches (' + r.mismatches.length + ')</div>';
+    html += '<div class="modal-section-title" style="color:var(--warn);">⚠ Se omitirán (' + r.mismatches.length + ') — sin trabajador asignado</div>';
     r.mismatches.forEach(function(m) {
-      html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + '<span class="modal-row-meta"> · ' + esc(m.cargo) + '</span></span><span style="color:var(--err);font-size:0.78em;">' + esc(m.motivo || '') + '</span></div>';
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + '<span class="modal-row-meta"> · ' + esc(m.cargo) + '</span></span><span style="color:var(--warn);font-size:0.78em;">' + esc(m.motivo || '') + '</span></div>';
     });
-    html += '<div style="font-size:0.78em;color:rgba(255,107,107,0.85);margin-top:6px;">Resolver en Planilla Maestra y reintentar. <b>Hasta entonces, no se escribirá ningún bono.</b></div>';
+    html += '<div style="font-size:0.78em;color:rgba(232,177,110,0.9);margin-top:6px;">Estos bonos no tienen a quién pagarse, así que <b>se omiten</b>; los demás se escriben igual. Para incluirlos, asigná el trabajador en la planilla y reprocesá.</div>';
     html += '</div>';
   }
 
@@ -761,9 +761,11 @@ function renderPreviewSingle(r, codigo) {
   }
 
   contentEl.innerHTML = html;
-  var habilitar = r.bonos && r.bonos.length && (!r.mismatches || !r.mismatches.length);
+  var habilitar = r.bonos && r.bonos.length;
   btn.disabled = !habilitar;
-  btn.textContent = habilitar ? 'Escribir ' + r.bonos.length + ' bono(s) · $' + fmtMoney(r.totalMonto) : 'Resolvé los mismatches';
+  btn.textContent = habilitar
+    ? 'Escribir ' + r.bonos.length + ' bono(s) · $' + fmtMoney(r.totalMonto) + ((r.mismatches && r.mismatches.length) ? ' (' + r.mismatches.length + ' se omiten)' : '')
+    : 'Sin bonos con trabajador para escribir';
   _pagos.codigo = codigo;
 }
 
@@ -788,22 +790,21 @@ function renderPreviewMultiPagos(r) {
       if (p.yaEscritos > 0) html += '<div style="font-size:0.78em;color:var(--warn);margin-bottom:6px;">⚠️ ' + p.yaEscritos + ' bono(s) previos serán reemplazados.</div>';
       if (p.mismatches && p.mismatches.length) {
         html += '<div class="mismatch" style="padding:8px;border-radius:6px;margin-bottom:6px;">';
-        html += '<div style="font-weight:700;color:var(--err);font-size:0.82em;">❌ ' + p.mismatches.length + ' mismatch(es)</div>';
+        html += '<div style="font-weight:700;color:var(--warn);font-size:0.82em;">⚠ ' + p.mismatches.length + ' se omiten (sin trabajador)</div>';
         p.mismatches.forEach(function(m) {
-          html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + ' · ' + esc(m.cargo) + '</span><span class="modal-row-monto" style="color:var(--err);">$' + fmtMoney(m.monto) + '</span></div>';
+          html += '<div class="modal-row"><span class="modal-row-name">' + esc(m.trabajadorBono) + ' · ' + esc(m.cargo) + '</span><span class="modal-row-monto" style="color:var(--warn);">$' + fmtMoney(m.monto) + '</span></div>';
         });
         html += '</div>';
         totalMismatches += p.mismatches.length;
-        eventosFail++;
-      } else {
-        eventosOk++;
       }
       if (p.bonos && p.bonos.length) {
+        eventosOk++;
         html += _renderBonosAgrupados(p.bonos);
         html += '<div class="modal-total" style="margin-top:4px;">Subtotal evento: $' + fmtMoney(p.totalMonto) + '</div>';
         totalBonos += p.bonos.length;
       } else {
-        html += '<div class="empty" style="padding:10px;">Sin bonos.</div>';
+        eventosFail++;
+        html += '<div class="empty" style="padding:10px;">Sin bonos con trabajador.</div>';
       }
     }
     html += '</div>';
@@ -812,16 +813,16 @@ function renderPreviewMultiPagos(r) {
   html = '<div class="modal-section" style="background:rgba(46,125,90,0.15);border-color:rgba(46,125,90,0.4);">' +
          '<div class="modal-section-title" style="color:var(--ok);">📊 Resumen semana</div>' +
          '<div style="font-size:0.85em;color:rgba(255,255,255,0.8);">' +
-         eventosOk + ' evento(s) OK · ' + eventosFail + ' con problemas · ' + totalBonos + ' filas a escribir · ' + totalMismatches + ' mismatch(es)' +
+         eventosOk + ' evento(s) con bonos · ' + eventosFail + ' sin bonos · ' + totalBonos + ' filas a escribir · ' + totalMismatches + ' omitido(s) sin trabajador' +
          '</div>' +
          '<div class="modal-total" style="margin-top:6px;">Total global: $' + fmtMoney(r.totalGlobal || 0) + '</div>' +
          '</div>' + html;
   contentEl.innerHTML = html;
-  var habilitar = totalBonos > 0 && totalMismatches === 0;
+  var habilitar = totalBonos > 0;
   btn.disabled = !habilitar;
   btn.textContent = habilitar
-    ? 'Escribir bonos de todos los eventos · $' + fmtMoney(r.totalGlobal || 0)
-    : 'Resolvé los mismatches antes de escribir';
+    ? 'Escribir bonos de todos los eventos · $' + fmtMoney(r.totalGlobal || 0) + (totalMismatches ? ' (' + totalMismatches + ' se omiten)' : '')
+    : 'No hay bonos con trabajador para escribir';
   _pagos.codigo = '__ALL__';
 }
 
@@ -964,8 +965,8 @@ function renderProcesarPreview(r, semana) {
   // Inicializar selección (por default: todos los eventos sin escribir + todos los trabs no enviados con bonos ganados)
   if (Object.keys(_proc.eventosSel).length === 0) {
     eventos.forEach(function(ev) {
-      // Habilitable si tiene bonos listos y sin mismatches
-      var habilitable = ev.bonosListos > 0 && (!ev.mismatches || ev.mismatches.length === 0);
+      // Habilitable si tiene al menos 1 bono con trabajador; los mismatches se omiten (no bloquean)
+      var habilitable = ev.bonosListos > 0;
       _proc.eventosSel[ev.codigo] = habilitable;
     });
   }
@@ -1022,7 +1023,7 @@ function renderProcesarPreview(r, semana) {
   html += '<div class="proc-section-sub">Marca los eventos cuyos bonos quieres enviar a Pagos. Sólo se escriben los bonos ganados (idempotente: si ya hay bonos escritos, los reemplaza).</div>';
   html += '<div class="proc-section-actions"><span class="mail-toggle" onclick="procToggleAllEventos(true)">Marcar todos</span> · <span class="mail-toggle" onclick="procToggleAllEventos(false)">Ninguno</span></div>';
   eventos.forEach(function(ev) {
-    var habilitable = ev.bonosListos > 0 && (!ev.mismatches || ev.mismatches.length === 0);
+    var habilitable = ev.bonosListos > 0;   // los mismatches se omiten, no bloquean
     var checked = _proc.eventosSel[ev.codigo] && habilitable;
     var stClass = habilitable ? '' : ' disabled';
     html += '<label class="proc-evento-row' + stClass + '">';
@@ -1032,11 +1033,12 @@ function renderProcesarPreview(r, semana) {
     html += '<div class="proc-evento-info">';
     html += '<div class="proc-evento-name"><b>' + esc(ev.lugar || ev.codigo) + '</b> · ' + esc(ev.fecha) + '</div>';
     html += '<div class="proc-evento-meta">';
-    if (habilitable) {
+    if (ev.bonosListos > 0) {
       html += '<span class="ok">' + ev.bonosListos + ' bono(s) ganado(s) · $' + fmtMoney(ev.totalMonto) + '</span>';
       if (ev.yaEscritos > 0) html += ' <span class="warn">· ⚠ ' + ev.yaEscritos + ' previos serán reemplazados</span>';
+      if (ev.mismatches && ev.mismatches.length) html += ' <span class="warn">· ⚠ ' + ev.mismatches.length + ' sin trabajador (se omiten)</span>';
     } else if (ev.mismatches && ev.mismatches.length) {
-      html += '<span class="err">❌ ' + ev.mismatches.length + ' mismatch(es) — resolver primero</span>';
+      html += '<span class="err">❌ ' + ev.mismatches.length + ' bono(s) sin trabajador — nada que escribir</span>';
     } else {
       html += '<span class="muted">Sin bonos ganados para escribir</span>';
     }
@@ -1225,6 +1227,14 @@ function _renderResultadoProcesar(r) {
   if (p.eventosEscritos && p.eventosEscritos.length) {
     html += '<div class="modal-section" style="background:rgba(46,125,90,0.18);border-color:rgba(46,125,90,0.4);">' +
             '<div style="color:var(--ok);font-weight:700;">✅ ' + p.eventosEscritos.length + ' evento(s) escrito(s) en Pagos · ' + p.totalFilas + ' filas · $' + fmtMoney(p.totalMonto) + '</div></div>';
+  }
+  if (p.omitidos && p.omitidos.length) {
+    html += '<div class="modal-section" style="background:rgba(232,177,110,0.13);border-color:rgba(232,177,110,0.4);">' +
+            '<div style="color:var(--warn);font-weight:700;">⚠ ' + p.omitidos.length + ' bono(s) omitido(s) — sin trabajador asignado en Planilla Maestra</div>';
+    p.omitidos.forEach(function(o) {
+      html += '<div class="modal-row"><span class="modal-row-name">' + esc(o.codigo) + '<span class="modal-row-meta"> · ' + esc(o.cargo || o.nombreBono || '') + '</span></span><span class="modal-row-monto" style="color:var(--warn);">$' + fmtMoney(o.monto || 0) + '</span></div>';
+    });
+    html += '</div>';
   }
   if (p.eventosFallidos && p.eventosFallidos.length) {
     html += '<div class="modal-section mismatch"><div class="modal-section-title" style="color:var(--err);">❌ Eventos fallidos (' + p.eventosFallidos.length + ')</div>';
