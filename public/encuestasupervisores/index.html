@@ -1818,7 +1818,7 @@ function renderFotosSlots(crits, yaSub) {
       '<div class="foto-label">' + esc(instr) + '</div>' +
       '<div class="foto-action">' +
         (done ? '<span class="foto-ok">✓ Subida</span>' :
-          '<label class="foto-btn">📷 Subir<input type="file" accept="image/*" capture="environment" style="display:none" data-idx="' + i + '" data-instr="' + esc(instr) + '" onchange="onFotoSelect(this)"></label>') +
+          '<label class="foto-btn">📷 Subir<input type="file" accept="image/*" style="display:none" data-idx="' + i + '" data-instr="' + esc(instr) + '" onchange="onFotoSelect(this)"></label>') +
         '<span class="foto-status" id="foto_status_' + i + '"></span>' +
       '</div>' +
     '</div>';
