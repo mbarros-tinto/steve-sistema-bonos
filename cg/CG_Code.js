@@ -676,6 +676,10 @@ var REGEX_SERVILLETA    = /^SERVILLETA/;
 var REGEX_BONO_MANTELERIA = /^(MANTEL|CAMINO)/;
 // Legacy alias para compatibilidad
 var REGEX_MANTEL_CAMINO = REGEX_BONO_MANTELERIA;
+// Servilleteros de YUTE (Garzones CG, criterio "Se pierden menos de 20
+// SERVILLETEROS DE YUTE"). OJO: se cuentan en la hoja Decoracion (no Manteles),
+// y SOLO los de yute — no "SERVILLETERO MADERA".
+var REGEX_SERVILLETERO_YUTE = /^SERVILLETEROS?\s+DE\s+YUTE/;
 
 function _categoriaToRegex(cat) {
   switch (cat) {
@@ -768,6 +772,39 @@ function _chequearMermaServilletas(ev) {
   return calc.perdidaNeta < 20
     ? { ok: true,  motivo: '✓ Se perdieron ' + calc.perdidaNeta + ' servilletas (< 20)' + extra }
     : { ok: false, motivo: '✗ Se perdieron ' + calc.perdidaNeta + ' servilletas (≥ 20)' + extra };
+}
+
+// Merma de servilleteros de yute (Garzones CG). A diferencia de las otras
+// mermas, la fuente es la hoja Decoracion (nomenclatura A) y la pérdida se
+// define como "Enviado a eventos" (1ra col) − "Casa" (4ta col) = lo que salió
+// menos lo que volvió a casa. Umbral: < 20 unidades para ganar el bono.
+function _chequearMermaServilleteros(ev) {
+  const eventoInv = _findEventoEnHojaInv('Decoracion', ev.centro, ev.fechaEvento);
+  if (!eventoInv) return { ok: null, motivo: '⚠ Evento no matcheado en Decoracion' };
+  const colEnv  = eventoInv.colsSubform['Enviado a eventos'];
+  const colCasa = eventoInv.colsSubform['Casa'];
+  const tieneEnv  = _hayDatosEnColInv('Decoracion', colEnv);
+  const tieneCasa = _hayDatosEnColInv('Decoracion', colCasa);
+  if (!tieneEnv && !tieneCasa) return { ok: null, motivo: '⚠ Sin Enviado ni Casa en Decoracion' };
+  if (!tieneEnv)  return { ok: null, motivo: '⚠ Sin "Enviado a eventos" en Decoracion' };
+  if (!tieneCasa) return { ok: null, motivo: '⚠ Sin "Casa" (retorno) en Decoracion' };
+  const hoja = _loadHojaInv('Decoracion');
+  let enviado = 0, casa = 0, hayItem = false;
+  // Recorre todos los items sumando SOLO las filas "SERVILLETEROS DE YUTE".
+  // Usa continue (no break) porque el item vive al final del bloque de Decoracion.
+  for (let r = 3; r < hoja.lastRow; r++) {
+    const itemRaw = String(hoja.data[r][0] || '').trim();
+    if (!itemRaw) continue;
+    if (!REGEX_SERVILLETERO_YUTE.test(itemRaw.toUpperCase())) continue;
+    hayItem = true;
+    enviado += Number(hoja.data[r][colEnv])  || 0;
+    casa    += Number(hoja.data[r][colCasa]) || 0;
+  }
+  if (!hayItem) return { ok: null, motivo: '⚠ No se encontró la fila SERVILLETEROS DE YUTE en Decoracion' };
+  const perdida = Math.max(0, enviado - casa);
+  return perdida < 20
+    ? { ok: true,  motivo: '✓ Se perdieron ' + perdida + ' servilleteros de yute (< 20) [' + enviado + '→' + casa + ']' }
+    : { ok: false, motivo: '✗ Se perdieron ' + perdida + ' servilleteros de yute (≥ 20) [' + enviado + '→' + casa + ']' };
 }
 
 function _chequearMermaCubiertos(ev) {
@@ -1263,6 +1300,9 @@ function _resolverChequeoCriterio(crit, ev) {
   // Asignación Conteo Cosas Casa CG criterio 5 - prendas (PECHERA/POLAR/CORBATA)
   if (/no se pierde ninguna (pechera|polar|corbata)/i.test(crit)) return _chequearMermaPrendas(ev);
   if (/pierden menos de 20 servilletas/i.test(crit))     return _chequearMermaServilletas(ev);
+  // Servilleteros de yute (Garzones CG). "servilletero" no colisiona con
+  // "servilletas" de la línea anterior. Fuente: hoja Decoracion.
+  if (/servilletero.*yute|yute.*servilletero/i.test(crit)) return _chequearMermaServilleteros(ev);
   // Cubiertos: cubre tanto "pierden menos de 40 cubiertos" (Garzones) como
   // "Conteo de cubiertos, pérdida menor a 40 unidades" (Super metre).
   if (/conteo de cubiertos.*40|pierden menos de 40 cubiertos|cubiertos.*p[eé]rdida menor a 40|p[eé]rdida menor a 40.*cubiertos/i.test(crit))
