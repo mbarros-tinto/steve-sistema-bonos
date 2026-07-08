@@ -798,17 +798,29 @@ function copiarEvaluacion() {
   const fecha = ev.fecha
     ? new Date(yyyy,mm-1,dd).toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})
     : '—';
+  const scores   = cargo.scores   || [];
+  const binarios = cargo.binarios || [];
+  // "¿Merece el bono?" se refleja en RESULTADO, no en el detalle de criterios.
+  const criterios = binarios.filter(b => !/merece.*bono/i.test(String(b.label || '')));
+
   let msg = `📋 EVALUACIÓN DE DESEMPEÑO\n`;
   msg += `${cargo.label.toUpperCase()}: ${cargo.nombre}\n`;
   msg += `Evento: ${ev.novios} · ${fecha}\n`;
   msg += `─────────────────────────\n`;
-  if (cargo.tipo === 'numeric' || cargo.tipo === 'numeric+binary') {
-    cargo.scores.forEach(s => {
-      msg += `• ${s.label}: ${s.value !== '' ? s.value+'/7' : '—'}\n`;
+  if (scores.length) {
+    scores.forEach(s => {
+      msg += `• ${s.label}: ${s.value !== '' && s.value !== null ? s.value+'/7' : '—'}\n`;
     });
-    msg += `PROMEDIO: ${cargo.promedio !== null ? cargo.promedio+'/7' : '—'}\n`;
+    msg += `PROMEDIO: ${cargo.promedio !== null && cargo.promedio !== undefined ? cargo.promedio+'/7' : '—'}\n`;
   }
-  if (cargo.tipo === 'binary') {
+  if (criterios.length) {
+    criterios.forEach(b => {
+      const v = b.value === 'Sí' ? '✅ Sí' : b.value === 'No' ? '❌ No' : '—';
+      msg += `• ${b.label}: ${v}\n`;
+    });
+  }
+  // Compat legacy: cargos sin scores ni binarios pero con respuesta global.
+  if (!scores.length && !binarios.length && cargo.respuesta !== undefined) {
     msg += `• ¿Cumplió correctamente?: ${cargo.respuesta || '—'}`;
     if (cargo.quien && cargo.respuesta === 'No') msg += ` (${cargo.quien})`;
     msg += '\n';
