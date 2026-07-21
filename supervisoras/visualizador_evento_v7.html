@@ -825,6 +825,17 @@ function copiarEvaluacion() {
     if (cargo.quien && cargo.respuesta === 'No') msg += ` (${cargo.quien})`;
     msg += '\n';
   }
+  // Evaluación de platos (Jefe Cocina): mismo detalle que muestra la tarjeta.
+  if (cargo.platos && cargo.platos.length) {
+    msg += `─────────────────────────\nEVALUACIÓN DE PLATOS:\n`;
+    cargo.platos.forEach(pl => {
+      msg += `🍽 ${pl.plato}\n`;
+      (pl.criterios || []).forEach(c => {
+        const v = c.cumple === 'Sí' ? '✅ Sí' : c.cumple === 'No' ? '❌ No' : '—';
+        msg += `  • ${c.criterio}: ${v}\n`;
+      });
+    });
+  }
   msg += `─────────────────────────\n`;
   msg += `RESULTADO: ${cargo.bono === 'SÍ' ? '✓ BONO' : cargo.bono === 'NO' ? '✗ SIN BONO' : '—'}\n`;
   if (texto) {
