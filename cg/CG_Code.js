@@ -41,9 +41,19 @@ function doPost(e) {
   return _routeApi(action, params, body);
 }
 
+// Modo de prueba A/B (2026-08-05): `&fuente=worker&wk=<token>` fuerza que ESTA
+// request lea el inventario desde el worker (hojaVirtual) sin tocar las
+// Script Properties → cero impacto en el resto de los usuarios.
+var _FZ_WORKER_URL = '';
+var _FZ_WORKER_TOKEN = '';
+
 function _routeApi(action, params, body) {
   try {
     var result;
+    if (params && params.fuente === 'worker' && params.wk) {
+      _FZ_WORKER_URL = 'https://control-gestion-api.mbarros.workers.dev/';
+      _FZ_WORKER_TOKEN = String(params.wk);
+    }
     switch (action) {
       case 'weeksData':
         result = getWeeksData();
@@ -531,8 +541,8 @@ function _loadHojaInv(nombreHoja) {
   // error, cae a la hoja como siempre. Apagar = borrar CG_WORKER_URL.
   try {
     const _p = PropertiesService.getScriptProperties();
-    const _wu = _p.getProperty('CG_WORKER_URL');
-    const _wk = _p.getProperty('CG_WORKER_TOKEN');
+    const _wu = _FZ_WORKER_URL || _p.getProperty('CG_WORKER_URL');
+    const _wk = _FZ_WORKER_TOKEN || _p.getProperty('CG_WORKER_TOKEN');
     if (_wu && _wk) {
       const _r = UrlFetchApp.fetch(_wu + '?action=hojaVirtual&k=' + _wk +
         '&hoja=' + encodeURIComponent(nombreHoja), { muteHttpExceptions: true });
