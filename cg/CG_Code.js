@@ -524,6 +524,26 @@ const _cacheInvHojas = {};
 
 function _loadHojaInv(nombreHoja) {
   if (_cacheInvHojas[nombreHoja] !== undefined) return _cacheInvHojas[nombreHoja];
+  // CG 2.0 (2026-08-05): con las Script Properties CG_WORKER_URL + CG_WORKER_TOKEN
+  // seteadas, la matriz viene del worker (D1, action=hojaVirtual) con el MISMO
+  // layout de la hoja — es el cable de los auto-chequeos para el corte, cuando
+  // la planilla deje de actualizarse. Sin properties (default) o ante cualquier
+  // error, cae a la hoja como siempre. Apagar = borrar CG_WORKER_URL.
+  try {
+    const _p = PropertiesService.getScriptProperties();
+    const _wu = _p.getProperty('CG_WORKER_URL');
+    const _wk = _p.getProperty('CG_WORKER_TOKEN');
+    if (_wu && _wk) {
+      const _r = UrlFetchApp.fetch(_wu + '?action=hojaVirtual&k=' + _wk +
+        '&hoja=' + encodeURIComponent(nombreHoja), { muteHttpExceptions: true });
+      const _j = JSON.parse(_r.getContentText());
+      if (_j.ok && _j.data && _j.data.matriz && _j.data.matriz.length >= 4) {
+        const data = _j.data.matriz;
+        _cacheInvHojas[nombreHoja] = { data, lastRow: data.length, lastCol: _j.data.columnas };
+        return _cacheInvHojas[nombreHoja];
+      }
+    }
+  } catch (e) { /* cae a la hoja */ }
   try {
     const sheet = SpreadsheetApp.openById(ID_INVENTARIO_CG).getSheetByName(nombreHoja);
     if (!sheet) { _cacheInvHojas[nombreHoja] = null; return null; }
