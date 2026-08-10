@@ -303,6 +303,7 @@ function saveEvaluation(evaluaciones) {
       sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 21).setValues(newRows);
       sheet.getRange(2, 2).setValue(tsStr);
     }
+    _espejoBonoD1('CG', evaluaciones);
     return { success: true, rowsAdded: newRows.length, rowsUpdated: rowsUpdated };
   } catch (e) {
     return { success: false, error: e.message };
@@ -461,6 +462,7 @@ function saveVajillaEvaluation(evaluaciones) {
       cascadaCount += _aplicarCascadaVajilla(codigo);
     });
 
+    _espejoBonoD1('Vajilla', evaluaciones);
     return { success: true, rowsAdded: newRows.length, rowsUpdated, cascadaUpdates: cascadaCount };
   } catch(e) {
     return { success: false, error: e.message };
@@ -1424,6 +1426,27 @@ function abrirWebApp() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Abriendo evaluador...');
 }
 
+
+// ── Espejo D1 de evaluaciones (dual-run bonos, 2026-08-10) ──────────────────
+// Tras cada guardado exitoso en la hoja, replica las MISMAS evaluaciones al
+// worker (?action=ingesta.bono → Evaluacion/EvaluacionCriterio en D1, con la
+// cascada de Vajilla simétrica allá). Espejo MUDO: jamás voltea el guardado de
+// la hoja. Encender = correr configurarEspejoBonos() una vez en el editor.
+// Apagar = borrar la property BONO_INGEST_SECRET.
+function _espejoBonoD1(sistema, evaluaciones) {
+  try {
+    if (!evaluaciones || !evaluaciones.length) return;
+    const p = PropertiesService.getScriptProperties();
+    const u = p.getProperty('CG_WORKER_URL');
+    const s = p.getProperty('BONO_INGEST_SECRET');
+    if (!u || !s) return;
+    UrlFetchApp.fetch(u + '?action=ingesta.bono', {
+      method: 'post', contentType: 'text/plain',
+      payload: JSON.stringify({ secret: s, sistema: sistema, fuente: 'cg', evaluaciones: evaluaciones }),
+      muteHttpExceptions: true,
+    });
+  } catch (e) { /* espejo mudo */ }
+}
 
 // Prueba del cable CG 2.0: correr UNA vez en el editor (autoriza UrlFetchApp,
 // el scope que la rama worker necesita y sin el cual cae a la hoja en silencio).
