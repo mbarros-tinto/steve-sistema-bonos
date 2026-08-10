@@ -1198,7 +1198,7 @@ function procesarBonosYMails(semana, payload) {
   var resultado = {
     ok: true,
     semana: semana,
-    pagos:  { eventosEscritos: [], eventosFallidos: [], totalMonto: 0, totalFilas: 0 },
+    pagos:  { eventosEscritos: [], eventosFallidos: [], omitidos: [], totalMonto: 0, totalFilas: 0 },
     mails:  { enviados: [], errores: [], yaEnviados: [], totalEnviados: 0, totalErrores: 0, totalYaEnviados: 0 }
   };
 
@@ -1208,13 +1208,18 @@ function procesarBonosYMails(semana, payload) {
       var r = escribirBonosEnPlanillaMaestra(codigo);
       if (r && r.ok) {
         resultado.pagos.eventosEscritos.push({
-          codigo: codigo, escritos: r.escritos || 0, totalMonto: r.totalMonto || 0
+          codigo: codigo, escritos: r.escritos || 0, totalMonto: r.totalMonto || 0,
+          omitidos: (r.mismatches || []).length
         });
         resultado.pagos.totalMonto += r.totalMonto || 0;
         resultado.pagos.totalFilas += r.escritos   || 0;
+        (r.mismatches || []).forEach(function(m) {
+          resultado.pagos.omitidos.push({ codigo: codigo, nombreBono: m.nombreBono, cargo: m.cargo, monto: m.monto, motivo: m.motivo });
+        });
       } else {
         resultado.pagos.eventosFallidos.push({
-          codigo: codigo, msg: (r && r.msg) || 'error desconocido'
+          codigo: codigo, msg: (r && r.msg) || 'error desconocido',
+          mismatches: (r && r.mismatches) || []
         });
       }
     } catch(e) {
@@ -3129,8 +3134,9 @@ function previewBonosTodosLosEventos(codigos) {
   } catch(e) { return { ok: false, msg: e.toString() }; }
 }
 
-// Escritura masiva de múltiples eventos. Itera cada evento; si uno falla
-// (mismatches u otro error), sigue con los demás y reporta al final.
+// Escritura masiva de múltiples eventos. Itera cada evento; escribe los bonos con
+// trabajador y acumula los "omitidos" (sin destinatario) como aviso, sin frenar el
+// lote. Solo van a "fallos" los eventos que fallan de verdad (no aprobado / sin matches).
 function escribirBonosMultipleEventos(codigos) {
   try {
     if (!Array.isArray(codigos) || codigos.length === 0) {
@@ -3138,6 +3144,7 @@ function escribirBonosMultipleEventos(codigos) {
     }
     var escritos = [];
     var fallos   = [];
+    var omitidos = [];   // bonos sin trabajador asignado (no bloquean el lote)
     var totalMonto = 0;
     var totalFilas = 0;
     codigos.forEach(function(cod) {
@@ -3147,10 +3154,14 @@ function escribirBonosMultipleEventos(codigos) {
           codigo: cod,
           escritos: r.escritos || 0,
           reemplazados: r.borradosPrevios || 0,
-          totalMonto: r.totalMonto || 0
+          totalMonto: r.totalMonto || 0,
+          omitidos: (r.mismatches || []).length
         });
         totalMonto += r.totalMonto || 0;
         totalFilas += r.escritos || 0;
+        (r.mismatches || []).forEach(function(m) {
+          omitidos.push({ codigo: cod, nombreBono: m.nombreBono, cargo: m.cargo, monto: m.monto, motivo: m.motivo });
+        });
       } else {
         fallos.push({ codigo: cod, msg: r.msg, mismatches: r.mismatches || [] });
       }
@@ -3159,32 +3170,37 @@ function escribirBonosMultipleEventos(codigos) {
       ok:          fallos.length === 0,
       escritos:    escritos,
       fallos:      fallos,
+      omitidos:    omitidos,
       totalFilas:  totalFilas,
       totalMonto:  totalMonto,
       msg:         'Procesados ' + codigos.length + ' evento(s). ' +
                    'OK: ' + escritos.length + ' · Errores: ' + fallos.length +
+                   (omitidos.length ? ' · Omitidos (sin trabajador): ' + omitidos.length : '') +
                    ' · Filas: ' + totalFilas + ' · Total: $' + _fmtMonto_(totalMonto)
     };
   } catch(e) { return { ok: false, msg: e.toString() }; }
 }
 
 // PASO 5 (ejecución): escribe bonos a Planilla Maestra > Registro con fuente='Bonos'.
-// OPCIÓN A: si hay mismatches, NO escribe nada. Retorna lista para resolver.
+// ESCRITURA PARCIAL: escribe los bonos con trabajador asignado y reporta los
+// mismatches como "omitidos". Un bono sin destinatario ya NO frena al resto del
+// evento ni del lote (antes era "Opción A" = todo o nada).
 // Idempotente: antes de escribir, borra filas previas del mismo evento con fuente='Bonos'.
 function escribirBonosEnPlanillaMaestra(codigoEvento) {
   try {
     var prev = previewBonosParaPlanillaMaestra(codigoEvento);
     if (!prev.ok) return prev;
-    if (prev.mismatches && prev.mismatches.length > 0) {
+    var mismatchesPrev = prev.mismatches || [];
+    if (!prev.bonos || prev.bonos.length === 0) {
+      // No hay ningún bono con trabajador: nada que escribir (reportamos los omitidos).
       return {
         ok: false,
-        msg: 'Hay ' + prev.mismatches.length + ' bono(s) que no matchean con Planilla Maestra. Resolver mismatches y reintentar.',
-        mismatches: prev.mismatches,
-        bonos: prev.bonos
+        msg: mismatchesPrev.length
+          ? 'Ningún bono tiene trabajador asignado en Planilla Maestra (' + mismatchesPrev.length + ' sin destinatario). No se escribió nada.'
+          : 'No hay bonos para escribir.',
+        mismatches: mismatchesPrev,
+        omitidos: mismatchesPrev.length
       };
-    }
-    if (!prev.bonos || prev.bonos.length === 0) {
-      return { ok: false, msg: 'No hay bonos para escribir.' };
     }
 
     var ss     = SpreadsheetApp.openById(ID_PLANILLA_MAESTRA);
@@ -3219,7 +3235,7 @@ function escribirBonosEnPlanillaMaestra(codigoEvento) {
       var semStr   = formatFechaCL_(info.semana);
       var fechaEv  = _parseFechaCL_(info.fecha);
       var mes      = fechaEv ? (fechaEv.getMonth() + 1) : '';
-      var lugarFecha = (info.lugar || '') + ' ' + feStr;
+      var lugarSolo = (info.lugar || ''); // col H = solo recinto (antes lugar+fecha)
 
       var filas = [];
       prev.bonos.forEach(function(b, idx) {
@@ -3230,7 +3246,7 @@ function escribirBonosEnPlanillaMaestra(codigoEvento) {
         // 12:Mes, 13:Fuente, 14:-, 15:CodigoEvento, 16:Detalle, 17:-
         filas.push([
           maxId + idx + 1, fechaReg, b.trabajador, b.nombreBono, b.monto,
-          '', feStr, lugarFecha, info.linea,
+          '', feStr, lugarSolo, info.linea,
           'Personal Evento', semStr, b.estado, mes,
           FUENTE_BONOS, '', codigoEvento, detalle, ''
         ]);
@@ -3245,7 +3261,8 @@ function escribirBonosEnPlanillaMaestra(codigoEvento) {
       if (logSh) {
         logSh.appendRow([new Date(), Session.getActiveUser().getEmail() || 'Sistema Bonos',
           'Escritura bonos → Planilla Maestra', codigoEvento,
-          filas.length + ' bono(s) · $' + prev.totalMonto, '']);
+          filas.length + ' bono(s) · $' + prev.totalMonto +
+            (mismatchesPrev.length ? ' · ' + mismatchesPrev.length + ' omitido(s) sin trabajador' : ''), '']);
       }
 
       return {
@@ -3253,8 +3270,11 @@ function escribirBonosEnPlanillaMaestra(codigoEvento) {
         escritos:     filas.length,
         borradosPrevios: filasBorrar.length,
         totalMonto:   prev.totalMonto,
+        mismatches:   mismatchesPrev,
+        omitidos:     mismatchesPrev.length,
         msg:          'Escritos ' + filas.length + ' bono(s) por $' + _fmtMonto_(prev.totalMonto) + '. ' +
-                      (filasBorrar.length ? '(Reemplazó ' + filasBorrar.length + ' anterior(es))' : '')
+                      (filasBorrar.length ? '(Reemplazó ' + filasBorrar.length + ' anterior(es)) ' : '') +
+                      (mismatchesPrev.length ? '· ⚠ ' + mismatchesPrev.length + ' omitido(s) sin trabajador asignado' : '')
       };
     } finally {
       lock.releaseLock();

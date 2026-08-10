@@ -533,17 +533,26 @@ const ID_INVENTARIO_CG = '1WC1cEeKrrrrvrI8zQJw22sFsECX10tjCzPn4xOKFR6U';
 const _cacheInvHojas = {};
 
 function _loadHojaInv(nombreHoja) {
-  if (_cacheInvHojas[nombreHoja] !== undefined) return _cacheInvHojas[nombreHoja];
+  const _c = _cacheInvHojas[nombreHoja];
+  if (_c !== undefined) {
+    if (_c === '__CG_CAIDO__') throw new Error('CG_NO_DISPONIBLE: worker sin respuesta (cacheado esta ejecución)');
+    return _c;
+  }
   // CG 2.0 (2026-08-05): con las Script Properties CG_WORKER_URL + CG_WORKER_TOKEN
   // seteadas, la matriz viene del worker (D1, action=hojaVirtual) con el MISMO
-  // layout de la hoja — es el cable de los auto-chequeos para el corte, cuando
-  // la planilla deje de actualizarse. Sin properties (default) o ante cualquier
-  // error, cae a la hoja como siempre. Apagar = borrar CG_WORKER_URL.
-  try {
-    const _p = PropertiesService.getScriptProperties();
-    const _wu = _FZ_WORKER_URL || _p.getProperty('CG_WORKER_URL');
-    const _wk = _FZ_WORKER_TOKEN || _p.getProperty('CG_WORKER_TOKEN');
-    if (_wu && _wk) {
+  // layout de la hoja. Apagar = borrar CG_WORKER_URL.
+  //
+  // POST-CORTE (2026-08-10): con el worker configurado, es la ÚNICA fuente. La
+  // planilla quedó CONGELADA el 2026-08-08, así que "caer a la hoja" ya no es
+  // un fallback: es responder datos viejos con cara de normal (los chequeos
+  // dirían "sin conteo" y quitarían bonos injustamente). Si el worker falla →
+  // ERROR RUIDOSO (CG_NO_DISPONIBLE); los chequeos lo muestran como ⚠ y el
+  // criterio queda manual. La hoja solo se lee en modo legacy (sin properties).
+  const _p = PropertiesService.getScriptProperties();
+  const _wu = _FZ_WORKER_URL || _p.getProperty('CG_WORKER_URL');
+  const _wk = _FZ_WORKER_TOKEN || _p.getProperty('CG_WORKER_TOKEN');
+  if (_wu && _wk) {
+    try {
       const _r = UrlFetchApp.fetch(_wu + '?action=hojaVirtual&k=' + _wk +
         '&hoja=' + encodeURIComponent(nombreHoja), { muteHttpExceptions: true });
       const _j = JSON.parse(_r.getContentText());
@@ -552,8 +561,18 @@ function _loadHojaInv(nombreHoja) {
         _cacheInvHojas[nombreHoja] = { data, lastRow: data.length, lastCol: _j.data.columnas };
         return _cacheInvHojas[nombreHoja];
       }
+      if (_j.ok) {
+        // El worker respondió bien pero sin datos suficientes: hoja vacía real
+        // (mismo trato que lastRow < 4 en el modo legacy), no una caída.
+        _cacheInvHojas[nombreHoja] = null;
+        return null;
+      }
+      throw new Error('worker respondió error: ' + String(_r.getContentText()).slice(0, 150));
+    } catch (e) {
+      _cacheInvHojas[nombreHoja] = '__CG_CAIDO__';
+      throw new Error('CG_NO_DISPONIBLE: ' + (e && e.message ? e.message : e));
     }
-  } catch (e) { /* cae a la hoja */ }
+  }
   try {
     const sheet = SpreadsheetApp.openById(ID_INVENTARIO_CG).getSheetByName(nombreHoja);
     if (!sheet) { _cacheInvHojas[nombreHoja] = null; return null; }
@@ -757,6 +776,9 @@ function _getRoboParaEvento(centro, fechaEvento, regexItem) {
     }
     return total;
   } catch(e) {
+    // Un robo=0 por worker caído inflaría la pérdida (el robo la justifica):
+    // propagar la caída para que el chequeo salga ⚠ y no un falso negativo.
+    if (/CG_NO_DISPONIBLE/.test(String(e && e.message))) throw e;
     Logger.log('_getRoboParaEvento error: ' + e.message);
     return 0;
   }
@@ -1363,7 +1385,14 @@ function _getAutoChequeosCG(eventos, criteriosCG) {
     cargos.forEach(cargo => {
       const cfg = criteriosCG[cargo];
       cfg.criterios.forEach((crit, i) => {
-        const chequeo = _resolverChequeoCriterio(crit, ev);
+        let chequeo;
+        try {
+          chequeo = _resolverChequeoCriterio(crit, ev);
+        } catch (e) {
+          // CG_NO_DISPONIBLE (worker caído): NUNCA juzgar con datos stale —
+          // ok:null deja el criterio manual con el warning visible.
+          chequeo = { ok: null, motivo: '⚠ CG no disponible (worker no responde) — reintenta más tarde' };
+        }
         if (!chequeo) return;
         if (!result[ev.codigoEvento]) result[ev.codigoEvento] = {};
         if (!result[ev.codigoEvento][cargo]) result[ev.codigoEvento][cargo] = {};
@@ -1395,3 +1424,14 @@ function abrirWebApp() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Abriendo evaluador...');
 }
 
+
+// Prueba del cable CG 2.0: correr UNA vez en el editor (autoriza UrlFetchApp,
+// el scope que la rama worker necesita y sin el cual cae a la hoja en silencio).
+function probarCG2() {
+  var p = PropertiesService.getScriptProperties();
+  var u = p.getProperty('CG_WORKER_URL'), k = p.getProperty('CG_WORKER_TOKEN');
+  if (!u || !k) { Logger.log('FALTAN properties CG_WORKER_URL / CG_WORKER_TOKEN'); return; }
+  var r = UrlFetchApp.fetch(u + '?action=hojaVirtual&k=' + k + '&hoja=Manteles', { muteHttpExceptions: true });
+  var j = JSON.parse(r.getContentText());
+  Logger.log(j.ok ? 'CABLE OK: matriz ' + j.data.filas + 'x' + j.data.columnas : 'FALLO: ' + r.getContentText().slice(0, 200));
+}
