@@ -467,6 +467,9 @@ function procesarFoto(params) {
     // -- 3. Actualizar Bono Fotos --------------------------------------------
     _actualizarBonoFotos(params, ss);
 
+    // -- 4. Espejo D1 (dual-run bonos) — replica la fila del Registro --------
+    _espejoFotoD1(params, fileUrl);
+
     return { ok: true, url: fileUrl };
   } catch(e) {
     try { lock.releaseLock(); } catch(le) {}
@@ -618,6 +621,16 @@ function getEventosPorFecha(fecha) {
       if (_normFecha(r[8]) !== fechaNorm) return; // col I (idx 8)  = Fecha Evento
       var centro  = String(r[14]).trim();          // col O (idx 14) = Nombre/Centro
       var codigo  = String(r[15]).trim();          // col P (idx 15) = Codigo Evento
+      // Graduaciones: no traen código en col P (y col O suele venir vacía) →
+      // se construye 'Lugar DD/MM/YYYY' con col N + la fecha pedida, la MISMA
+      // convención de CG v36 / Supervisoras / puente CRM, para que las fotos
+      // reconcilien por código con el resto del pipeline de bonos.
+      var lugarN = String(r[13] || '').trim();     // col N (idx 13) = Lugar
+      if (!codigo && lugarN) {
+        var mF = String(fecha).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (mF) codigo = lugarN + ' ' + mF[3] + '/' + mF[2] + '/' + mF[1];
+      }
+      if (!centro) centro = lugarN;
       if (!centro || !codigo) return;
       for (var i = 0; i < eventos.length; i++) {
         if (eventos[i].codigo === codigo) return;  // evitar duplicados
@@ -777,4 +790,32 @@ function backfillSharingFotosSupervisor() {
   });
   Logger.log('backfillSharingFotosSupervisor: ' + JSON.stringify(out));
   return out;
+}
+// ==================================================================
+//  ESPEJO D1 (dual-run bonos, 2026-08-10) — tras subir la foto y
+//  registrarla en la hoja, replica la fila del Registro al worker CG 2.0
+//  (?action=ingesta.bono, sistema Foto → tabla RegistroFoto, mismo upsert
+//  por codigoEvento+cargo+instruccion). Espejo MUDO: jamás voltea el
+//  guardado. Encender = configurarEspejoBonos() una vez en el editor.
+//  Apagar = borrar la property BONO_INGEST_SECRET.
+// ==================================================================
+function _espejoFotoD1(params, fileUrl) {
+  try {
+    var p = PropertiesService.getScriptProperties();
+    var u = p.getProperty('BONO_WORKER_URL');
+    var s = p.getProperty('BONO_INGEST_SECRET');
+    if (!u || !s) return;
+    UrlFetchApp.fetch(u + '?action=ingesta.bono', {
+      method: 'post', contentType: 'text/plain',
+      payload: JSON.stringify({
+        secret: s, sistema: 'Foto', fuente: 'fotos',
+        foto: {
+          codigo: params.codigo, cargo: params.cargo, instruccion: params.instruccion,
+          nombre: params.nombre, url: fileUrl, centro: params.centro,
+          fechaEvento: params.fechaEvento
+        }
+      }),
+      muteHttpExceptions: true
+    });
+  } catch (e) { /* espejo mudo */ }
 }
