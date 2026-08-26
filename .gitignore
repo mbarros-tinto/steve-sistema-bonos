@@ -21,3 +21,5 @@ dist/
 build/
 *.log
 cg/EspejoBonosConfig.js
+supervisoras/EspejoBonosConfig.js
+fotos/EspejoBonosConfig.js
