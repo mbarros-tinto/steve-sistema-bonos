@@ -676,7 +676,11 @@ function registrarEvaluacionSupervisora(data) {
     // Evaluación de platos (feedback cocina, hoja Eval_Platos aparte, NO toca Centralizado)
     _registrarPlatos(data, supervisor, String(data.novios || '').trim(), centro, fechaFmt, codigoEvento);
 
-    return { success: true, updated: updates.length, created: nuevas.length };
+    var sync = _espejoBonoD1(data, codigoEvento, fechaFmt);
+
+    return { success: true, updated: updates.length, created: nuevas.length,
+             syncD1: sync.ok,
+             aviso: sync.ok ? '' : 'La evaluacion quedo guardada, pero NO se sincronizo con el sistema de bonos. Avisa a Manuel.' };
   } catch(err) {
     Logger.log('registrarEvaluacion ERROR: ' + err.toString() + '\n' + err.stack);
     return { success: false, error: err.toString() };
@@ -2289,3 +2293,87 @@ function _getFotosSupervisor(codigoEvento) {
   var nSub = fotos.filter(function(f) { return !!f.url; }).length;
   return { fotos: fotos, subidas: nSub, total: fotos.length };
 }
+
+// ════════════════════════════════════════════════════════════════════
+//  ESPEJO D1 (dual-run bonos, 2026-08-10) — tras el guardado exitoso en
+//  la hoja, replica la evaluación al worker CG 2.0 (?action=ingesta.bono
+//  → Evaluacion/EvaluacionCriterio). Espejo MUDO: jamás voltea el
+//  guardado de la hoja. Encender = configurarEspejoBonos() una vez en el
+//  editor. Apagar = borrar la property BONO_INGEST_SECRET.
+// ════════════════════════════════════════════════════════════════════
+function _espejoBonoD1(data, codigoEvento, fechaFmt) {
+  var payload = {};
+  for (var k in data) payload[k] = data[k];
+  payload.sistema = 'Supervisora';
+  payload.fuente = 'supervisoras';
+  payload.codigoEvento = codigoEvento;
+  payload.fecha = fechaFmt;
+  return _sincronizarD1_(payload, 'Supervisora ' + codigoEvento);
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  SINCRONIZACION AL WORKER — comun a este script y al de fotos.
+//  Ya NO es muda: verifica la respuesta, reintenta una vez y deja el
+//  fallo escrito en la hoja Log_Sync_D1. Nunca voltea el guardado de la
+//  hoja (esa sigue siendo el respaldo), pero el problema queda visible.
+//  Devuelve { ok: bool, error: string }.
+// ════════════════════════════════════════════════════════════════════
+function _bonoWorkerCfg_() {
+  var p = PropertiesService.getScriptProperties();
+  var u = p.getProperty('BONO_WORKER_URL');
+  var s = p.getProperty('BONO_INGEST_SECRET');
+  // Auto-encendido: si faltan las properties pero el proyecto trae el
+  // one-shot de configuracion, se corre sola. Sin esto el espejo se
+  // apagaba en silencio y nadie se enteraba (3 semanas en agosto 2026).
+  if ((!u || !s) && typeof configurarEspejoBonos === 'function') {
+    try {
+      configurarEspejoBonos();
+      u = p.getProperty('BONO_WORKER_URL');
+      s = p.getProperty('BONO_INGEST_SECRET');
+    } catch (e) { /* se reporta abajo como no configurado */ }
+  }
+  return { url: u, secret: s };
+}
+
+function _logSyncD1_(detalle, error) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('Log_Sync_D1');
+    if (!sh) {
+      sh = ss.insertSheet('Log_Sync_D1');
+      sh.appendRow(['Timestamp', 'Detalle', 'Error']);
+    }
+    sh.appendRow([new Date(), String(detalle || ''), String(error || '')]);
+  } catch (e) { Logger.log('No pude escribir Log_Sync_D1: ' + e); }
+}
+
+function _sincronizarD1_(payload, detalle) {
+  var cfg = _bonoWorkerCfg_();
+  if (!cfg.url || !cfg.secret) {
+    var msgCfg = 'Espejo NO configurado (faltan BONO_WORKER_URL / BONO_INGEST_SECRET)';
+    Logger.log(msgCfg);
+    _logSyncD1_(detalle, msgCfg);
+    return { ok: false, error: msgCfg };
+  }
+  payload.secret = cfg.secret;
+  var ultimoError = '';
+  for (var intento = 1; intento <= 2; intento++) {
+    try {
+      var resp = UrlFetchApp.fetch(cfg.url + '?action=ingesta.bono', {
+        method: 'post', contentType: 'text/plain',
+        payload: JSON.stringify(payload), muteHttpExceptions: true
+      });
+      var code = resp.getResponseCode();
+      var body = resp.getContentText();
+      if (code === 200 && body.indexOf('"ok":true') !== -1) return { ok: true, error: '' };
+      ultimoError = 'HTTP ' + code + ' — ' + body.slice(0, 200);
+    } catch (e) {
+      ultimoError = String(e);
+    }
+    if (intento === 1) Utilities.sleep(1500);
+  }
+  Logger.log('Sync D1 FALLO: ' + detalle + ' — ' + ultimoError);
+  _logSyncD1_(detalle, ultimoError);
+  return { ok: false, error: ultimoError };
+}
+

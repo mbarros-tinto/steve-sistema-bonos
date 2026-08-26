@@ -800,22 +800,79 @@ function backfillSharingFotosSupervisor() {
 //  Apagar = borrar la property BONO_INGEST_SECRET.
 // ==================================================================
 function _espejoFotoD1(params, fileUrl) {
-  try {
-    var p = PropertiesService.getScriptProperties();
-    var u = p.getProperty('BONO_WORKER_URL');
-    var s = p.getProperty('BONO_INGEST_SECRET');
-    if (!u || !s) return;
-    UrlFetchApp.fetch(u + '?action=ingesta.bono', {
-      method: 'post', contentType: 'text/plain',
-      payload: JSON.stringify({
-        secret: s, sistema: 'Foto', fuente: 'fotos',
-        foto: {
-          codigo: params.codigo, cargo: params.cargo, instruccion: params.instruccion,
-          nombre: params.nombre, url: fileUrl, centro: params.centro,
-          fechaEvento: params.fechaEvento
-        }
-      }),
-      muteHttpExceptions: true
-    });
-  } catch (e) { /* espejo mudo */ }
+  return _sincronizarD1_({
+    sistema: 'Foto', fuente: 'fotos',
+    foto: {
+      codigo: params.codigo, cargo: params.cargo, instruccion: params.instruccion,
+      nombre: params.nombre, url: fileUrl, centro: params.centro,
+      fechaEvento: params.fechaEvento
+    }
+  }, 'Foto ' + params.codigo + ' / ' + params.cargo + ' / ' + params.instruccion);
 }
+
+// ════════════════════════════════════════════════════════════════════
+//  SINCRONIZACION AL WORKER — ya NO es muda: verifica la respuesta,
+//  reintenta una vez y deja el fallo escrito en la hoja Log_Sync_D1.
+//  Nunca voltea la subida de la foto ni el registro en la hoja (siguen
+//  siendo el respaldo), pero el problema queda VISIBLE. Entre el 15 y el
+//  26 de agosto de 2026 el espejo mudo dejo de mandar y nadie se entero:
+//  tres fines de semana de fotos sin llegar a bonos.
+//  Devuelve { ok: bool, error: string }.
+// ════════════════════════════════════════════════════════════════════
+function _bonoWorkerCfg_() {
+  var p = PropertiesService.getScriptProperties();
+  var u = p.getProperty('BONO_WORKER_URL');
+  var s = p.getProperty('BONO_INGEST_SECRET');
+  // Auto-encendido si faltan las properties y el proyecto trae el one-shot.
+  if ((!u || !s) && typeof configurarEspejoBonos === 'function') {
+    try {
+      configurarEspejoBonos();
+      u = p.getProperty('BONO_WORKER_URL');
+      s = p.getProperty('BONO_INGEST_SECRET');
+    } catch (e) { /* se reporta abajo como no configurado */ }
+  }
+  return { url: u, secret: s };
+}
+
+function _logSyncD1_(detalle, error) {
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SHEET_ID);
+    var sh = ss.getSheetByName('Log_Sync_D1');
+    if (!sh) {
+      sh = ss.insertSheet('Log_Sync_D1');
+      sh.appendRow(['Timestamp', 'Detalle', 'Error']);
+    }
+    sh.appendRow([new Date(), String(detalle || ''), String(error || '')]);
+  } catch (e) { Logger.log('No pude escribir Log_Sync_D1: ' + e); }
+}
+
+function _sincronizarD1_(payload, detalle) {
+  var cfg = _bonoWorkerCfg_();
+  if (!cfg.url || !cfg.secret) {
+    var msgCfg = 'Espejo NO configurado (faltan BONO_WORKER_URL / BONO_INGEST_SECRET)';
+    Logger.log(msgCfg);
+    _logSyncD1_(detalle, msgCfg);
+    return { ok: false, error: msgCfg };
+  }
+  payload.secret = cfg.secret;
+  var ultimoError = '';
+  for (var intento = 1; intento <= 2; intento++) {
+    try {
+      var resp = UrlFetchApp.fetch(cfg.url + '?action=ingesta.bono', {
+        method: 'post', contentType: 'text/plain',
+        payload: JSON.stringify(payload), muteHttpExceptions: true
+      });
+      var code = resp.getResponseCode();
+      var body = resp.getContentText();
+      if (code === 200 && body.indexOf('"ok":true') !== -1) return { ok: true, error: '' };
+      ultimoError = 'HTTP ' + code + ' — ' + body.slice(0, 200);
+    } catch (e) {
+      ultimoError = String(e);
+    }
+    if (intento === 1) Utilities.sleep(1500);
+  }
+  Logger.log('Sync D1 FALLO: ' + detalle + ' — ' + ultimoError);
+  _logSyncD1_(detalle, ultimoError);
+  return { ok: false, error: ultimoError };
+}
+
