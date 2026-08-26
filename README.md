@@ -31,13 +31,19 @@ Fuentes asociadas:
 | Módulo | Versión | Deployment ID |
 |---|---|---|
 | Centralizado | v49 | `AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H` |
-| Fotos 2.0 | v39 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
+| Fotos 2.0 | v46 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
 | CG | v42 | `AKfycbyzQPkvD6HGelsOgO72ZI0N30G7BV6UN3I1Gyaq65135PfnWBytlhs4YHhzTjOQQa16` |
-| Supervisoras | v37 | `AKfycbyyWVcXYpFovJ2YiQayepM2yVzygJXM1-9Y27-3aF6HR91ECBKcNtoEQkvYgGpOGU64` |
+| Supervisoras | v53 | `AKfycbyyWVcXYpFovJ2YiQayepM2yVzygJXM1-9Y27-3aF6HR91ECBKcNtoEQkvYgGpOGU64` |
 
 URL Web App = `https://script.google.com/macros/s/<deploymentId>/exec`
 
 > ⚠️ El `deploymentId` de cada Web App NO cambia entre versiones — siempre re-deployar el MISMO deployment para que los usuarios vean la nueva versión en la misma URL.
+
+> ⚠️ **Si el cambio agrega o modifica `oauthScopes`: AUTORIZAR PRIMERO, DESPLEGAR DESPUÉS.**
+> Redeployar antes de que el dueño del deployment autorice deja el Web App sin autorización
+> válida y las acciones que tocan Spreadsheet/Drive empiezan a dar 404 (pasó el 2026-08-26 con
+> Supervisoras). Orden correcto: `clasp push` → recargar la pestaña del editor (¡cachea el
+> manifiesto!) → ejecutar una función y aceptar los permisos → recién ahí `clasp redeploy`.
 
 ## Desarrollo local
 
