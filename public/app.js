@@ -497,7 +497,7 @@ function renderFotosModal(r) {
   }
   var html = '<div class="fotos-grid">';
   fotos.forEach(function(f) {
-    var thumb = f.fileId ? ('https://drive.google.com/thumbnail?id=' + encodeURIComponent(f.fileId) + '&sz=w320') : '';
+    var thumb = driveImg(f.fileId, 320);
     html += '<div class="foto-card">';
     if (thumb) {
       html += '<a href="' + esc(f.url) + '" target="_blank" rel="noopener"><img class="foto-thumb" src="' + esc(thumb) + '" alt="' + esc(f.instruccion) + '" loading="lazy" onerror="this.style.display=\'none\'"></a>';
@@ -509,6 +509,20 @@ function renderFotosModal(r) {
   html += '</div>';
   html += '<div style="font-size:0.75em;color:rgba(255,255,255,0.55);margin-top:8px;">' + fotos.length + ' foto(s) válida(s)</div>';
   el.innerHTML = html;
+}
+
+// Miniatura de una foto de Drive.
+//
+// ⚠️ `drive.google.com/thumbnail?id=<id>&sz=w<N>` DEJÓ DE SERVIR IMÁGENES el 28-ago-2026,
+// de un día para otro y sin cambio de código (`uc?export=view` tampoco). El que responde
+// es lh3.googleusercontent.com. Mismo helper que en el front vivo (bonos-web).
+function driveImg(idOUrl, ancho) {
+  var s = String(idOUrl || '');
+  if (!s) return '';
+  var m = s.match(/\/file\/d\/([^/?#]+)/) || s.match(/[?&]id=([^&#]+)/);
+  var id = m ? m[1] : s;
+  return 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(id) +
+         (ancho ? '=w' + ancho : '');
 }
 
 // ===== MODAL: Override (editar ganó/no ganó) =====
