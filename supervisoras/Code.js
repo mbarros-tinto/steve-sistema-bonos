@@ -1,4 +1,32 @@
 // ═══════════════════════════════════════════════════════════════════
+//  ⚰️ JUBILADO (2026-08-31) — migrado a feedback-api (Worker + D1).
+//  Formularios: encuestasupervisores.tintobanqueteria.cl (mismo dominio,
+//  ahora contra el worker). Dashboard: evaluacion.tintobanqueteria.cl
+//  (con login Google). La hoja quedó CONGELADA como archivo histórico.
+//  El espejo a CG lo reemplazó el push directo del worker (ingesta.bono).
+// ═══════════════════════════════════════════════════════════════════
+function doGet(e) {
+  var params = (e && e.parameter) ? e.parameter : {};
+  if (params.action) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false, error: 'JUBILADO',
+      mensaje: 'Backend migrado a feedback-api. Formularios: encuestasupervisores.tintobanqueteria.cl · Dashboard: evaluacion.tintobanqueteria.cl'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  var destino = (params.page === 'visualizador')
+    ? 'https://evaluacion.tintobanqueteria.cl/supervisoras'
+    : 'https://encuestasupervisores.tintobanqueteria.cl';
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center">' +
+    '<h2>Este sistema se movió 🏠</h2>' +
+    '<p><a href="' + destino + '">' + destino.replace('https://', '') + '</a></p>' +
+    '<script>setTimeout(function(){ window.top.location = "' + destino + '"; }, 1500);</scr' + 'ipt></div>'
+  );
+}
+
+function doPost(e) { return doGet({ parameter: { action: 'x' } }); }
+
+// ═══════════════════════════════════════════════════════════════════
 //  Tinto Banquetería · Evaluaciones Supervisoras v7.0
 //  Code.gs — Google Apps Script Backend
 //
@@ -251,7 +279,7 @@ function _emptyEvalRow() {
 // ── Routing ──────────────────────────────────────────────────────────
 // Si llega ?action=..., responde JSON (API mode para Cloudflare Pages frontend).
 // Si no hay action, responde HTML (backwards compat con WebApp legacy).
-function doGet(e) {
+function doGet_jubilado_(e) {
   var params = (e && e.parameter) ? e.parameter : {};
   var action = params.action || '';
 
@@ -269,7 +297,7 @@ function doGet(e) {
 
 // doPost recibe JSON crudo (Content-Type text/plain para evitar preflight CORS).
 // Body esperado: { action: 'submitEvaluacion', data: {...} }
-function doPost(e) {
+function doPost_jubilado_(e) {
   var bodyRaw = (e && e.postData && e.postData.contents) ? e.postData.contents : '';
   var body    = {};
   try { body = bodyRaw ? JSON.parse(bodyRaw) : {}; } catch(err) { body = {}; }
