@@ -230,6 +230,9 @@ function _routeApiFotos(action, params, body) {
                                  params.cargo || b.cargo, params.nombre || b.nombre,
                                  params.codigo || b.codigo);
         break;
+      case 'fotosSubidasUrl':
+        result = getFotosSubidasUrl(params.cargo || b.cargo, params.codigo || b.codigo);
+        break;
       case 'eventosPorFecha':
         result = { eventos: getEventosPorFecha(params.fecha || b.fecha || '') };
         break;
@@ -336,6 +339,35 @@ function getFotosSubidas(fecha, centro, cargo, nombre, codigo) {
     return result;
   } catch(e) {
     Logger.log('Error getFotosSubidas: ' + e.toString());
+    return {};
+  }
+}
+
+// ==================================================================
+// getFotosSubidasUrl — ADITIVA (v47, 2026-08-31): igual que getFotosSubidas
+// pero devuelve { instruccion: url } para que el portal de evaluación
+// (evaluacion.tintobanqueteria.cl) muestre el link "Ver foto".
+// getFotosSubidas queda INTACTA: sus consumidores chequean booleano.
+function getFotosSubidasUrl(cargo, codigo) {
+  try {
+    if (!codigo || !cargo) return {};
+    var ss   = SpreadsheetApp.openById(CONFIG.SHEET_ID);
+    var hoja = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
+    if (!hoja || hoja.getLastRow() < 2) return {};
+    var datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 9).getValues();
+    var result = {};
+    datos.forEach(function(row) {
+      if (String(row[7]).trim() !== codigo) return;          // col H: Codigo Evento
+      if (String(row[3]).trim() !== cargo) return;           // col D: Cargo
+      var rValida = row[8];                                  // col I: Valida
+      if (!(rValida === true || String(rValida).toUpperCase() === 'TRUE')) return;
+      var rInstr = String(row[5]).trim();                    // col F: Instruccion
+      var rUrl   = String(row[6] || '').trim();              // col G: URL Drive
+      if (rInstr) result[rInstr] = rUrl || true;
+    });
+    return result;
+  } catch(e) {
+    Logger.log('Error getFotosSubidasUrl: ' + e.toString());
     return {};
   }
 }
