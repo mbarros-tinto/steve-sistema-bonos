@@ -257,7 +257,7 @@
 // ════════════════════════════════════════════════════════════════
 //  API — Apps Script Supervisoras (mismo deployment que la encuesta)
 // ════════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbyyWVcXYpFovJ2YiQayepM2yVzygJXM1-9Y27-3aF6HR91ECBKcNtoEQkvYgGpOGU64/exec';
+const API_URL = 'https://feedback-api.mbarros.workers.dev';
 
 function apiGet(action, params) {
   const qs = new URLSearchParams({ action, ...(params || {}) });
