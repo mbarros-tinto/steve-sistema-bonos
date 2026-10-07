@@ -634,10 +634,41 @@ function _normFecha(f) {
   return s;
 }
 
-// Retorna [{codigo, centro, semanaOperacion}] de los eventos CRM para la fecha dada.
+// Retorna [{codigo, centro, semanaOperacion, evt}] de los eventos de la fecha dada.
 // fecha llega como "YYYY-MM-DD" desde input[type=date] del WebApp.
-// semanaOperacion viene de col AL (idx 37) del CRM: lunes de la semana de operación.
+//
+// 07-10-2026: el CRM CONSOLIDADO se jubila («solo D1», Manuel). La lista sale del
+// worker de Bonos/CG (`fotos.eventosPorFecha`), que la arma con los eventos del
+// CG: así la foto lleva el MISMO código con que se agrupan los bonos (también el
+// viejo de un evento realizado que el CRM renombró). Si el worker no responde,
+// se cae a la hoja mientras exista.
 function getEventosPorFecha(fecha) {
+  var delWorker = _eventosPorFechaWorker_(fecha);
+  if (delWorker) return delWorker;
+  return _eventosPorFechaHoja_(fecha);
+}
+
+function _eventosPorFechaWorker_(fecha) {
+  var cfg = _bonoWorkerCfg_();
+  if (!cfg.url || !cfg.secret) return null;
+  try {
+    var resp = UrlFetchApp.fetch(cfg.url + '?action=fotos.eventosPorFecha', {
+      method: 'post', contentType: 'text/plain',
+      payload: JSON.stringify({ fecha: fecha, secret: cfg.secret }), muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) throw new Error('HTTP ' + resp.getResponseCode());
+    var j = JSON.parse(resp.getContentText());
+    var d = j && j.ok ? (j.data || j) : null;
+    if (!d || !d.eventos || !d.eventos.length) return null;   // vacío → se confirma con la hoja
+    return d.eventos;
+  } catch (e) {
+    Logger.log('eventosPorFecha (worker): ' + e);
+    _logSyncD1_('eventosPorFecha ' + fecha, String(e));
+    return null;
+  }
+}
+
+function _eventosPorFechaHoja_(fecha) {
   try {
     var ss   = SpreadsheetApp.openById(ID_CRM_GENERAL);
     var hoja = ss.getSheetByName(HOJA_CRM_GENERAL);

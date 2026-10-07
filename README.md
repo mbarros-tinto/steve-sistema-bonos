@@ -31,7 +31,7 @@ Fuentes asociadas:
 | Módulo | Versión | Deployment ID |
 |---|---|---|
 | Centralizado | v49 | `AKfycbxzoKo6_ogpb_U7sBPu2qrkXKBmd9qVJuKzjke_JWNQZBi3E0FgARUViluQJxwZOD2H` |
-| Fotos 2.0 | v46 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
+| Fotos 2.0 | v48 | `AKfycbxvmJwrz1F6aq9k8353xMNh2EMfgpU8PXAh7aeeDfV1LDeo75Wb8JP32tbZIWV47_YY` |
 | CG | v42 | `AKfycbyzQPkvD6HGelsOgO72ZI0N30G7BV6UN3I1Gyaq65135PfnWBytlhs4YHhzTjOQQa16` |
 | Supervisoras | v53 | `AKfycbyyWVcXYpFovJ2YiQayepM2yVzygJXM1-9Y27-3aF6HR91ECBKcNtoEQkvYgGpOGU64` |
 
