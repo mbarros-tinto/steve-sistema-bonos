@@ -544,11 +544,28 @@ function renderEventos() {
 function seleccionarEvento(idx) {
   state.eventoSelIdx = idx;
   var ev = state.eventos[idx];
+  llenarCargos(ev.cargos || state.cargos);
   showStep('step3');
   document.getElementById('eventoSelTag').innerHTML =
     '📅 ' + formatFechaDisplay(state.fecha) +
     ' &nbsp;|&nbsp; ' + ev.centro +
     '<span class="novia-tag">' + ev.codigo + '</span>';
+}
+
+// Cada evento dice qué cargos llevan bono de fotos (graduaciones: solo Jefe de Noche).
+function llenarCargos(cargos) {
+  var selC = document.getElementById('selectCargo');
+  selC.innerHTML = '';
+  var vacio = document.createElement('option');
+  vacio.value = '';
+  vacio.textContent = cargos.length ? 'Selecciona tu cargo...' : 'Este evento no lleva bono de fotos';
+  selC.appendChild(vacio);
+  cargos.forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    selC.appendChild(opt);
+  });
+  if (cargos.length === 1) selC.value = cargos[0];
 }
 
 // ── STEP 2 → 3 ──────────────────────────────────────────────────────────────────────
@@ -637,7 +654,9 @@ function irASubirFotos() {
 
   // Collect fotos instructions from bonos with source='fotos'
   var instrs = [];
+  state.noAplica = [];
   state.bonos.forEach(function(b) {
+    (b.noAplica || []).forEach(function(t) { state.noAplica.push(t); });
     if (b.source === 'fotos' && b.criterios && b.criterios.length > 0) {
       b.criterios.forEach(function(c) {
         if (instrs.indexOf(c) === -1) instrs.push(c);
@@ -680,6 +699,8 @@ function renderUploadList() {
   state.instrucciones.forEach(function(instr, idx) {
     var item = document.createElement('div');
     var isUploaded = !!state.fotosSubidas[instr];
+    var marcadoNoAplica = state.fotosSubidas[instr] === 'NO_APLICA';
+    var admiteNoAplica = (state.noAplica || []).indexOf(instr) !== -1;
     item.className = 'instruccion-item' + (isUploaded ? ' uploaded' : '');
     item.id = 'item_' + idx;
 
@@ -687,13 +708,21 @@ function renderUploadList() {
     item.innerHTML =
       '<span class="instruccion-status" id="status_' + idx + '">' + (isUploaded ? '✅' : '📷') + '</span>' +
       '<div style="flex:1"><span class="instruccion-label">' + instr + '</span>' +
-      (isUploaded ? '<div style="font-size:11px;color:#888;margin-top:2px">Toca para cambiar</div>' : '') +
+      (isUploaded && !marcadoNoAplica ? '<div style="font-size:11px;color:#888;margin-top:2px">Toca para cambiar</div>' : '') +
+      (admiteNoAplica ? '<label class="no-aplica" style="display:block;font-size:12px;color:#555;margin-top:6px">' +
+        '<input type="checkbox" style="width:auto;margin-right:6px"' + (marcadoNoAplica ? ' checked' : '') + '>No aplica, no lleva</label>' : '') +
       '</div>' +
       '<input type="file" accept="image/*,video/*" class="file-input" id="' + fileInputId + '">';
 
     item.onclick = function() {
       document.getElementById(fileInputId).click();
     };
+
+    var chk = item.querySelector('.no-aplica');
+    if (chk) {
+      chk.onclick = function(e) { e.stopPropagation(); };
+      chk.querySelector('input').onchange = function(e) { cambiarNoAplica(instr, e.target); };
+    }
 
     var fileInput = item.querySelector('.file-input');
     fileInput.addEventListener('change', function(e) {
@@ -705,6 +734,31 @@ function renderUploadList() {
     list.appendChild(item);
   });
   updateProgress();
+}
+
+function cambiarNoAplica(instr, chk) {
+  var ev = state.eventos[state.eventoSelIdx];
+  var dateParts = state.fecha.split('-');
+  var marcar = chk.checked;
+  chk.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        if (marcar) state.fotosSubidas[instr] = 'NO_APLICA';
+        else delete state.fotosSubidas[instr];
+      } else {
+        showToast('❌ Error: ' + (res.mensaje || 'desconocido'));
+      }
+      renderUploadList();
+      if (res.ok && marcar && state.instrucciones.every(function(i) { return !!state.fotosSubidas[i]; })) showFinPage();
+    })
+    .withFailureHandler(function(e) {
+      showToast('❌ Error: ' + e.message);
+      renderUploadList();
+    })[marcar ? 'marcarNoAplica' : 'quitarNoAplica']({
+      codigo: ev.codigo, cargo: state.cargo, instruccion: instr, nombre: state.nombre,
+      centro: ev.centro, fechaEvento: dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0]
+    });
 }
 
 function compressImage(file, maxDim, quality, callback) {

@@ -33,6 +33,7 @@ var CONFIG = {
 var ID_CRM_GENERAL   = '1TTzFI5sMgInI1Ew__3Rw7lE300cGWmlDFyDVfWVqGTg';
 var HOJA_CRM_GENERAL = 'CRM CONSOLIDADO';
 
+var NO_APLICA = 'NO_APLICA';
 var ID_CENTRALIZADO = '1f86EWcVJAaptEBoAzI8d6ZZ_lHw09XBYV9C5Kbe-g5k';
 
 // ==================================================================
@@ -123,6 +124,40 @@ function _sanitizarNombreArchivo(s) {
 // Retorna { cargo: [{id, nombre, desc, monto, icono, color, bg, source, criterios}, ...] }
 
 function _leerBonosDesdeAux() {
+  var delWorker = _bonosDelWorker_();
+  return delWorker || _bonosDeLaHoja_();
+}
+
+// El maestro vivo está en D1: solo ahí caben las 19 instrucciones del Jefe de Noche.
+// Caché corto porque la app lo pide varias veces por pantalla. Si falla, la hoja sigue de respaldo.
+function _bonosDelWorker_() {
+  var cache = null;
+  try {
+    cache = CacheService.getScriptCache();
+    var enCache = cache.get('bonosMaestro');
+    if (enCache) return JSON.parse(enCache);
+  } catch (ec) {}
+  var cfg = _bonoWorkerCfg_();
+  if (!cfg.url || !cfg.secret) return null;
+  try {
+    var resp = UrlFetchApp.fetch(cfg.url + '?action=fotos.bonos', {
+      method: 'post', contentType: 'text/plain',
+      payload: JSON.stringify({ secret: cfg.secret }), muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) throw new Error('HTTP ' + resp.getResponseCode());
+    var j = JSON.parse(resp.getContentText());
+    var d = j && j.ok ? (j.data || j) : null;
+    if (!d || !d.bonos || !Object.keys(d.bonos).length) return null;
+    try { if (cache) cache.put('bonosMaestro', JSON.stringify(d.bonos), 300); } catch (ep) {}
+    return d.bonos;
+  } catch (e) {
+    Logger.log('fotos.bonos (worker): ' + e);
+    _logSyncD1_('fotos.bonos', String(e));
+    return null;
+  }
+}
+
+function _bonosDeLaHoja_() {
   try {
     var ss   = SpreadsheetApp.openById(ID_CENTRALIZADO);
     var hoja = ss.getSheetByName('Maestro_Bonos');
@@ -333,7 +368,7 @@ function getFotosSubidas(fecha, centro, cargo, nombre, codigo) {
       }
       if (match && rInstr &&
           (rValida === true || String(rValida).toUpperCase() === 'TRUE')) {
-        result[rInstr] = true;
+        result[rInstr] = String(row[6]).trim() === NO_APLICA ? NO_APLICA : true;
       }
     });
     return result;
@@ -388,6 +423,77 @@ function getFotosSubidasUrl(cargo, codigo) {
 // Upsert en Registro: sobreescribe si (fechaEvento,centro,cargo,nombre,instruccion) existe.
 // LockService previene carpetas duplicadas por requests concurrentes.
 // ==================================================================
+// ==================================================================
+// «No aplica, no lleva»: la instrucción cuenta como cumplida, sin archivo.
+// Solo para las instrucciones que el maestro declara en su lista noAplica.
+// ==================================================================
+function marcarNoAplica(params) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+    var p = _paramsNoAplica_(params);
+    var ss   = SpreadsheetApp.openById(CONFIG.SHEET_ID);
+    var hReg = ss.getSheetByName(CONFIG.HOJAS.REGISTRO);
+    var fila = [new Date(), p.fechaEvento, p.centro, p.cargo, p.nombre, p.instruccion, NO_APLICA, p.codigo, true];
+    var existente = _filaRegistro_(hReg, p);
+    if (existente > 0) hReg.getRange(existente, 1, 1, 9).setValues([fila]);
+    else hReg.appendRow(fila);
+    SpreadsheetApp.flush();
+    var sync = _sincronizarD1_({ sistema: 'Foto', fuente: 'fotos', foto: {
+      codigo: p.codigo, cargo: p.cargo, instruccion: p.instruccion, nombre: p.nombre,
+      centro: p.centro, fechaEvento: p.fechaEvento, noAplica: true
+    } }, 'No aplica ' + p.codigo + ' / ' + p.instruccion);
+    return sync.ok ? { ok: true } : { ok: false, mensaje: sync.error };
+  } catch (e) {
+    return { ok: false, mensaje: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch (le) {}
+  }
+}
+
+function quitarNoAplica(params) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+    var p = _paramsNoAplica_(params);
+    var hReg = SpreadsheetApp.openById(CONFIG.SHEET_ID).getSheetByName(CONFIG.HOJAS.REGISTRO);
+    var existente = _filaRegistro_(hReg, p);
+    if (existente > 0 && String(hReg.getRange(existente, 7).getValue()).trim() === NO_APLICA) hReg.deleteRow(existente);
+    SpreadsheetApp.flush();
+    var sync = _sincronizarD1_({ sistema: 'Foto', fuente: 'fotos', foto: {
+      codigo: p.codigo, cargo: p.cargo, instruccion: p.instruccion, quitar: true
+    } }, 'Quitar no aplica ' + p.codigo + ' / ' + p.instruccion);
+    return sync.ok ? { ok: true } : { ok: false, mensaje: sync.error };
+  } catch (e) {
+    return { ok: false, mensaje: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch (le) {}
+  }
+}
+
+function _paramsNoAplica_(params) {
+  var p = {
+    codigo: String(params.codigo || '').trim(), cargo: String(params.cargo || '').trim(),
+    instruccion: String(params.instruccion || '').trim(), nombre: String(params.nombre || '').trim(),
+    centro: String(params.centro || '').trim(), fechaEvento: params.fechaEvento
+  };
+  var bonos = (_leerBonosDesdeAux()[p.cargo] || []);
+  var permitida = bonos.some(function(b) { return (b.noAplica || []).indexOf(p.instruccion) !== -1; });
+  if (!p.codigo || !permitida) throw new Error('Esta instrucción no admite "No aplica".');
+  return p;
+}
+
+function _filaRegistro_(hReg, p) {
+  var last = hReg.getLastRow();
+  if (last < 2) return -1;
+  var datos = hReg.getRange(2, 1, last - 1, 9).getValues();
+  for (var i = 0; i < datos.length; i++) {
+    if (String(datos[i][7]).trim() === p.codigo && String(datos[i][3]).trim() === p.cargo &&
+        String(datos[i][5]).trim() === p.instruccion) return 2 + i;
+  }
+  return -1;
+}
+
 function procesarFoto(params) {
   // Normalizar strings para evitar trailing spaces del formulario
   params.nombre      = String(params.nombre || '').trim();
@@ -577,6 +683,16 @@ function _leerTrabajadores() {
 // Layout: Col A=Cargo, Col B=Tipo Bono, Col C=Monto, Col D=Sistema, Cols E-N=Criterios.
 // Filtra filas donde Sistema='Fotos'. Retorna { cargoName: ['crit1','crit2',...], ... }
 function _leerInstrucciones() {
+  var delWorker = _bonosDelWorker_();
+  if (delWorker) {
+    var mapa = {};
+    Object.keys(delWorker).forEach(function(cargo) {
+      delWorker[cargo].forEach(function(b) {
+        if (b.source === 'fotos' && b.criterios && b.criterios.length) mapa[cargo] = b.criterios;
+      });
+    });
+    return mapa;
+  }
   try {
     var ss   = SpreadsheetApp.openById(ID_CENTRALIZADO);
     var hoja = ss.getSheetByName('Maestro_Bonos');
@@ -742,6 +858,7 @@ function _actualizarBonoFotos(params, ss) {
     var instrMap  = _leerInstrucciones();
     var criterios = instrMap[params.cargo] || [];
     if (criterios.length === 0) return; // Sin criterios definidos para este cargo
+    if (criterios.length > 8) return;   // La hoja tiene 8 slots: estos cargos se calculan solo en D1
 
     // 2. Leer Registro para contar qué instrucciones ya están subidas y válidas
     //    Dedup por (codigoEvento, cargo) — sin filtrar por nombre para tolerar cambios de nombre.
